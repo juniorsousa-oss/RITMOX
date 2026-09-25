@@ -774,35 +774,61 @@ function renderAnamnesisSettings(){
   const questions=state.settings.anamnesisQuestions||[];
   const active=questions.filter(q=>q.active).length;
   const alerts=questions.filter(q=>q.active&&q.risk_enabled).length;
+  const sections=[...new Set(questions.map(q=>q.section))];
   summary.innerHTML=`<span><strong>${questions.length}</strong> pergunta${questions.length===1?"":"s"}</span>
+    <span><strong>${sections.length}</strong> seções</span>
     <span><strong>${active}</strong> ativa${active===1?"":"s"}</span>
     <span><strong>${alerts}</strong> com regra de alerta</span>`;
 
   if(!questions.length){
     list.innerHTML=`<div class="settings-empty">
       <strong>Nenhuma pergunta cadastrada</strong>
-      <p>Use “Nova pergunta” para montar a anamnese do RITMOX.</p>
+      <p>Use “Restaurar padrão” para carregar a anamnese RITMOX ou “Nova pergunta” para começar do zero.</p>
     </div>`;
     return;
   }
 
-  list.innerHTML=questions.map((q,index)=>`
-    <article class="question-setting-card ${q.active?"":"is-inactive"}">
-      <div class="question-order">${String(index+1).padStart(2,"0")}</div>
-      <div class="question-setting-main">
-        <div class="question-setting-meta">
-          <span>${escapeHTML(q.section)}</span>
-          <span class="question-type-badge">${escapeHTML(questionTypeLabel(q.question_type))}</span>
-          ${q.required?'<span class="required-badge">Obrigatória</span>':""}
-          ${q.risk_enabled?'<span class="risk-badge">Alerta</span>':""}
-          ${q.active?"":'<span class="inactive-badge">Inativa</span>'}
+  let globalIndex=0;
+  list.innerHTML=sections.map(section=>{
+    const sectionQuestions=questions.filter(q=>q.section===section);
+    const cards=sectionQuestions.map(q=>{
+      globalIndex+=1;
+      return `<article class="question-setting-card ${q.active?"":"is-inactive"}">
+        <div class="question-order">${String(globalIndex).padStart(2,"0")}</div>
+        <div class="question-setting-main">
+          <div class="question-setting-meta">
+            <span class="question-type-badge">${escapeHTML(questionTypeLabel(q.question_type))}</span>
+            ${q.required?'<span class="required-badge">Obrigatória</span>':""}
+            ${q.risk_enabled?'<span class="risk-badge">Alerta</span>':""}
+            ${q.active?"":'<span class="inactive-badge">Inativa</span>'}
+          </div>
+          <h4>${escapeHTML(q.label)}</h4>
+          ${q.help_text?`<p>${escapeHTML(q.help_text)}</p>`:""}
         </div>
-        <h4>${escapeHTML(q.label)}</h4>
-        ${q.help_text?`<p>${escapeHTML(q.help_text)}</p>`:""}
-      </div>
-      <button type="button" class="icon-action" data-edit-anamnesis-question="${q.id}" aria-label="Editar pergunta">✎</button>
-    </article>
-  `).join("");
+        <button type="button" class="icon-action" data-edit-anamnesis-question="${q.id}" aria-label="Editar pergunta">✎</button>
+      </article>`;
+    }).join("");
+    return `<section class="question-section-group">
+      <button type="button" class="question-section-toggle" data-toggle-question-section>
+        <span><strong>${escapeHTML(section)}</strong><small>${sectionQuestions.length} pergunta${sectionQuestions.length===1?"":"s"}</small></span>
+        <span class="question-section-chevron">⌄</span>
+      </button>
+      <div class="question-section-body">${cards}</div>
+    </section>`;
+  }).join("");
+}
+
+async function restoreDefaultAnamnesis(){
+  const hasExisting=(state.settings.anamnesisQuestions||[]).length>0;
+  const message=hasExisting
+    ?"Restaurar a anamnese padrão substituirá todas as perguntas atuais. Deseja continuar?"
+    :"Carregar a anamnese padrão completa do RITMOX?";
+  if(!confirm(message)) return;
+  try{
+    const result=await api("/api/settings/anamnesis/restore-default",{method:"POST",body:"{}"});
+    await loadAnamnesisSettings();
+    toast(`Anamnese padrão restaurada com ${result.count} perguntas.`);
+  }catch(e){toast(e.message)}
 }
 
 function updateQuestionEditorVisibility(){
@@ -1321,6 +1347,13 @@ function syncTodayPlanToHome(){
 }
 
 document.addEventListener("click",async ev=>{
+  const sectionToggle=ev.target.closest("[data-toggle-question-section]");
+  if(sectionToggle){
+    const group=sectionToggle.closest(".question-section-group");
+    group?.classList.toggle("is-collapsed");
+    return;
+  }
+
   const editQuestion=ev.target.closest("[data-edit-anamnesis-question]");
   if(editQuestion){
     const id=Number(editQuestion.dataset.editAnamnesisQuestion);
@@ -1379,6 +1412,7 @@ if($("#cancelPlanBtn")) $("#cancelPlanBtn").onclick=closePlanDialog;
 if($("#deletePlanBtn")) $("#deletePlanBtn").onclick=deleteCurrentPlan;
 if($("#planForm")) $("#planForm").addEventListener("submit",savePlan);
 
+if($("#restoreDefaultAnamnesisBtn")) $("#restoreDefaultAnamnesisBtn").onclick=restoreDefaultAnamnesis;
 if($("#addAnamnesisQuestionBtn")) $("#addAnamnesisQuestionBtn").onclick=()=>openAnamnesisQuestionEditor();
 if($("#closeAnamnesisQuestionBtn")) $("#closeAnamnesisQuestionBtn").onclick=closeAnamnesisQuestionEditor;
 if($("#cancelAnamnesisQuestionBtn")) $("#cancelAnamnesisQuestionBtn").onclick=closeAnamnesisQuestionEditor;
