@@ -572,7 +572,7 @@ function collectDynamicAnswers(){
     const root=$(`[data-question="${q.id}"]`,$("#dynamicAnamnesisQuestions"));
     if(!root) return;
     if(q.question_type==="multiselect"){
-      answers[String(q.id)]=$('[data-anamnesis-option][aria-checked="true"]',root).map(btn=>btn.dataset.value);
+      answers[String(q.id)]=$$('[data-anamnesis-option][aria-checked="true"]',root).map(btn=>btn.dataset.value);
     }else{
       const input=$("[data-answer]",root);
       if(!input) return;
@@ -756,41 +756,43 @@ function closeHealthAssessment(){
 
 async function submitHealthAssessment(ev){
   ev.preventDefault();
-  if(!state.health.formConfigured){
-    showAnamnesisFeedback("A anamnese ainda não foi parametrizada.");
-    toast("A anamnese ainda não foi parametrizada.");
-    return;
-  }
-
-  const answers=collectDynamicAnswers();
-  const validation=validateHealthAssessment(answers);
-  if(!validation.ok){
-    showAnamnesisFeedback("Existem pendências antes de salvar.",validation.messages);
-    toast(`Revise ${validation.messages.length} pendência${validation.messages.length===1?"":"s"} antes de salvar.`);
-    validation.firstElement?.scrollIntoView({behavior:"smooth",block:"center"});
-    return;
-  }
-
-  const payload={
-    answers,
-    consent_truthful:isAriaChecked($("#haConsentTruthful")),
-    consent_screening:isAriaChecked($("#haConsentScreening")),
-    signature_requested:false,
-    signature_name:validation.signatureName,
-    signature_data:$("#haSignatureCanvas").toDataURL("image/png"),
-    signature_confirmed:isAriaChecked($("#haSignatureConfirm"))
-  };
-
-  const submitBtn=$("#submitHealthAssessmentBtn");
-  const originalText=submitBtn?.textContent||"Concluir e salvar";
-  if(submitBtn){
-    submitBtn.disabled=true;
-    submitBtn.textContent="Salvando...";
-    submitBtn.setAttribute("aria-busy","true");
-  }
-  clearAnamnesisFeedback();
-
+  let submitBtn=null;
+  let originalText="Concluir e salvar";
   try{
+    if(!state.health.formConfigured){
+      showAnamnesisFeedback("A anamnese ainda não foi parametrizada.");
+      toast("A anamnese ainda não foi parametrizada.");
+      return;
+    }
+
+    const answers=collectDynamicAnswers();
+    const validation=validateHealthAssessment(answers);
+    if(!validation.ok){
+      showAnamnesisFeedback("Existem pendências antes de salvar.",validation.messages);
+      toast(`Revise ${validation.messages.length} pendência${validation.messages.length===1?"":"s"} antes de salvar.`);
+      validation.firstElement?.scrollIntoView({behavior:"smooth",block:"center"});
+      return;
+    }
+
+    const payload={
+      answers,
+      consent_truthful:isAriaChecked($("#haConsentTruthful")),
+      consent_screening:isAriaChecked($("#haConsentScreening")),
+      signature_requested:false,
+      signature_name:validation.signatureName,
+      signature_data:$("#haSignatureCanvas").toDataURL("image/png"),
+      signature_confirmed:isAriaChecked($("#haSignatureConfirm"))
+    };
+
+    submitBtn=$("#submitHealthAssessmentBtn");
+    originalText=submitBtn?.textContent||originalText;
+    if(submitBtn){
+      submitBtn.disabled=true;
+      submitBtn.textContent="Salvando...";
+      submitBtn.setAttribute("aria-busy","true");
+    }
+    clearAnamnesisFeedback();
+
     const result=await api("/api/health-assessment",{method:"POST",body:JSON.stringify(payload)});
     state.health.assessment=result;
     state.health.loaded=true;
@@ -801,8 +803,10 @@ async function submitHealthAssessment(ev){
       await loadTrainingCalendar(false);
     }
   }catch(e){
-    showAnamnesisFeedback("Não foi possível salvar a anamnese.",[e.message]);
-    toast("Erro ao salvar: "+e.message);
+    const message=e?.message||"Ocorreu um erro inesperado ao salvar.";
+    showAnamnesisFeedback("Não foi possível salvar a anamnese.",[message]);
+    toast("Erro ao salvar: "+message);
+    console.error("Falha ao salvar anamnese",e);
   }finally{
     if(submitBtn){
       submitBtn.disabled=false;

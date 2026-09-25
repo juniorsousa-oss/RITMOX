@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 20
     env:
       APP_URL: https://ritmox.onrender.com
-      EXPECTED_BUILD: "20260925-42"
+      EXPECTED_BUILD: "20260925-43"
     steps:
       - uses: actions/checkout@v4
 
@@ -135,6 +135,12 @@ jobs:
                 setupHealthSignaturePad();
               });
               await p.locator('#haSignatureCanvas').waitFor({state:'visible',timeout:30000});
+              const multi=await p.locator('[data-anamnesis-option]').count();
+              if(!multi) throw new Error('no multiselect options found for regression');
+              await p.locator('[data-anamnesis-option]').first().click();
+              const collected=await p.evaluate(()=>collectDynamicAnswers());
+              const hasArray=Object.values(collected).some(v=>Array.isArray(v)&&v.length>0);
+              if(!hasArray) throw new Error('multiselect answers were not collected');
               await p.locator('#submitHealthAssessmentBtn').click();
               const feedback=p.locator('#anamnesisFormFeedback');
               await feedback.waitFor({state:'visible',timeout:10000});
@@ -192,6 +198,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ritmox-v42-live-validation
+          name: ritmox-v43-live-validation
           path: ritmox-v42-home.png
           if-no-files-found: ignore
