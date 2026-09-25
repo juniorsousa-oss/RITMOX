@@ -16,6 +16,52 @@ jobs:
       APP_URL: https://ritmox.onrender.com
       EXPECTED_BUILD: "20260925-41"
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate PDF renderer and signature payload locally
+        shell: bash
+        env:
+          DATABASE_URL: sqlite:////tmp/ritmox-test.db
+        run: |
+          python -m pip install --quiet -r requirements.txt
+          python - <<'PY'
+          import json
+          from datetime import datetime, timezone
+          import app
+
+          payload = {
+              "answers": {"1": "Aluno Teste", "2": ["Academia", "Rua / parque"]},
+              "consent_truthful": True,
+              "consent_screening": True,
+              "signature_requested": True,
+              "signature": {
+                  "signer_name": "Aluno Teste",
+                  "signed_at": datetime.now(timezone.utc).isoformat(),
+                  "method": "electronic_attestation",
+              },
+              "questions_snapshot": [
+                  {"id": 1, "section": "Identificação", "label": "Nome completo do aluno"},
+                  {"id": 2, "section": "Rotina", "label": "Ambiente de treino"},
+              ],
+          }
+          item = app.HealthAssessment(
+              id=999,
+              payload_json=json.dumps(payload, ensure_ascii=False),
+              risk_status="screening_complete",
+              red_flags_json="[]",
+              professional_clearance=False,
+              completed_at=datetime.now(timezone.utc),
+              updated_at=datetime.now(timezone.utc),
+          )
+          pdf = app._assessment_pdf_buffer(item).getvalue()
+          assert pdf[:4] == b"%PDF", pdf[:20]
+          assert len(pdf) > 1000, len(pdf)
+          out = app.assessment_payload(item, None)
+          assert out["signature_status"] == "signed"
+          assert out["signature"]["signer_name"] == "Aluno Teste"
+          print("PASS synthetic PDF and signature payload", len(pdf))
+          PY
+
       - name: Wait for Render build
         shell: bash
         run: |
