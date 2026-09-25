@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 15
     env:
       APP_URL: https://ritmox.onrender.com
-      EXPECTED_BUILD: "20260925-36"
+      EXPECTED_BUILD: "20260925-37"
     steps:
       - name: Wait for Render build
         shell: bash
@@ -97,18 +97,14 @@ jobs:
                   data.complete &&
                   data.naturalWidth > 0 &&
                   data.naturalHeight > 0 &&
-                  data.src.includes(`muscle.webp?v=${expected}`) &&
-                  Math.abs(data.width - 58) < 0.6 &&
-                  Math.abs(data.height - 58) < 0.6 &&
+                  data.src.includes(`muscle-approved.png?v=${expected}`) &&
+                  Math.abs(data.width - 52) < 0.6 &&
+                  Math.abs(data.height - 52) < 0.6 &&
                   Math.abs(ib.width - 58) < 0.6 &&
                   Math.abs(ib.height - 58) < 0.6 &&
                   data.objectFit === 'contain' &&
                   data.transform === 'none' &&
                   data.clipPath === 'none' &&
-                  data.paddingTop === '4px' &&
-                  data.paddingRight === '4px' &&
-                  data.paddingBottom === '4px' &&
-                  data.paddingLeft === '4px' &&
                   inside &&
                   gap >= 17.5;
 
@@ -134,6 +130,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ritmox-muscle-icon-v36
+          name: ritmox-muscle-icon-v37
           path: muscle-icon-test-*.png
           if-no-files-found: error

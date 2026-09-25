@@ -1310,39 +1310,63 @@ body.modal-open{overflow:hidden}
   pointer-events:none!important;
 }
 
-/* === MUSCLE ASSET OPTICAL FIT v36 === */
-/* Keep the validated 58/50px containers. Add breathing room inside only the muscle bitmap. */
+/* === MUSCLE ASSET OPTICAL FIT v37 === */
+/* Musculação only: approved PNG centered inside the already-approved 58/50px boxes. */
 @media (max-width:700px){
-  .m-feature-strength .m-feature-icon img.m-feature-muscle-image{
+  .m-feature-strength .m-feature-icon{
     width:58px!important;
     height:58px!important;
     min-width:58px!important;
     min-height:58px!important;
-    max-width:58px!important;
-    max-height:58px!important;
-    padding:4px!important;
+    display:grid!important;
+    place-items:center!important;
+    overflow:visible!important;
+    padding:0!important;
+  }
+  .m-feature-strength .m-feature-icon img.m-feature-muscle-image{
+    position:static!important;
+    width:52px!important;
+    height:52px!important;
+    min-width:52px!important;
+    min-height:52px!important;
+    max-width:52px!important;
+    max-height:52px!important;
+    padding:0!important;
+    margin:0!important;
     box-sizing:border-box!important;
     object-fit:contain!important;
     object-position:center center!important;
     transform:none!important;
     clip-path:none!important;
-    border-radius:14px!important;
+    border-radius:13px!important;
   }
 }
 @media (min-width:701px){
-  .strength-card .hero-icon img.hero-muscle-image{
+  .strength-card .hero-icon{
     width:50px!important;
     height:50px!important;
     min-width:50px!important;
     min-height:50px!important;
-    max-width:50px!important;
-    max-height:50px!important;
-    padding:3px!important;
+    display:grid!important;
+    place-items:center!important;
+    overflow:visible!important;
+    padding:0!important;
+  }
+  .strength-card .hero-icon img.hero-muscle-image{
+    position:static!important;
+    width:46px!important;
+    height:46px!important;
+    min-width:46px!important;
+    min-height:46px!important;
+    max-width:46px!important;
+    max-height:46px!important;
+    padding:0!important;
+    margin:0!important;
     box-sizing:border-box!important;
     object-fit:contain!important;
     object-position:center center!important;
     transform:none!important;
     clip-path:none!important;
-    border-radius:12px!important;
+    border-radius:11px!important;
   }
 }
