@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#08101f">
   <title>RITMOX — Treino em movimento</title>
-  <link rel="stylesheet" href="/static/styles.css?v=20260925-11">
+  <link rel="stylesheet" href="/static/styles.css?v=20260925-12">
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true">
@@ -178,8 +178,8 @@
             <p id="healthGateText">Antes de planejar treinos, o RITMOX verifica se a anamnese do aluno foi concluída.</p>
             <div id="healthGateFlags" class="health-gate-flags"></div>
             <div class="health-gate-actions">
-              <button class="primary-btn pink-btn" id="startHealthAssessmentBtn" hidden>Preencher anamnese</button>
-              <button class="ghost-btn" id="registerClearanceBtn" hidden>Registrar liberação profissional</button>
+              <button type="button" class="primary-btn pink-btn" id="startHealthAssessmentBtn" data-health-action="assessment" hidden>Preencher anamnese</button>
+              <button type="button" class="ghost-btn" id="registerClearanceBtn" data-health-action="clearance" hidden>Registrar liberação profissional</button>
             </div>
             <small class="health-note">A triagem não substitui avaliação médica. Respostas com sinais de alerta bloqueiam a prescrição até avaliação profissional.</small>
           </article>
@@ -189,7 +189,7 @@
           <div class="health-status-strip" id="healthStatusStrip">
             <span class="health-status-dot"></span>
             <span id="healthStatusText">Anamnese concluída</span>
-            <button type="button" id="reviewHealthAssessmentBtn">Revisar</button>
+            <button type="button" id="reviewHealthAssessmentBtn" data-health-action="review">Revisar</button>
           </div>
           <div class="calendar-toolbar">
             <div>
@@ -529,6 +529,6 @@
   </dialog>
 
   <div id="toast" class="toast"></div>
-  <script src="/static/app.js?v=20260925-11"></script>
+  <script src="/static/app.js?v=20260925-12"></script>
 </body>
 </html>
