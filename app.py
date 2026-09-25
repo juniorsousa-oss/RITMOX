@@ -6,7 +6,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Generator
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -144,6 +144,20 @@ class HealthAssessment(Base):
     clearance_date: Mapped[str] = mapped_column(String(10), default="")
     completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class ClearanceRequest(Base):
+    __tablename__ = "clearance_requests"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    assessment_id: Mapped[int] = mapped_column(ForeignKey("health_assessments.id", ondelete="CASCADE"), index=True)
+    professional_name: Mapped[str] = mapped_column(String(160), default="")
+    professional_email: Mapped[str] = mapped_column(String(220), default="")
+    message: Mapped[str] = mapped_column(String(800), default="")
+    status: Mapped[str] = mapped_column(String(30), default="pending", index=True)
+    decision_note: Mapped[str] = mapped_column(String(800), default="")
+    decided_by: Mapped[str] = mapped_column(String(160), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 Base.metadata.create_all(engine)
@@ -637,6 +651,27 @@ class ProfessionalClearanceIn(BaseModel):
     clearance_date: str = Field(min_length=10, max_length=10)
 
 
+
+class ClearanceRequestIn(BaseModel):
+    professional_name: str = Field(min_length=2, max_length=160)
+    professional_email: str = Field(min_length=5, max_length=220)
+    message: str = Field(default="", max_length=800)
+
+
+class ClearanceDecisionIn(BaseModel):
+    approved: bool
+    professional_name: str = Field(min_length=2, max_length=160)
+    note: str = Field(default="", max_length=800)
+
+
+def require_professional_key(provided: str | None) -> None:
+    expected = os.getenv("PROFESSIONAL_APPROVAL_KEY", "").strip()
+    if not expected:
+        raise HTTPException(503, "A chave de aprovação profissional ainda não foi configurada.")
+    if not provided or provided != expected:
+        raise HTTPException(403, "Acesso restrito ao profissional responsável.")
+
+
 def health_red_flags(data: HealthAssessmentIn) -> list[str]:
     flags: list[str] = []
     symptom_map = {
@@ -674,12 +709,30 @@ def health_red_flags(data: HealthAssessmentIn) -> list[str]:
     return flags
 
 
-def assessment_payload(item: HealthAssessment | None) -> dict | None:
+def assessment_payload(item: HealthAssessment | None, db: Session | None = None) -> dict | None:
     if not item:
         return None
     data = json.loads(item.payload_json or "{}")
     red_flags = json.loads(item.red_flags_json or "[]")
     allowed = item.risk_status == "screening_complete" or item.professional_clearance
+    request = None
+    if db is not None:
+        request = db.scalars(
+            select(ClearanceRequest)
+            .where(ClearanceRequest.assessment_id == item.id)
+            .order_by(ClearanceRequest.id.desc())
+        ).first()
+    request_payload = None if not request else {
+        "id": request.id,
+        "status": request.status,
+        "professional_name": request.professional_name,
+        "professional_email": request.professional_email,
+        "message": request.message,
+        "decision_note": request.decision_note,
+        "decided_by": request.decided_by,
+        "created_at": request.created_at.isoformat() if request.created_at else None,
+        "decided_at": request.decided_at.isoformat() if request.decided_at else None,
+    }
     return {
         "id": item.id,
         "data": data,
@@ -689,6 +742,7 @@ def assessment_payload(item: HealthAssessment | None) -> dict | None:
         "clearance_provider": item.clearance_provider,
         "clearance_date": item.clearance_date,
         "training_allowed": allowed,
+        "clearance_request": request_payload,
         "completed_at": item.completed_at.isoformat() if item.completed_at else None,
         "updated_at": item.updated_at.isoformat() if item.updated_at else None,
     }
@@ -697,7 +751,7 @@ def assessment_payload(item: HealthAssessment | None) -> dict | None:
 @app.get("/api/health-assessment/latest")
 def latest_health_assessment(db: Session = Depends(session)):
     item = db.scalars(select(HealthAssessment).order_by(HealthAssessment.id.desc())).first()
-    return assessment_payload(item)
+    return assessment_payload(item, db)
 
 
 @app.post("/api/health-assessment")
@@ -722,29 +776,151 @@ def save_health_assessment(data: HealthAssessmentIn, db: Session = Depends(sessi
     db.add(item)
     db.commit()
     db.refresh(item)
-    return assessment_payload(item)
+    return assessment_payload(item, db)
 
 
-@app.post("/api/health-assessment/{assessment_id}/clearance")
-def register_professional_clearance(
+
+@app.get("/api/clearance-requests/latest")
+def latest_clearance_request(db: Session = Depends(session)):
+    assessment = db.scalars(select(HealthAssessment).order_by(HealthAssessment.id.desc())).first()
+    if not assessment:
+        return None
+    request = db.scalars(
+        select(ClearanceRequest)
+        .where(ClearanceRequest.assessment_id == assessment.id)
+        .order_by(ClearanceRequest.id.desc())
+    ).first()
+    if not request:
+        return None
+    return {
+        "id": request.id,
+        "assessment_id": request.assessment_id,
+        "status": request.status,
+        "professional_name": request.professional_name,
+        "professional_email": request.professional_email,
+        "message": request.message,
+        "decision_note": request.decision_note,
+        "decided_by": request.decided_by,
+        "created_at": request.created_at.isoformat() if request.created_at else None,
+        "decided_at": request.decided_at.isoformat() if request.decided_at else None,
+    }
+
+
+@app.post("/api/clearance-requests")
+def create_clearance_request(data: ClearanceRequestIn, db: Session = Depends(session)):
+    assessment = db.scalars(select(HealthAssessment).order_by(HealthAssessment.id.desc())).first()
+    if not assessment:
+        raise HTTPException(409, "Conclua a anamnese antes de solicitar liberação profissional.")
+    if assessment.professional_clearance:
+        raise HTTPException(409, "Já existe liberação profissional registrada.")
+    if assessment.risk_status != "attention_required":
+        raise HTTPException(409, "A triagem atual não exige liberação profissional.")
+
+    existing = db.scalars(
+        select(ClearanceRequest)
+        .where(
+            ClearanceRequest.assessment_id == assessment.id,
+            ClearanceRequest.status == "pending",
+        )
+        .order_by(ClearanceRequest.id.desc())
+    ).first()
+    if existing:
+        return {
+            "id": existing.id,
+            "status": existing.status,
+            "professional_name": existing.professional_name,
+            "professional_email": existing.professional_email,
+            "message": existing.message,
+        }
+
+    request = ClearanceRequest(
+        assessment_id=assessment.id,
+        professional_name=data.professional_name.strip(),
+        professional_email=data.professional_email.strip().lower(),
+        message=data.message.strip(),
+        status="pending",
+    )
+    db.add(request)
+    db.commit()
+    db.refresh(request)
+    return {
+        "id": request.id,
+        "status": request.status,
+        "professional_name": request.professional_name,
+        "professional_email": request.professional_email,
+        "message": request.message,
+    }
+
+
+@app.get("/api/professional/clearance-requests")
+def professional_clearance_requests(
+    x_professional_key: str | None = Header(default=None),
+    db: Session = Depends(session),
+):
+    require_professional_key(x_professional_key)
+    requests = db.scalars(
+        select(ClearanceRequest)
+        .where(ClearanceRequest.status == "pending")
+        .order_by(ClearanceRequest.created_at.desc())
+    ).all()
+    return [
+        {
+            "id": r.id,
+            "assessment_id": r.assessment_id,
+            "professional_name": r.professional_name,
+            "professional_email": r.professional_email,
+            "message": r.message,
+            "status": r.status,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in requests
+    ]
+
+
+@app.post("/api/professional/clearance-requests/{request_id}/decision")
+def decide_clearance_request(
+    request_id: int,
+    data: ClearanceDecisionIn,
+    x_professional_key: str | None = Header(default=None),
+    db: Session = Depends(session),
+):
+    require_professional_key(x_professional_key)
+    request = db.get(ClearanceRequest, request_id)
+    if not request:
+        raise HTTPException(404, "Solicitação não encontrada.")
+    if request.status != "pending":
+        raise HTTPException(409, "Esta solicitação já foi analisada.")
+
+    assessment = db.get(HealthAssessment, request.assessment_id)
+    if not assessment:
+        raise HTTPException(404, "Anamnese vinculada não encontrada.")
+
+    request.status = "approved" if data.approved else "rejected"
+    request.decision_note = data.note.strip()
+    request.decided_by = data.professional_name.strip()
+    request.decided_at = datetime.now(timezone.utc)
+
+    if data.approved:
+        assessment.professional_clearance = True
+        assessment.clearance_provider = data.professional_name.strip()
+        assessment.clearance_date = date.today().isoformat()
+        assessment.updated_at = datetime.now(timezone.utc)
+
+    db.commit()
+    return {
+        "ok": True,
+        "status": request.status,
+        "training_allowed": assessment.risk_status == "screening_complete" or assessment.professional_clearance,
+    }
+
+
+@app.post("/api/health-assessment/{assessment_id}/clearance", include_in_schema=False)
+def register_professional_clearance_disabled(
     assessment_id: int,
     data: ProfessionalClearanceIn,
     db: Session = Depends(session),
 ):
-    item = db.get(HealthAssessment, assessment_id)
-    if not item:
-        raise HTTPException(404, "Anamnese não encontrada")
-    try:
-        date.fromisoformat(data.clearance_date)
-    except ValueError:
-        raise HTTPException(422, "Data da liberação inválida.")
-    item.professional_clearance = True
-    item.clearance_provider = data.provider_name.strip()
-    item.clearance_date = data.clearance_date
-    item.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    db.refresh(item)
-    return assessment_payload(item)
+    raise HTTPException(403, "A liberação deve ser aprovada pelo profissional responsável, não pelo aluno.")
 
 
 @app.get("/api/integrations/strava")
