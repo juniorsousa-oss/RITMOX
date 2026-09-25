@@ -1063,13 +1063,15 @@ body.modal-open{overflow:hidden}
 
 
 
-/* === RITMOX CANONICAL UI SYSTEM v31 === */
+/* === RITMOX CANONICAL UI SYSTEM v32 === */
 :root{
   --rtx-mobile-nav-icon:42px;
   --rtx-mobile-feature-icon:58px;
+  --rtx-mobile-feature-art:44px;
   --rtx-mobile-kpi-icon:42px;
   --rtx-desktop-nav-icon:32px;
   --rtx-desktop-feature-icon:50px;
+  --rtx-desktop-feature-art:38px;
   --rtx-desktop-kpi-icon:38px;
 }
 
@@ -1107,43 +1109,30 @@ body.modal-open{overflow:hidden}
     height:var(--rtx-mobile-feature-icon)!important;
     min-width:var(--rtx-mobile-feature-icon)!important;
     min-height:var(--rtx-mobile-feature-icon)!important;
-    position:relative!important;
-    display:block!important;
-    overflow:hidden!important;
+    display:grid!important;
+    place-items:center!important;
+    overflow:visible!important;
     border-radius:14px!important;
-    background:#08111f!important;
+    background:transparent!important;
     box-sizing:border-box!important;
   }
   .m-feature-icon img{
-    position:absolute!important;
-    left:50%!important;
-    top:50%!important;
-    width:76px!important;
-    height:76px!important;
-    max-width:none!important;
-    max-height:none!important;
+    position:static!important;
+    width:var(--rtx-mobile-feature-art)!important;
+    height:var(--rtx-mobile-feature-art)!important;
+    max-width:var(--rtx-mobile-feature-art)!important;
+    max-height:var(--rtx-mobile-feature-art)!important;
+    min-width:var(--rtx-mobile-feature-art)!important;
+    min-height:var(--rtx-mobile-feature-art)!important;
+    display:block!important;
     object-fit:contain!important;
     object-position:center!important;
-    transform:translate(-50%,-50%)!important;
-    z-index:1!important;
+    transform:none!important;
+    margin:0!important;
   }
   .m-feature-strength .m-feature-icon::after,
   .m-feature-run .m-feature-icon::after{
-    content:""!important;
-    position:absolute!important;
-    inset:0!important;
-    border-radius:14px!important;
-    pointer-events:none!important;
-    z-index:2!important;
-    box-sizing:border-box!important;
-  }
-  .m-feature-strength .m-feature-icon::after{
-    border:1.5px solid #ff2d9a!important;
-    box-shadow:inset 0 0 10px rgba(255,45,154,.20),0 0 12px rgba(255,45,154,.10)!important;
-  }
-  .m-feature-run .m-feature-icon::after{
-    border:1.5px solid #00d8ff!important;
-    box-shadow:inset 0 0 10px rgba(0,216,255,.18),0 0 12px rgba(0,216,255,.10)!important;
+    content:none!important;
   }
   .m-feature-copy{
     min-width:0!important;
@@ -1200,34 +1189,31 @@ body.modal-open{overflow:hidden}
     height:var(--rtx-desktop-feature-icon)!important;
     min-width:var(--rtx-desktop-feature-icon)!important;
     min-height:var(--rtx-desktop-feature-icon)!important;
-    overflow:hidden!important;
+    display:grid!important;
+    place-items:center!important;
+    overflow:visible!important;
     position:relative!important;
     border-radius:12px!important;
-    background:#08111f!important;
+    background:transparent!important;
   }
   .hero-card-head .hero-icon img{
-    position:absolute!important;
-    left:50%!important;
-    top:50%!important;
-    width:66px!important;
-    height:66px!important;
-    max-width:none!important;
-    max-height:none!important;
+    position:static!important;
+    width:var(--rtx-desktop-feature-art)!important;
+    height:var(--rtx-desktop-feature-art)!important;
+    max-width:var(--rtx-desktop-feature-art)!important;
+    max-height:var(--rtx-desktop-feature-art)!important;
+    min-width:var(--rtx-desktop-feature-art)!important;
+    min-height:var(--rtx-desktop-feature-art)!important;
+    display:block!important;
     object-fit:contain!important;
-    transform:translate(-50%,-50%)!important;
+    object-position:center!important;
+    transform:none!important;
+    margin:0!important;
   }
   .strength-card .hero-icon::after,
   .run-card .hero-icon::after{
-    content:""!important;
-    position:absolute!important;
-    inset:0!important;
-    border-radius:12px!important;
-    pointer-events:none!important;
-    z-index:2!important;
-    box-sizing:border-box!important;
+    content:none!important;
   }
-  .strength-card .hero-icon::after{border:1.5px solid #ff2d9a!important;}
-  .run-card .hero-icon::after{border:1.5px solid #00d8ff!important;}
 
   .stat-card .stat-icon{
     width:var(--rtx-desktop-kpi-icon)!important;
