@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="RITMOX">
+  <defs>
+    <linearGradient id="g" x1="7" y1="7" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff2d7a"/>
+      <stop offset=".52" stop-color="#ef2ed8"/>
+      <stop offset="1" stop-color="#7c4dff"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#g)" d="M11 8h39c3.2 0 5 3.7 3 6.2L43.2 26H28.7l6.8-8.2H16.6L9.2 27H2.7L11 8Z"/>
+  <path fill="url(#g)" d="M22.8 25.6h15.6L29 37.5 43.6 56H29.1l-8.4-10.8-8.5 10.8H-1l23.8-30.4Z"/>
+  <path fill="#ff4b91" d="M38.2 25.6H50l-6.8 8.5-5-8.5Z" opacity=".85"/>
+</svg>
