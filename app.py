@@ -450,6 +450,16 @@ def validate_plan_date(value: str) -> None:
         raise HTTPException(422, "Data inválida. Use AAAA-MM-DD.")
 
 
+def ensure_training_planning_allowed(db: Session) -> HealthAssessment:
+    assessment = db.scalars(select(HealthAssessment).order_by(HealthAssessment.id.desc())).first()
+    if not assessment:
+        raise HTTPException(403, "Anamnese obrigatória antes do planejamento de treinos.")
+    allowed = assessment.risk_status == "screening_complete" or assessment.professional_clearance
+    if not allowed:
+        raise HTTPException(403, "Planejamento bloqueado até avaliação e liberação profissional.")
+    return assessment
+
+
 @app.get("/api/training-plans")
 def list_training_plans(
     start_date: str,
@@ -478,6 +488,7 @@ def get_training_plan(plan_id: int, db: Session = Depends(session)):
 
 @app.post("/api/training-plans")
 def create_training_plan(data: WorkoutPlanIn, db: Session = Depends(session)):
+    ensure_training_planning_allowed(db)
     try:
         data.parsed_date()
     except ValueError as exc:
@@ -526,6 +537,7 @@ def create_training_plan(data: WorkoutPlanIn, db: Session = Depends(session)):
 
 @app.put("/api/training-plans/{plan_id}")
 def update_training_plan(plan_id: int, data: WorkoutPlanIn, db: Session = Depends(session)):
+    ensure_training_planning_allowed(db)
     plan = db.get(WorkoutPlan, plan_id)
     if not plan:
         raise HTTPException(404, "Treino planejado não encontrado")
