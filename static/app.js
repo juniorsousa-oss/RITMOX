@@ -351,7 +351,12 @@ $("#stravaBtn").onclick=async()=>{
 
 $("#comingSoonBtn").onclick=()=>toast("Comunidade, desafios e rankings entram nas próximas etapas.");
 
-$("[data-page]").forEach(b=>b.addEventListener("click",()=>navigate(b.dataset.page)));
+document.addEventListener("click",(ev)=>{
+  const target=ev.target.closest("[data-page]");
+  if(!target) return;
+  ev.preventDefault();
+  navigate(target.dataset.page);
+});
 $$("[data-open]").forEach(card=>card.addEventListener("click",(ev)=>{
   if(ev.target.closest("button")) ev.preventDefault();
   navigate(card.dataset.open);
