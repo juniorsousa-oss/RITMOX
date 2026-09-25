@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#08101f">
   <title>RITMOX — Treino em movimento</title>
-  <link rel="stylesheet" href="/static/styles.css?v=20260925-18">
+  <link rel="stylesheet" href="/static/styles.css?v=20260925-19">
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true">
@@ -371,9 +371,16 @@
                 <h3>Perguntas da triagem</h3>
                 <p>As perguntas são carregadas diretamente daqui. Não existe arquivo ou documento externo.</p>
               </div>
-              <button type="button" class="primary-btn pink-btn" id="addAnamnesisQuestionBtn">＋ Nova pergunta</button>
+              <div class="settings-head-actions">
+                <button type="button" class="ghost-btn" id="restoreDefaultAnamnesisBtn">Restaurar padrão</button>
+                <button type="button" class="primary-btn pink-btn" id="addAnamnesisQuestionBtn">＋ Nova pergunta</button>
+              </div>
             </div>
 
+            <div class="default-template-note">
+              <strong>Anamnese padrão RITMOX</strong>
+              <p>O aplicativo já traz uma anamnese completa como ponto de partida. Você pode editar, desativar, excluir ou incluir perguntas sem perder a flexibilidade.</p>
+            </div>
             <div class="settings-summary" id="anamnesisSettingsSummary">
               <span>Carregando parametrização...</span>
             </div>
@@ -554,6 +561,6 @@
   </dialog>
 
   <div id="toast" class="toast"></div>
-  <script src="/static/app.js?v=20260925-18"></script>
+  <script src="/static/app.js?v=20260925-19"></script>
 </body>
 </html>
