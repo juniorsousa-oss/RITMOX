@@ -15,6 +15,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, rela
 
 ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
+BUILD_VERSION = "20260925-21"
 
 database_url = os.getenv("DATABASE_URL", f"sqlite:///{ROOT / 'ritmox.db'}")
 if database_url.startswith("postgres://"):
@@ -381,12 +382,38 @@ app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 @app.get("/", include_in_schema=False)
 def home():
-    return FileResponse(STATIC / "index.html")
+    return FileResponse(
+        STATIC / "index.html",
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
+
+
+def health_payload():
+    return {"status": "ok", "app": "RITMOX", "build": BUILD_VERSION}
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "app": "RITMOX"}
+    return health_payload()
+
+
+@app.get("/saude", include_in_schema=False)
+def health_saude():
+    return health_payload()
+
+
+@app.get("/Saúde", include_in_schema=False)
+def health_saude_render():
+    return health_payload()
+
+
+@app.get("/api/version", include_in_schema=False)
+def app_version():
+    return {"app": "RITMOX", "build": BUILD_VERSION}
 
 
 def workout_payload(w: Workout) -> dict:
