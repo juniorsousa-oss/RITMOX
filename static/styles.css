@@ -1060,3 +1060,43 @@ body.modal-open{overflow:hidden}
   .settings-head-actions{display:grid;grid-template-columns:1fr 1fr;width:100%}
   .settings-head-actions button{width:100%}
 }
+
+/* === DESKTOP ICON RENDER FIXES === */
+@media (min-width:701px){
+  .side-nav .nav-item img.desktop-nav-asset{
+    width:32px;
+    height:32px;
+    flex:0 0 32px;
+    object-fit:contain;
+    object-position:center;
+    border-radius:0;
+    overflow:visible;
+    transform:none;
+  }
+  .side-nav .nav-item img.profile-nav-asset{
+    width:31px;
+    height:31px;
+  }
+
+  .hero-card-head .desktop-hero-asset{
+    width:48px;
+    height:48px;
+    min-width:48px;
+    min-height:48px;
+    overflow:visible!important;
+    border-radius:0!important;
+    background:transparent!important;
+    display:grid;
+    place-items:center;
+  }
+  .hero-card-head .desktop-hero-asset .hero-asset-image{
+    width:46px;
+    height:46px;
+    max-width:none;
+    max-height:none;
+    object-fit:contain;
+    object-position:center;
+    border-radius:0;
+    display:block;
+  }
+}
