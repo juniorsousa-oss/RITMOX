@@ -56,10 +56,14 @@ svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 .hero-card{min-height:210px;position:relative;overflow:hidden;border-radius:18px;padding:25px;border:1px solid rgba(255,255,255,.09);box-shadow:var(--shadow);display:grid;grid-template-columns:auto 1fr auto;align-items:start;gap:17px;isolation:isolate}
 .hero-card:before{content:"";position:absolute;inset:0;z-index:-2;background:linear-gradient(120deg,rgba(10,15,27,.38),rgba(5,8,15,.92))}
 .hero-card:after{content:"";position:absolute;right:-50px;top:-40px;width:280px;height:280px;z-index:-3;opacity:.6;transform:rotate(16deg);border-radius:52% 48% 35% 65%;filter:blur(1px)}
-.strength-card{background:linear-gradient(135deg,#5e0d3d,#1c1026 57%,#0a111f)}
-.strength-card:after{background:radial-gradient(circle at 40% 40%,var(--pink),transparent 60%)}
-.run-card{background:linear-gradient(135deg,#092736,#0d1930 57%,#07111e)}
-.run-card:after{background:radial-gradient(circle at 40% 40%,var(--cyan),transparent 60%)}
+.strength-card{background:
+linear-gradient(90deg,rgba(12,8,19,.94) 0%,rgba(40,8,30,.72) 48%,rgba(8,12,22,.18) 100%),
+url("https://images.unsplash.com/photo-1776710669819-8ce325bce775?auto=format&fit=crop&fm=jpg&q=82&w=1600") center 34%/cover no-repeat}
+.strength-card:after{background:radial-gradient(circle at 40% 40%,var(--pink),transparent 60%);mix-blend-mode:screen;opacity:.34}
+.run-card{background:
+linear-gradient(90deg,rgba(5,17,29,.94) 0%,rgba(7,30,42,.72) 48%,rgba(7,17,30,.16) 100%),
+url("https://images.unsplash.com/photo-1634085398114-5091e0d9ed9e?auto=format&fit=crop&fm=jpg&q=82&w=1600") center 42%/cover no-repeat}
+.run-card:after{background:radial-gradient(circle at 40% 40%,var(--cyan),transparent 60%);mix-blend-mode:screen;opacity:.32}
 .hero-icon{width:54px;height:54px;border-radius:15px;display:grid;place-items:center;background:rgba(255,255,255,.08);backdrop-filter:blur(10px)}
 .strength-card .hero-icon{color:var(--pink)}.run-card .hero-icon{color:var(--cyan)}
 .hero-icon svg{width:31px;height:31px;stroke-width:2.2}
