@@ -18,6 +18,7 @@ const state = {
   health: {
     assessment: null,
     loaded: false,
+    pendingClearance: null,
   },
 };
 
@@ -553,13 +554,25 @@ async function submitHealthAssessment(ev){
     return;
   }
   try{
-    const result=await api("/api/health-assessment",{method:"POST",body:JSON.stringify(payload)});
+    let result=await api("/api/health-assessment",{method:"POST",body:JSON.stringify(payload)});
     state.health.assessment=result;
     state.health.loaded=true;
+
+    if(state.health.pendingClearance){
+      result=await api(`/api/health-assessment/${result.id}/clearance`,{
+        method:"POST",
+        body:JSON.stringify(state.health.pendingClearance)
+      });
+      state.health.assessment=result;
+      state.health.pendingClearance=null;
+    }
+
     closeHealthAssessment();
     renderHealthGate();
     if(result.training_allowed){
-      toast("Anamnese concluída sem alertas que bloqueiem o planejamento.");
+      toast(result.professional_clearance
+        ? "Anamnese concluída e liberação profissional vinculada."
+        : "Anamnese concluída sem alertas que bloqueiem o planejamento.");
       await loadTrainingCalendar(false);
     }else{
       toast("A triagem identificou pontos que exigem avaliação profissional.");
@@ -598,6 +611,8 @@ function renderHealthGate(){
     $("#healthGateTitle").textContent="Antes do primeiro treino, complete a anamnese";
     $("#healthGateText").textContent="O planejamento fica bloqueado até o aluno responder à triagem pré-participação.";
     $("#startHealthAssessmentBtn").hidden=false;
+    $("#registerClearanceBtn").hidden=false;
+    $("#registerClearanceBtn").textContent="Registrar liberação profissional";
     return;
   }
 
@@ -622,9 +637,8 @@ function renderHealthGate(){
 }
 
 function openClearanceDialog(){
-  if(!state.health.assessment) return;
-  $("#clearanceProvider").value="";
-  $("#clearanceDate").value=localISO(new Date());
+  $("#clearanceProvider").value=state.health.pendingClearance?.provider_name||"";
+  $("#clearanceDate").value=state.health.pendingClearance?.clearance_date||localISO(new Date());
   openDialogSafe($("#clearanceDialog"));
 }
 
@@ -640,12 +654,22 @@ async function submitClearance(ev){
     toast("Informe o profissional e a data da liberação.");
     return;
   }
+
+  if(!state.health.assessment){
+    state.health.pendingClearance={provider_name:provider,clearance_date};
+    closeClearanceDialog();
+    toast("Liberação informada. Agora conclua a anamnese obrigatória.");
+    openHealthAssessment();
+    return;
+  }
+
   try{
     const result=await api(`/api/health-assessment/${state.health.assessment.id}/clearance`,{
       method:"POST",
       body:JSON.stringify({provider_name:provider,clearance_date})
     });
     state.health.assessment=result;
+    state.health.pendingClearance=null;
     closeClearanceDialog();
     renderHealthGate();
     await loadTrainingCalendar(false);
