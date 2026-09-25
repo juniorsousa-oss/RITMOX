@@ -1449,3 +1449,16 @@ window.addEventListener("resize",()=>{
   const hash=location.hash.replace("#","");
   navigate(pageMeta[hash]?hash:"home");
 })();
+
+function bindCheckboxRowFallback(){
+  document.addEventListener("click",(ev)=>{
+    const row=ev.target.closest(".settings-check,.dynamic-multiselect label,.consent-section label,.health-check-grid label");
+    if(!row || ev.target.matches('input[type="checkbox"]')) return;
+    const checkbox=row.querySelector('input[type="checkbox"]');
+    if(!checkbox || checkbox.disabled) return;
+    ev.preventDefault();
+    checkbox.checked=!checkbox.checked;
+    checkbox.dispatchEvent(new Event("change",{bubbles:true}));
+  },{passive:false});
+}
+bindCheckboxRowFallback();
