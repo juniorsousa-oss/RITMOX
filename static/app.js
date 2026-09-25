@@ -529,7 +529,7 @@ function renderSelectedDay(){
         <p>${escapeHTML(modalityLabel(p.modality))}</p>
         <div class="day-plan-meta">
           <span>◷ ${p.duration_min} min</span>
-          <span>◌ ${p.exercise_count} exercício${p.exercise_count===1?"":"s"}</span>
+          <span>◌ ${structureCountLabel(p)}</span>
           ${p.notes?`<span>✦ ${escapeHTML(p.notes)}</span>`:""}
         </div>
       </div>
@@ -540,6 +540,55 @@ function renderSelectedDay(){
   `).join("");
 }
 
+function runKindLabel(kind){
+  const map={
+    run_easy:"Treino leve",
+    run_long:"Longão",
+    run_interval:"Intervalado",
+    run_tempo:"Tempo / Limiar",
+    run_progressive:"Progressivo",
+    run_fartlek:"Fartlek",
+    run_recovery:"Recuperação"
+  };
+  return map[kind]||"Treino de corrida";
+}
+
+function structureCountLabel(plan){
+  const n=plan.exercise_count||0;
+  if(plan.modality==="corrida") return `${n} bloco${n===1?"":"s"}`;
+  if(plan.modality==="musculacao") return `${n} exercício${n===1?"":"s"}`;
+  return `${n} atividade${n===1?"":"s"}`;
+}
+
+function configurePlanStructure(modality){
+  state.calendar.formModality=modality;
+  const eyebrow=$("#planStructureEyebrow");
+  const title=$("#planStructureTitle");
+  const hint=$("#planStructureHint");
+  const add=$("#addExerciseRowBtn");
+  const name=$("#planTitle");
+  if(modality==="corrida"){
+    eyebrow.textContent="BLOCOS DE CORRIDA";
+    title.textContent="Estrutura da corrida";
+    hint.textContent="Monte o treino com blocos leves, longos, intervalados, tempo, progressivo ou fartlek.";
+    add.textContent="＋ Adicionar bloco";
+    name.placeholder="Ex.: Intervalado 8 × 400 m";
+  }else if(modality==="musculacao"){
+    eyebrow.textContent="EXERCÍCIOS";
+    title.textContent="Estrutura da musculação";
+    hint.textContent="Adicione os exercícios com séries, repetições e carga.";
+    add.textContent="＋ Adicionar exercício";
+    name.placeholder="Ex.: Inferiores — Força e Hipertrofia";
+  }else{
+    eyebrow.textContent="ATIVIDADES";
+    title.textContent="Estrutura do treino";
+    hint.textContent="Adicione as atividades que compõem este treino.";
+    add.textContent="＋ Adicionar atividade";
+    name.placeholder="Ex.: Treino funcional";
+  }
+  renderExerciseEditorEmpty();
+}
+
 function openPlanDialog(plan=null,dateValue=null){
   const dialog=$("#planDialog");
   if(!dialog) return;
@@ -547,13 +596,26 @@ function openPlanDialog(plan=null,dateValue=null){
   $("#planDialogEyebrow").textContent=plan?"EDITAR TREINO":"NOVO TREINO";
   $("#planDialogTitle").textContent=plan?"Editar treino planejado":"Planejar treino";
   $("#planDate").value=plan?.planned_date||dateValue||state.calendar.selectedDate||localISO(new Date());
-  $("#planModality").value=plan?.modality||"musculacao";
+  const modality=plan?.modality||"musculacao";
+  $("#planModality").value=modality;
   $("#planTitle").value=plan?.title||"";
   $("#planDuration").value=plan?.duration_min||45;
   $("#planNotes").value=plan?.notes||"";
   $("#deletePlanBtn").hidden=!plan;
   $("#plannedExerciseRows").innerHTML="";
-  (plan?.exercises||[]).forEach(e=>addExerciseRow(e));
+  configurePlanStructure(modality);
+
+  const sourceBlocks=(plan?.blocks&&plan.blocks.length)
+    ? plan.blocks
+    : (plan?.exercises||[]).map(e=>({
+        kind:"strength",
+        name:e.name,
+        detail:e.muscle,
+        sets_total:e.sets_total,
+        reps:e.reps,
+        load_kg:e.load_kg
+      }));
+  sourceBlocks.forEach(block=>addExerciseRow(block,modality));
   renderExerciseEditorEmpty();
   dialog.showModal();
   setTimeout(()=>$("#planTitle")?.focus(),30);
@@ -565,20 +627,85 @@ function closePlanDialog(){
   state.calendar.editingId=null;
 }
 
-function addExerciseRow(data={}){
+function runKindOptions(selected){
+  const options=[
+    ["run_easy","Treino leve"],
+    ["run_long","Longão"],
+    ["run_interval","Intervalado"],
+    ["run_tempo","Tempo / Limiar"],
+    ["run_progressive","Progressivo"],
+    ["run_fartlek","Fartlek"],
+    ["run_recovery","Recuperação"]
+  ];
+  return options.map(([value,label])=>`<option value="${value}" ${value===selected?"selected":""}>${label}</option>`).join("");
+}
+
+function updateRunBlockVisibility(row){
+  const kind=row.querySelector('[data-field="kind"]')?.value||"run_easy";
+  const intervalLike=["run_interval","run_fartlek"].includes(kind);
+  row.querySelectorAll("[data-interval-only]").forEach(el=>el.classList.toggle("is-hidden",!intervalLike));
+  const distanceLabel=row.querySelector("[data-distance-label]");
+  if(distanceLabel) distanceLabel.firstChild.textContent=intervalLike?"Distância por repetição (km)":"Distância (km)";
+}
+
+function addExerciseRow(data={},forcedModality=null){
   const host=$("#plannedExerciseRows");
   if(!host) return;
+  const modality=forcedModality||$("#planModality").value;
+  const empty=host.querySelector(".exercise-editor-empty");
+  if(empty) empty.remove();
+
   const row=document.createElement("div");
-  row.className="planned-exercise-row";
-  row.innerHTML=`
-    <label>Exercício<input data-field="name" maxlength="160" value="${escapeHTML(data.name||"")}" placeholder="Ex.: Agachamento livre"></label>
-    <label>Grupo muscular<input data-field="muscle" maxlength="120" value="${escapeHTML(data.muscle||"")}" placeholder="Quadríceps / Glúteos"></label>
-    <label>Séries<input data-field="sets_total" type="number" min="1" max="20" value="${Number(data.sets_total||4)}"></label>
-    <label>Repetições<input data-field="reps" maxlength="30" value="${escapeHTML(data.reps||"8-10")}"></label>
-    <label>Carga kg<input data-field="load_kg" type="number" min="0" max="2000" step="0.5" value="${Number(data.load_kg||0)}"></label>
-    <button type="button" class="remove-exercise-btn" aria-label="Remover exercício">×</button>`;
+  row.className=`planned-exercise-row planned-block-row ${modality==="corrida"?"run-block":"strength-block"}`;
+
+  if(modality==="corrida"){
+    const kind=(data.kind&&data.kind.startsWith("run_"))?data.kind:"run_easy";
+    row.innerHTML=`
+      <label>Tipo do bloco
+        <select data-field="kind">${runKindOptions(kind)}</select>
+      </label>
+      <label data-distance-label>Distância (km)
+        <input data-field="distance_km" type="number" min="0" max="500" step="0.1" value="${Number(data.distance_km||0)}" placeholder="Ex.: 6">
+      </label>
+      <label>Duração (min)
+        <input data-field="duration_min" type="number" min="0" max="600" value="${Number(data.duration_min||0)}" placeholder="Ex.: 35">
+      </label>
+      <label>Ritmo alvo
+        <input data-field="pace_target" maxlength="30" value="${escapeHTML(data.pace_target||"")}" placeholder="Ex.: 5:20–5:40/km">
+      </label>
+      <label>Intensidade
+        <select data-field="intensity">
+          <option value="" ${!data.intensity?"selected":""}>Livre</option>
+          <option value="Z1" ${data.intensity==="Z1"?"selected":""}>Z1</option>
+          <option value="Z2" ${data.intensity==="Z2"?"selected":""}>Z2</option>
+          <option value="Z3" ${data.intensity==="Z3"?"selected":""}>Z3</option>
+          <option value="Z4" ${data.intensity==="Z4"?"selected":""}>Z4</option>
+          <option value="Z5" ${data.intensity==="Z5"?"selected":""}>Z5</option>
+        </select>
+      </label>
+      <label data-interval-only>Repetições
+        <input data-field="repetitions" type="number" min="0" max="100" value="${Number(data.repetitions||0)}" placeholder="Ex.: 8">
+      </label>
+      <label data-interval-only>Recuperação (s)
+        <input data-field="rest_sec" type="number" min="0" max="3600" value="${Number(data.rest_sec||0)}" placeholder="Ex.: 90">
+      </label>
+      <button type="button" class="remove-exercise-btn" aria-label="Remover bloco">×</button>`;
+    row.querySelector('[data-field="kind"]').addEventListener("change",()=>updateRunBlockVisibility(row));
+    updateRunBlockVisibility(row);
+  }else{
+    row.innerHTML=`
+      <input type="hidden" data-field="kind" value="strength">
+      <label>Exercício<input data-field="name" maxlength="160" value="${escapeHTML(data.name||"")}" placeholder="Ex.: Agachamento livre"></label>
+      <label>Grupo muscular<input data-field="detail" maxlength="160" value="${escapeHTML(data.detail||data.muscle||"")}" placeholder="Quadríceps / Glúteos"></label>
+      <label>Séries<input data-field="sets_total" type="number" min="1" max="30" value="${Number(data.sets_total||4)}"></label>
+      <label>Repetições<input data-field="reps" maxlength="30" value="${escapeHTML(data.reps||"8-10")}"></label>
+      <label>Carga kg<input data-field="load_kg" type="number" min="0" max="2000" step="0.5" value="${Number(data.load_kg||0)}"></label>
+      <button type="button" class="remove-exercise-btn" aria-label="Remover exercício">×</button>`;
+  }
+
   row.querySelector(".remove-exercise-btn").addEventListener("click",()=>{
-    row.remove(); renderExerciseEditorEmpty();
+    row.remove();
+    renderExerciseEditorEmpty();
   });
   host.appendChild(row);
   renderExerciseEditorEmpty();
@@ -589,30 +716,64 @@ function renderExerciseEditorEmpty(){
   if(!host) return;
   const empty=host.querySelector(".exercise-editor-empty");
   if(empty) empty.remove();
-  if(!host.querySelector(".planned-exercise-row")){
+  if(!host.querySelector(".planned-block-row")){
     const el=document.createElement("div");
     el.className="exercise-editor-empty";
-    el.textContent="Nenhum exercício adicionado. Você pode salvar o treino agora e detalhar depois.";
+    const modality=$("#planModality")?.value||"musculacao";
+    el.textContent=modality==="corrida"
+      ?"Nenhum bloco adicionado. Ex.: treino leve, longão, intervalado ou tempo."
+      : modality==="musculacao"
+        ?"Nenhum exercício adicionado. Ex.: agachamento, supino ou remada."
+        :"Nenhuma atividade adicionada.";
     host.appendChild(el);
   }
 }
 
 function collectPlanForm(){
-  const rows=$(".planned-exercise-row",$("#plannedExerciseRows"));
-  const exercises=rows.map(row=>({
-    name:row.querySelector('[data-field="name"]').value.trim(),
-    muscle:row.querySelector('[data-field="muscle"]').value.trim(),
-    sets_total:Number(row.querySelector('[data-field="sets_total"]').value||1),
-    reps:row.querySelector('[data-field="reps"]').value.trim()||"1",
-    load_kg:Number(row.querySelector('[data-field="load_kg"]').value||0),
-  })).filter(e=>e.name);
+  const modality=$("#planModality").value;
+  const rows=$$(".planned-block-row",$("#plannedExerciseRows"));
+  const blocks=rows.map(row=>{
+    if(modality==="corrida"){
+      const kind=row.querySelector('[data-field="kind"]').value;
+      return {
+        kind,
+        name:runKindLabel(kind),
+        detail:"",
+        sets_total:0,
+        reps:"",
+        load_kg:0,
+        distance_km:Number(row.querySelector('[data-field="distance_km"]').value||0),
+        duration_min:Number(row.querySelector('[data-field="duration_min"]').value||0),
+        pace_target:row.querySelector('[data-field="pace_target"]').value.trim(),
+        repetitions:Number(row.querySelector('[data-field="repetitions"]')?.value||0),
+        rest_sec:Number(row.querySelector('[data-field="rest_sec"]')?.value||0),
+        intensity:row.querySelector('[data-field="intensity"]').value
+      };
+    }
+    return {
+      kind:"strength",
+      name:row.querySelector('[data-field="name"]').value.trim(),
+      detail:row.querySelector('[data-field="detail"]').value.trim(),
+      sets_total:Number(row.querySelector('[data-field="sets_total"]').value||1),
+      reps:row.querySelector('[data-field="reps"]').value.trim()||"1",
+      load_kg:Number(row.querySelector('[data-field="load_kg"]').value||0),
+      distance_km:0,
+      duration_min:0,
+      pace_target:"",
+      repetitions:0,
+      rest_sec:0,
+      intensity:""
+    };
+  }).filter(block=>modality==="corrida" || block.name);
+
   return {
     planned_date:$("#planDate").value,
     title:$("#planTitle").value.trim(),
-    modality:$("#planModality").value,
+    modality,
     duration_min:Number($("#planDuration").value||45),
     notes:$("#planNotes").value.trim(),
-    exercises,
+    exercises:[],
+    blocks
   };
 }
 
@@ -694,6 +855,19 @@ if($("#todayWeekBtn")) $("#todayWeekBtn").onclick=()=>{
 if($("#addPlanTopBtn")) $("#addPlanTopBtn").onclick=()=>openPlanDialog(null,state.calendar.selectedDate);
 if($("#addPlanDayBtn")) $("#addPlanDayBtn").onclick=()=>openPlanDialog(null,state.calendar.selectedDate);
 if($("#addExerciseRowBtn")) $("#addExerciseRowBtn").onclick=()=>addExerciseRow();
+if($("#planModality")) $("#planModality").addEventListener("change",ev=>{
+  const next=ev.target.value;
+  const rows=$(".planned-block-row",$("#plannedExerciseRows"));
+  if(rows.length && next!==state.calendar.formModality){
+    const ok=confirm("Ao mudar a modalidade, a estrutura atual será limpa para evitar campos incompatíveis. Continuar?");
+    if(!ok){
+      ev.target.value=state.calendar.formModality||"musculacao";
+      return;
+    }
+    $("#plannedExerciseRows").innerHTML="";
+  }
+  configurePlanStructure(next);
+});
 if($("#closePlanDialog")) $("#closePlanDialog").onclick=closePlanDialog;
 if($("#cancelPlanBtn")) $("#cancelPlanBtn").onclick=closePlanDialog;
 if($("#deletePlanBtn")) $("#deletePlanBtn").onclick=deleteCurrentPlan;
