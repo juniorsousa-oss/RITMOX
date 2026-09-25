@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 15
     env:
       APP_URL: https://ritmox.onrender.com
-      EXPECTED_BUILD: "20260925-37"
+      EXPECTED_BUILD: "20260925-38"
     steps:
       - name: Wait for Render build
         shell: bash
@@ -87,11 +87,12 @@ jobs:
                 const xb = await img.boundingBox();
                 const cb = await copy.boundingBox();
                 const gap = cb.x - (ib.x + ib.width);
-                const inside =
+                const imageCenterY = xb.y + xb.height / 2;
+                const iconCenterY = ib.y + ib.height / 2;
+                const verticalOffset = imageCenterY - iconCenterY;
+                const horizontallyInside =
                   xb.x >= ib.x - 0.5 &&
-                  xb.y >= ib.y - 0.5 &&
-                  xb.x + xb.width <= ib.x + ib.width + 0.5 &&
-                  xb.y + xb.height <= ib.y + ib.height + 0.5;
+                  xb.x + xb.width <= ib.x + ib.width + 0.5;
 
                 const ok =
                   data.complete &&
@@ -105,13 +106,15 @@ jobs:
                   data.objectFit === 'contain' &&
                   data.transform === 'none' &&
                   data.clipPath === 'none' &&
-                  inside &&
+                  horizontallyInside &&
+                  verticalOffset <= -11.5 &&
+                  verticalOffset >= -12.5 &&
                   gap >= 17.5;
 
                 pass(
                   `muscle icon repetition ${i}/6`,
                   ok,
-                  JSON.stringify({data,iconBox:ib,imageBox:xb,textGap:gap,inside})
+                  JSON.stringify({data,iconBox:ib,imageBox:xb,textGap:gap,verticalOffset,horizontallyInside})
                 );
 
                 await card.screenshot({path:`muscle-icon-test-${i}.png`});
@@ -130,6 +133,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ritmox-muscle-icon-v37
+          name: ritmox-muscle-icon-v38
           path: muscle-icon-test-*.png
           if-no-files-found: error
