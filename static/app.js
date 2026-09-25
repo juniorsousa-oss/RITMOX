@@ -18,7 +18,12 @@ const state = {
   health: {
     assessment: null,
     loaded: false,
-    pendingClearance: null,
+    formConfigured: false,
+    formQuestions: [],
+  },
+  settings: {
+    anamnesisQuestions: [],
+    editingQuestionId: null,
   },
 };
 
@@ -50,6 +55,7 @@ const pageMeta = {
   evolution:["Minha evolução","Consistência vira resultado."],
   community:["Comunidade","Evolua com quem também está em movimento."],
   profile:["Meu perfil","Sua jornada, suas conexões."],
+  settings:["Configurações","Parametrize as regras e formulários do RITMOX."],
 };
 
 function navigate(page){
@@ -65,6 +71,7 @@ function navigate(page){
   if(page==="home") setTimeout(drawProgressChart,50);
   if(page==="run") setTimeout(drawRunChart,50);
   if(page==="workouts") setTimeout(()=>loadHealthGate(),20);
+  if(page==="settings") setTimeout(()=>loadAnamnesisSettings(),20);
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
@@ -415,56 +422,6 @@ $("#globalSearch").addEventListener("input",ev=>{
 
 
 
-function selectedValues(containerSelector){
-  const root=$(containerSelector);
-  if(!root) return [];
-  return $("input[type=checkbox]:checked",root).map(el=>el.value);
-}
-
-function resetHealthForm(){
-  const form=$("#healthAssessmentForm");
-  if(form) form.reset();
-}
-
-function fillHealthForm(assessment){
-  resetHealthForm();
-  const d=assessment?.data||{};
-  $("#haFullName").value=d.full_name||"Júnior";
-  $("#haBirthDate").value=d.birth_date||"";
-  $("#haSex").value=d.sex||"";
-  $("#haOccupation").value=d.occupation||"";
-  $("#haActivityLevel").value=d.current_activity_level||"";
-  $("#haGoal").value=d.goal||"";
-  $("#haEmergencyContact").value=d.emergency_contact||"";
-  $("#haEmergencyPhone").value=d.emergency_phone||"";
-  $("#haSurgeries").value=d.surgeries_injuries||"";
-  $("#haMedications").value=d.medications||"";
-  $("#haAllergies").value=d.allergies||"";
-  $("#haChestPain").checked=!!d.chest_pain;
-  $("#haSyncope").checked=!!d.syncope_dizziness;
-  $("#haBreathlessness").checked=!!d.breathlessness_light_activity;
-  $("#haPalpitations").checked=!!d.palpitations;
-  $("#haFatigue").checked=!!d.unexplained_fatigue;
-  $("#haEdema").checked=!!d.edema;
-  $("#haMusculoskeletal").checked=!!d.musculoskeletal_limitations;
-  $("#haPregnancy").checked=!!d.pregnant_or_recent_postpartum;
-  $("#haSmoking").value=d.smoking||"";
-  $("#haAlcohol").value=d.alcohol||"";
-  $("#haSleep").value=d.sleep_hours||"";
-  $("#haStress").value=d.stress_level||"";
-  $("#haSystolic").value=d.systolic_bp??"";
-  $("#haDiastolic").value=d.diastolic_bp??"";
-  $("#haRestingHr").value=d.resting_hr??"";
-  $("#haNotes").value=d.additional_notes||"";
-  $("#haConsentTruthful").checked=!!d.consent_truthful;
-  $("#haConsentScreening").checked=!!d.consent_screening;
-
-  const medical=new Set(d.medical_conditions||[]);
-  $$$("#medicalConditions input").forEach(el=>el.checked=medical.has(el.value));
-  const family=new Set(d.family_history||[]);
-  $$$("#familyHistory input").forEach(el=>el.checked=family.has(el.value));
-}
-
 function openDialogSafe(dialog){
   if(!dialog) return;
   dialog.hidden=false;
@@ -481,64 +438,169 @@ function closeDialogSafe(dialog){
   if(!$(".app-modal-overlay.is-open")) document.body.classList.remove("modal-open");
 }
 
-function openHealthAssessment(){
-  const dialog=$("#healthAssessmentDialog");
-  if(!dialog) return;
-  fillHealthForm(state.health.assessment);
-  openDialogSafe(dialog);
+function questionTypeLabel(type){
+  const map={
+    yes_no:"Sim / Não",
+    text:"Texto curto",
+    textarea:"Texto longo",
+    number:"Número",
+    date:"Data",
+    select:"Seleção única",
+    multiselect:"Múltipla seleção"
+  };
+  return map[type]||type;
+}
+
+async function loadAnamnesisFormConfig(force=false){
+  if(state.health.formQuestions.length && !force) return {
+    configured:state.health.formConfigured,
+    questions:state.health.formQuestions
+  };
+  const result=await api("/api/anamnesis/form");
+  state.health.formConfigured=!!result.configured;
+  state.health.formQuestions=result.questions||[];
+  return result;
+}
+
+function renderDynamicAnamnesis(){
+  const host=$("#dynamicAnamnesisQuestions");
+  if(!host) return;
+  const questions=state.health.formQuestions||[];
+  const saved=state.health.assessment?.data?.answers||{};
+  if(!questions.length){
+    host.innerHTML=`<div class="anamnesis-not-configured">
+      <strong>Anamnese ainda não parametrizada</strong>
+      <p>Adicione as perguntas em Configurações → Anamnese.</p>
+      <button type="button" class="ghost-btn" data-page="settings">Abrir configurações</button>
+    </div>`;
+    return;
+  }
+
+  const sections=[];
+  questions.forEach(q=>{
+    let group=sections.find(x=>x.name===q.section);
+    if(!group){ group={name:q.section,questions:[]}; sections.push(group); }
+    group.questions.push(q);
+  });
+
+  host.innerHTML=sections.map((group,sectionIndex)=>`
+    <fieldset class="health-section dynamic-health-section">
+      <legend>${sectionIndex+1}. ${escapeHTML(group.name)}</legend>
+      <div class="dynamic-question-list">
+        ${group.questions.map(renderAnamnesisQuestion).join("")}
+      </div>
+    </fieldset>
+  `).join("");
+
+  questions.forEach(q=>{
+    const value=saved[String(q.id)];
+    if(value===undefined || value===null) return;
+    const root=host.querySelector(`[data-question="${q.id}"]`);
+    if(!root) return;
+    if(q.question_type==="multiselect"){
+      const selected=new Set(Array.isArray(value)?value:[]);
+      root.querySelectorAll('input[type="checkbox"]').forEach(el=>el.checked=selected.has(el.value));
+    }else{
+      const input=root.querySelector("[data-answer]");
+      if(!input) return;
+      if(q.question_type==="yes_no" && typeof value==="boolean"){
+        input.value=value?"sim":"nao";
+      }else{
+        input.value=value;
+      }
+    }
+  });
+
+  $("#haConsentTruthful").checked=!!state.health.assessment?.data?.consent_truthful;
+  $("#haConsentScreening").checked=!!state.health.assessment?.data?.consent_screening;
+}
+
+function renderAnamnesisQuestion(q){
+  const req=q.required?'<span class="required-mark">*</span>':"";
+  const help=q.help_text?`<small class="question-help">${escapeHTML(q.help_text)}</small>`:"";
+  const common=`data-question="${q.id}"`;
+  let control="";
+  if(q.question_type==="yes_no"){
+    control=`<select data-answer ${q.required?"required":""}>
+      <option value="">Selecione</option>
+      <option value="sim">Sim</option>
+      <option value="nao">Não</option>
+    </select>`;
+  }else if(q.question_type==="textarea"){
+    control=`<textarea data-answer rows="3" ${q.required?"required":""} placeholder="${escapeHTML(q.placeholder||"")}"></textarea>`;
+  }else if(q.question_type==="number"){
+    control=`<input data-answer type="number" step="any" ${q.required?"required":""} placeholder="${escapeHTML(q.placeholder||"")}">`;
+  }else if(q.question_type==="date"){
+    control=`<input data-answer type="date" ${q.required?"required":""}>`;
+  }else if(q.question_type==="select"){
+    control=`<select data-answer ${q.required?"required":""}>
+      <option value="">Selecione</option>
+      ${(q.options||[]).map(opt=>`<option value="${escapeHTML(opt)}">${escapeHTML(opt)}</option>`).join("")}
+    </select>`;
+  }else if(q.question_type==="multiselect"){
+    control=`<div class="dynamic-multiselect">
+      ${(q.options||[]).map(opt=>`<label><input type="checkbox" value="${escapeHTML(opt)}"> ${escapeHTML(opt)}</label>`).join("")}
+    </div>`;
+  }else{
+    control=`<input data-answer type="text" ${q.required?"required":""} placeholder="${escapeHTML(q.placeholder||"")}">`;
+  }
+  return `<label class="dynamic-question" ${common}>
+    <span class="question-label">${escapeHTML(q.label)} ${req}</span>
+    ${help}
+    ${control}
+  </label>`;
+}
+
+function collectDynamicAnswers(){
+  const answers={};
+  (state.health.formQuestions||[]).forEach(q=>{
+    const root=$(`[data-question="${q.id}"]`,$("#dynamicAnamnesisQuestions"));
+    if(!root) return;
+    if(q.question_type==="multiselect"){
+      answers[String(q.id)]=$$('input[type="checkbox"]:checked',root).map(el=>el.value);
+    }else{
+      const input=$("[data-answer]",root);
+      if(!input) return;
+      if(q.question_type==="yes_no"){
+        answers[String(q.id)]=input.value===""?null:input.value==="sim";
+      }else if(q.question_type==="number"){
+        answers[String(q.id)]=input.value===""?null:Number(input.value);
+      }else{
+        answers[String(q.id)]=input.value;
+      }
+    }
+  });
+  return answers;
+}
+
+async function openHealthAssessment(){
+  try{
+    await loadAnamnesisFormConfig(true);
+    if(!state.health.formConfigured){
+      toast("Configure as perguntas da anamnese antes de aplicá-la.");
+      navigate("settings");
+      return;
+    }
+    renderDynamicAnamnesis();
+    openDialogSafe($("#healthAssessmentDialog"));
+  }catch(e){toast(e.message)}
 }
 
 function closeHealthAssessment(){
   closeDialogSafe($("#healthAssessmentDialog"));
 }
 
-function healthPayload(){
-  const numberOrNull=id=>{
-    const value=$(id).value;
-    return value===""?null:Number(value);
-  };
-  return {
-    full_name:$("#haFullName").value.trim(),
-    birth_date:$("#haBirthDate").value,
-    sex:$("#haSex").value,
-    emergency_contact:$("#haEmergencyContact").value.trim(),
-    emergency_phone:$("#haEmergencyPhone").value.trim(),
-    goal:$("#haGoal").value.trim(),
-    current_activity_level:$("#haActivityLevel").value,
-    occupation:$("#haOccupation").value.trim(),
-    medical_conditions:selectedValues("#medicalConditions"),
-    surgeries_injuries:$("#haSurgeries").value.trim(),
-    medications:$("#haMedications").value.trim(),
-    allergies:$("#haAllergies").value.trim(),
-    family_history:selectedValues("#familyHistory"),
-    chest_pain:$("#haChestPain").checked,
-    syncope_dizziness:$("#haSyncope").checked,
-    breathlessness_light_activity:$("#haBreathlessness").checked,
-    palpitations:$("#haPalpitations").checked,
-    unexplained_fatigue:$("#haFatigue").checked,
-    edema:$("#haEdema").checked,
-    musculoskeletal_limitations:$("#haMusculoskeletal").checked,
-    pregnant_or_recent_postpartum:$("#haPregnancy").checked,
-    smoking:$("#haSmoking").value,
-    alcohol:$("#haAlcohol").value,
-    sleep_hours:Number($("#haSleep").value||0),
-    stress_level:$("#haStress").value,
-    systolic_bp:numberOrNull("#haSystolic"),
-    diastolic_bp:numberOrNull("#haDiastolic"),
-    resting_hr:numberOrNull("#haRestingHr"),
-    additional_notes:$("#haNotes").value.trim(),
+async function submitHealthAssessment(ev){
+  ev.preventDefault();
+  if(!state.health.formConfigured){
+    toast("A anamnese ainda não foi parametrizada.");
+    return;
+  }
+  const payload={
+    answers:collectDynamicAnswers(),
     consent_truthful:$("#haConsentTruthful").checked,
     consent_screening:$("#haConsentScreening").checked
   };
-}
-
-async function submitHealthAssessment(ev){
-  ev.preventDefault();
-  const payload=healthPayload();
-  if(!payload.full_name || !payload.birth_date){
-    toast("Informe nome e data de nascimento.");
-    return;
-  }
   if(!payload.consent_truthful || !payload.consent_screening){
     toast("Confirme as duas declarações antes de concluir.");
     return;
@@ -549,12 +611,11 @@ async function submitHealthAssessment(ev){
     state.health.loaded=true;
     closeHealthAssessment();
     renderHealthGate();
-
     if(result.training_allowed){
       toast("Anamnese concluída. Planejamento liberado.");
       await loadTrainingCalendar(false);
     }else{
-      toast("A triagem identificou pontos que exigem avaliação profissional.");
+      toast("A triagem identificou respostas que exigem avaliação profissional.");
     }
   }catch(e){toast(e.message)}
 }
@@ -562,16 +623,19 @@ async function submitHealthAssessment(ev){
 async function loadHealthGate(){
   if(!$("#healthGate")) return;
   try{
-    const assessment=await api("/api/health-assessment/latest");
+    const [assessment,form]=await Promise.all([
+      api("/api/health-assessment/latest"),
+      api("/api/anamnesis/form")
+    ]);
     state.health.assessment=assessment;
     state.health.loaded=true;
+    state.health.formConfigured=!!form.configured;
+    state.health.formQuestions=form.questions||[];
     renderHealthGate();
-    if(assessment?.training_allowed){
+    if(assessment?.training_allowed && form.configured){
       await loadTrainingCalendar(false);
     }
-  }catch(e){
-    toast(e.message);
-  }
+  }catch(e){toast(e.message)}
 }
 
 function requestStatusText(request){
@@ -585,51 +649,56 @@ function requestStatusText(request){
 function renderHealthGate(){
   const gate=$("#healthGate");
   const calendar=$("#trainingCalendar");
-  const assessment=state.health.assessment;
   if(!gate || !calendar) return;
-
+  const assessment=state.health.assessment;
   const startBtn=$("#startHealthAssessmentBtn");
+  const configBtn=$("#configureAnamnesisBtn");
   const requestBtn=$("#registerClearanceBtn");
   const flags=$("#healthGateFlags");
-  startBtn.hidden=true;
-  requestBtn.hidden=true;
+
+  [startBtn,configBtn,requestBtn].forEach(btn=>{if(btn) btn.hidden=true;});
   requestBtn.disabled=false;
   requestBtn.classList.remove("is-pending");
   flags.innerHTML="";
+
+  if(!state.health.formConfigured){
+    gate.hidden=false;
+    calendar.hidden=true;
+    $("#healthGateTitle").textContent="Configure a anamnese antes de utilizá-la";
+    $("#healthGateText").textContent="Ainda não existem perguntas cadastradas. Abra Configurações → Anamnese e monte o formulário que será aplicado ao aluno.";
+    configBtn.hidden=false;
+    return;
+  }
 
   if(!assessment){
     gate.hidden=false;
     calendar.hidden=true;
     $("#healthGateTitle").textContent="Antes do primeiro treino, complete a anamnese";
-    $("#healthGateText").textContent="O planejamento fica bloqueado até o aluno responder à triagem pré-participação.";
+    $("#healthGateText").textContent="A anamnese configurada está pronta. O aluno precisa respondê-la antes do planejamento.";
     startBtn.textContent="Preencher anamnese";
     startBtn.hidden=false;
-    requestBtn.textContent="Solicitar liberação ao profissional";
-    requestBtn.hidden=false;
     return;
   }
 
   if(assessment.training_allowed){
     gate.hidden=true;
     calendar.hidden=false;
-    const text=assessment.professional_clearance
+    $("#healthStatusText").textContent=assessment.professional_clearance
       ? `Anamnese concluída · liberação aprovada por ${assessment.clearance_provider||"profissional responsável"}`
-      : "Anamnese concluída · sem alertas de bloqueio declarados";
-    $("#healthStatusText").textContent=text;
+      : "Anamnese concluída · sem respostas configuradas como alerta";
     return;
   }
 
   gate.hidden=false;
   calendar.hidden=true;
   $("#healthGateTitle").textContent="Avaliação profissional necessária";
-  $("#healthGateText").textContent="A anamnese indicou sinais ou condições que exigem avaliação antes de programar atividades físicas.";
+  $("#healthGateText").textContent="A anamnese identificou respostas parametrizadas como alerta. O planejamento permanece bloqueado.";
   flags.innerHTML=(assessment.red_flags||[]).map(flag=>`<div class="health-flag">${escapeHTML(flag)}</div>`).join("");
-
   startBtn.textContent="Revisar anamnese";
   startBtn.hidden=false;
+  requestBtn.hidden=false;
 
   const request=assessment.clearance_request;
-  requestBtn.hidden=false;
   if(request?.status==="pending"){
     requestBtn.textContent="Solicitação enviada · aguardando profissional";
     requestBtn.disabled=true;
@@ -639,7 +708,6 @@ function renderHealthGate(){
   }else{
     requestBtn.textContent="Solicitar liberação ao profissional";
   }
-
   if(request){
     flags.insertAdjacentHTML("beforeend",`<div class="health-request-status ${request.status}">${escapeHTML(requestStatusText(request))}</div>`);
   }
@@ -649,15 +717,10 @@ function openClearanceDialog(){
   const assessment=state.health.assessment;
   if(!assessment){
     toast("Conclua a anamnese antes de solicitar a liberação profissional.");
-    openHealthAssessment();
     return;
   }
   if(assessment.training_allowed){
     toast("O planejamento já está liberado.");
-    return;
-  }
-  if(assessment.risk_status!=="attention_required"){
-    toast("A triagem atual não exige liberação profissional.");
     return;
   }
   const current=assessment.clearance_request;
@@ -680,7 +743,6 @@ async function submitClearance(ev){
     toast("Informe o profissional responsável e o e-mail.");
     return;
   }
-
   try{
     await api("/api/clearance-requests",{
       method:"POST",
@@ -689,7 +751,144 @@ async function submitClearance(ev){
     state.health.assessment=await api("/api/health-assessment/latest");
     closeClearanceDialog();
     renderHealthGate();
-    toast("Solicitação enviada ao profissional. O aluno não pode aprová-la.");
+    toast("Solicitação enviada ao profissional. A aprovação não pode ser feita pelo aluno.");
+  }catch(e){toast(e.message)}
+}
+
+async function loadAnamnesisSettings(){
+  const host=$("#anamnesisQuestionList");
+  if(!host) return;
+  try{
+    const questions=await api("/api/settings/anamnesis/questions");
+    state.settings.anamnesisQuestions=questions||[];
+    state.health.formQuestions=(questions||[]).filter(q=>q.active);
+    state.health.formConfigured=state.health.formQuestions.length>0;
+    renderAnamnesisSettings();
+  }catch(e){toast(e.message)}
+}
+
+function renderAnamnesisSettings(){
+  const list=$("#anamnesisQuestionList");
+  const summary=$("#anamnesisSettingsSummary");
+  if(!list||!summary) return;
+  const questions=state.settings.anamnesisQuestions||[];
+  const active=questions.filter(q=>q.active).length;
+  const alerts=questions.filter(q=>q.active&&q.risk_enabled).length;
+  summary.innerHTML=`<span><strong>${questions.length}</strong> pergunta${questions.length===1?"":"s"}</span>
+    <span><strong>${active}</strong> ativa${active===1?"":"s"}</span>
+    <span><strong>${alerts}</strong> com regra de alerta</span>`;
+
+  if(!questions.length){
+    list.innerHTML=`<div class="settings-empty">
+      <strong>Nenhuma pergunta cadastrada</strong>
+      <p>Use “Nova pergunta” para montar a anamnese do RITMOX.</p>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML=questions.map((q,index)=>`
+    <article class="question-setting-card ${q.active?"":"is-inactive"}">
+      <div class="question-order">${String(index+1).padStart(2,"0")}</div>
+      <div class="question-setting-main">
+        <div class="question-setting-meta">
+          <span>${escapeHTML(q.section)}</span>
+          <span class="question-type-badge">${escapeHTML(questionTypeLabel(q.question_type))}</span>
+          ${q.required?'<span class="required-badge">Obrigatória</span>':""}
+          ${q.risk_enabled?'<span class="risk-badge">Alerta</span>':""}
+          ${q.active?"":'<span class="inactive-badge">Inativa</span>'}
+        </div>
+        <h4>${escapeHTML(q.label)}</h4>
+        ${q.help_text?`<p>${escapeHTML(q.help_text)}</p>`:""}
+      </div>
+      <button type="button" class="icon-action" data-edit-anamnesis-question="${q.id}" aria-label="Editar pergunta">✎</button>
+    </article>
+  `).join("");
+}
+
+function updateQuestionEditorVisibility(){
+  const type=$("#aqType").value;
+  const risk=$("#aqRiskEnabled").checked;
+  $("#aqOptionsField").hidden=!["select","multiselect"].includes(type);
+  $("#aqRiskValuesField").hidden=!risk;
+  $("#aqRiskMessageField").hidden=!risk;
+  if(type==="yes_no" && risk && !$("#aqRiskValues").value.trim()){
+    $("#aqRiskValues").value="Sim";
+  }
+}
+
+function openAnamnesisQuestionEditor(question=null){
+  state.settings.editingQuestionId=question?.id||null;
+  $("#questionEditorEyebrow").textContent=question?"EDITAR PERGUNTA":"NOVA PERGUNTA";
+  $("#questionEditorTitle").textContent=question?"Editar pergunta":"Configurar pergunta";
+  $("#aqSection").value=question?.section||"Geral";
+  $("#aqType").value=question?.question_type||"yes_no";
+  $("#aqLabel").value=question?.label||"";
+  $("#aqHelp").value=question?.help_text||"";
+  $("#aqPlaceholder").value=question?.placeholder||"";
+  $("#aqOptions").value=(question?.options||[]).join("\n");
+  $("#aqRequired").checked=!!question?.required;
+  $("#aqActive").checked=question?!!question.active:true;
+  $("#aqRiskEnabled").checked=!!question?.risk_enabled;
+  $("#aqRiskValues").value=(question?.risk_values||[]).join(", ");
+  $("#aqRiskMessage").value=question?.risk_message||"";
+  $("#deleteAnamnesisQuestionBtn").hidden=!question;
+  updateQuestionEditorVisibility();
+  openDialogSafe($("#anamnesisQuestionDialog"));
+}
+
+function closeAnamnesisQuestionEditor(){
+  closeDialogSafe($("#anamnesisQuestionDialog"));
+  state.settings.editingQuestionId=null;
+}
+
+function anamnesisQuestionPayload(){
+  const existing=state.settings.anamnesisQuestions.find(q=>q.id===state.settings.editingQuestionId);
+  const options=$("#aqOptions").value.split(/\n|,/).map(x=>x.trim()).filter(Boolean);
+  const risks=$("#aqRiskValues").value.split(",").map(x=>x.trim()).filter(Boolean);
+  return {
+    section:$("#aqSection").value.trim()||"Geral",
+    label:$("#aqLabel").value.trim(),
+    question_type:$("#aqType").value,
+    help_text:$("#aqHelp").value.trim(),
+    placeholder:$("#aqPlaceholder").value.trim(),
+    options,
+    required:$("#aqRequired").checked,
+    risk_enabled:$("#aqRiskEnabled").checked,
+    risk_values:risks,
+    risk_message:$("#aqRiskMessage").value.trim(),
+    active:$("#aqActive").checked,
+    position:existing?.position || ((state.settings.anamnesisQuestions.length+1)*10)
+  };
+}
+
+async function saveAnamnesisQuestion(ev){
+  ev.preventDefault();
+  const payload=anamnesisQuestionPayload();
+  if(payload.label.length<2){
+    toast("Digite a pergunta.");
+    return;
+  }
+  const id=state.settings.editingQuestionId;
+  try{
+    await api(id?`/api/settings/anamnesis/questions/${id}`:"/api/settings/anamnesis/questions",{
+      method:id?"PUT":"POST",
+      body:JSON.stringify(payload)
+    });
+    closeAnamnesisQuestionEditor();
+    await loadAnamnesisSettings();
+    toast(id?"Pergunta atualizada.":"Pergunta adicionada à anamnese.");
+  }catch(e){toast(e.message)}
+}
+
+async function deleteAnamnesisQuestion(){
+  const id=state.settings.editingQuestionId;
+  if(!id) return;
+  if(!confirm("Excluir esta pergunta da anamnese?")) return;
+  try{
+    await api(`/api/settings/anamnesis/questions/${id}`,{method:"DELETE"});
+    closeAnamnesisQuestionEditor();
+    await loadAnamnesisSettings();
+    toast("Pergunta excluída.");
   }catch(e){toast(e.message)}
 }
 
@@ -1122,6 +1321,14 @@ function syncTodayPlanToHome(){
 }
 
 document.addEventListener("click",async ev=>{
+  const editQuestion=ev.target.closest("[data-edit-anamnesis-question]");
+  if(editQuestion){
+    const id=Number(editQuestion.dataset.editAnamnesisQuestion);
+    const q=state.settings.anamnesisQuestions.find(item=>item.id===id);
+    if(q) openAnamnesisQuestionEditor(q);
+    return;
+  }
+
   const day=ev.target.closest("[data-calendar-date]");
   if(day){
     state.calendar.selectedDate=day.dataset.calendarDate;
@@ -1171,6 +1378,14 @@ if($("#closePlanDialog")) $("#closePlanDialog").onclick=closePlanDialog;
 if($("#cancelPlanBtn")) $("#cancelPlanBtn").onclick=closePlanDialog;
 if($("#deletePlanBtn")) $("#deletePlanBtn").onclick=deleteCurrentPlan;
 if($("#planForm")) $("#planForm").addEventListener("submit",savePlan);
+
+if($("#addAnamnesisQuestionBtn")) $("#addAnamnesisQuestionBtn").onclick=()=>openAnamnesisQuestionEditor();
+if($("#closeAnamnesisQuestionBtn")) $("#closeAnamnesisQuestionBtn").onclick=closeAnamnesisQuestionEditor;
+if($("#cancelAnamnesisQuestionBtn")) $("#cancelAnamnesisQuestionBtn").onclick=closeAnamnesisQuestionEditor;
+if($("#anamnesisQuestionForm")) $("#anamnesisQuestionForm").addEventListener("submit",saveAnamnesisQuestion);
+if($("#deleteAnamnesisQuestionBtn")) $("#deleteAnamnesisQuestionBtn").onclick=deleteAnamnesisQuestion;
+if($("#aqType")) $("#aqType").addEventListener("change",updateQuestionEditorVisibility);
+if($("#aqRiskEnabled")) $("#aqRiskEnabled").addEventListener("change",updateQuestionEditorVisibility);
 
 if($("#startHealthAssessmentBtn")) $("#startHealthAssessmentBtn").onclick=openHealthAssessment;
 if($("#reviewHealthAssessmentBtn")) $("#reviewHealthAssessmentBtn").onclick=openHealthAssessment;
