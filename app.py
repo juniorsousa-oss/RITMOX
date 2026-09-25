@@ -2,20 +2,27 @@ from __future__ import annotations
 
 import os
 import json
+import html as html_lib
+from io import BytesIO
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Generator
 
 from fastapi import Depends, FastAPI, Header, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
 ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
-BUILD_VERSION = "20260925-40"
+BUILD_VERSION = "20260925-41"
 
 database_url = os.getenv("DATABASE_URL", f"sqlite:///{ROOT / 'ritmox.db'}")
 if database_url.startswith("postgres://"):
@@ -836,6 +843,12 @@ class DynamicHealthAssessmentIn(BaseModel):
     answers: dict[str, Any] = Field(default_factory=dict)
     consent_truthful: bool = False
     consent_screening: bool = False
+    signature_requested: bool = False
+
+
+class AssessmentSignatureIn(BaseModel):
+    signer_name: str = Field(min_length=2, max_length=160)
+    accepted: bool = False
 
 
 def question_payload(q: AnamnesisQuestion) -> dict:
@@ -1087,6 +1100,9 @@ def assessment_payload(item: HealthAssessment | None, db: Session | None = None)
     data = json.loads(item.payload_json or "{}")
     red_flags = json.loads(item.red_flags_json or "[]")
     allowed = item.risk_status == "screening_complete" or item.professional_clearance
+    signature_requested = bool(data.get("signature_requested", False))
+    signature = data.get("signature") if isinstance(data.get("signature"), dict) else None
+    signature_status = "signed" if signature else ("pending" if signature_requested else "not_requested")
     request = None
     if db is not None:
         request = db.scalars(
@@ -1114,6 +1130,9 @@ def assessment_payload(item: HealthAssessment | None, db: Session | None = None)
         "clearance_provider": item.clearance_provider,
         "clearance_date": item.clearance_date,
         "training_allowed": allowed,
+        "signature_requested": signature_requested,
+        "signature_status": signature_status,
+        "signature": signature,
         "clearance_request": request_payload,
         "completed_at": item.completed_at.isoformat() if item.completed_at else None,
         "updated_at": item.updated_at.isoformat() if item.updated_at else None,
@@ -1158,6 +1177,8 @@ def save_health_assessment(data: DynamicHealthAssessmentIn, db: Session = Depend
         "answers": data.answers,
         "consent_truthful": data.consent_truthful,
         "consent_screening": data.consent_screening,
+        "signature_requested": data.signature_requested,
+        "signature": None,
         "questions_snapshot": [question_payload(q) for q in questions],
     }
     item = HealthAssessment(
@@ -1172,6 +1193,151 @@ def save_health_assessment(data: DynamicHealthAssessmentIn, db: Session = Depend
     db.commit()
     db.refresh(item)
     return assessment_payload(item, db)
+
+
+
+def _pdf_answer(value: Any) -> str:
+    if value is None or value == "":
+        return "Não informado"
+    if isinstance(value, bool):
+        return "Sim" if value else "Não"
+    if isinstance(value, list):
+        return ", ".join(str(v) for v in value) if value else "Não informado"
+    return str(value)
+
+
+def _assessment_pdf_buffer(item: HealthAssessment) -> BytesIO:
+    payload = json.loads(item.payload_json or "{}")
+    answers = payload.get("answers") or {}
+    questions = payload.get("questions_snapshot") or []
+    signature = payload.get("signature") if isinstance(payload.get("signature"), dict) else None
+    red_flags = json.loads(item.red_flags_json or "[]")
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=34, leftMargin=34, topMargin=34, bottomMargin=34)
+    styles = getSampleStyleSheet()
+    title = ParagraphStyle("RitTitle", parent=styles["Title"], fontName="Helvetica-Bold",
+                           fontSize=20, leading=24, alignment=TA_CENTER, textColor=colors.HexColor("#111827"))
+    sub = ParagraphStyle("RitSub", parent=styles["Normal"], fontSize=9, leading=13,
+                         alignment=TA_CENTER, textColor=colors.HexColor("#64748B"))
+    section = ParagraphStyle("RitSection", parent=styles["Heading2"], fontName="Helvetica-Bold",
+                             fontSize=12, leading=15, textColor=colors.HexColor("#111827"), spaceBefore=9, spaceAfter=5)
+    qstyle = ParagraphStyle("RitQ", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=8.5,
+                            leading=11, textColor=colors.HexColor("#1F2937"))
+    astyle = ParagraphStyle("RitA", parent=styles["Normal"], fontSize=8.5, leading=11,
+                            textColor=colors.HexColor("#334155"))
+    note = ParagraphStyle("RitNote", parent=styles["Normal"], fontSize=8.5, leading=12,
+                          textColor=colors.HexColor("#475569"))
+
+    story = [Paragraph("RITMOX", title), Paragraph("Anamnese e triagem pré-participação", sub), Spacer(1, 10)]
+    completed = item.completed_at.astimezone().strftime("%d/%m/%Y %H:%M") if item.completed_at else "-"
+    status = "Atenção profissional necessária" if item.risk_status == "attention_required" else "Triagem concluída"
+    meta = [
+        ["Registro", f"#{item.id}"],
+        ["Concluída em", completed],
+        ["Status", status],
+        ["Liberação profissional", item.clearance_provider or ("Sim" if item.professional_clearance else "Não")],
+        ["Assinatura", "Assinada" if signature else ("Pendente" if payload.get("signature_requested") else "Não solicitada")],
+    ]
+    mt = Table(meta, colWidths=[150, 355])
+    mt.setStyle(TableStyle([
+        ("BACKGROUND",(0,0),(0,-1),colors.HexColor("#F8FAFC")),
+        ("GRID",(0,0),(-1,-1),0.4,colors.HexColor("#CBD5E1")),
+        ("FONTNAME",(0,0),(0,-1),"Helvetica-Bold"), ("FONTSIZE",(0,0),(-1,-1),8.5),
+        ("TEXTCOLOR",(0,0),(-1,-1),colors.HexColor("#334155")), ("VALIGN",(0,0),(-1,-1),"TOP"),
+        ("LEFTPADDING",(0,0),(-1,-1),7), ("RIGHTPADDING",(0,0),(-1,-1),7),
+        ("TOPPADDING",(0,0),(-1,-1),5), ("BOTTOMPADDING",(0,0),(-1,-1),5),
+    ]))
+    story += [mt, Spacer(1, 10)]
+
+    current_section = None
+    for q in questions:
+        sec = str(q.get("section") or "Geral")
+        if sec != current_section:
+            current_section = sec
+            story.append(Paragraph(html_lib.escape(sec), section))
+        key = str(q.get("id"))
+        question = html_lib.escape(str(q.get("label") or "Pergunta"))
+        answer = html_lib.escape(_pdf_answer(answers.get(key)))
+        t = Table([[Paragraph(question,qstyle), Paragraph(answer,astyle)]], colWidths=[250,255])
+        t.setStyle(TableStyle([
+            ("BOX",(0,0),(-1,-1),0.35,colors.HexColor("#D7DEE8")), ("VALIGN",(0,0),(-1,-1),"TOP"),
+            ("LEFTPADDING",(0,0),(-1,-1),6), ("RIGHTPADDING",(0,0),(-1,-1),6),
+            ("TOPPADDING",(0,0),(-1,-1),5), ("BOTTOMPADDING",(0,0),(-1,-1),5),
+        ]))
+        story += [t, Spacer(1, 4)]
+
+    story.append(Paragraph("Declarações", section))
+    story.append(Paragraph("✓ Respostas declaradas como verdadeiras e atuais." if payload.get("consent_truthful") else "Declaração de veracidade não confirmada.", note))
+    story.append(Paragraph("✓ Ciência de que a triagem não substitui consulta, diagnóstico ou liberação médica quando necessária." if payload.get("consent_screening") else "Declaração de ciência não confirmada.", note))
+
+    if red_flags:
+        story.append(Paragraph("Sinais de atenção", section))
+        for flag in red_flags:
+            story.append(Paragraph("• " + html_lib.escape(str(flag)), note))
+
+    story.append(Paragraph("Assinatura eletrônica", section))
+    if signature:
+        story.append(Paragraph(
+            "Assinado eletronicamente por <b>" + html_lib.escape(str(signature.get("signer_name") or "-")) +
+            "</b> em " + html_lib.escape(str(signature.get("signed_at") or "-")) +
+            ". Método: confirmação eletrônica no perfil do RITMOX.", note
+        ))
+    elif payload.get("signature_requested"):
+        story.append(Paragraph("Assinatura solicitada e ainda pendente.", note))
+    else:
+        story.append(Paragraph("Assinatura não solicitada.", note))
+
+    story += [Spacer(1,16), Paragraph("Documento gerado automaticamente pelo RITMOX. A triagem não substitui avaliação médica ou profissional quando indicada.", sub)]
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+
+@app.get("/api/profile/anamnesis")
+def profile_anamnesis(db: Session = Depends(session)):
+    items = db.scalars(select(HealthAssessment).order_by(HealthAssessment.id.desc()).limit(20)).all()
+    history = [assessment_payload(item, db) for item in items]
+    return {"latest": history[0] if history else None, "history": history, "count": len(history)}
+
+
+@app.post("/api/health-assessment/{assessment_id}/signature")
+def sign_health_assessment(assessment_id: int, data: AssessmentSignatureIn, db: Session = Depends(session)):
+    item = db.get(HealthAssessment, assessment_id)
+    if not item:
+        raise HTTPException(404, "Anamnese não encontrada.")
+    payload = json.loads(item.payload_json or "{}")
+    if not payload.get("signature_requested"):
+        raise HTTPException(409, "Esta anamnese não possui solicitação de assinatura.")
+    if not data.accepted:
+        raise HTTPException(422, "Confirme a declaração de assinatura eletrônica.")
+    if isinstance(payload.get("signature"), dict):
+        return assessment_payload(item, db)
+    now = datetime.now(timezone.utc)
+    payload["signature"] = {"signer_name": data.signer_name.strip(), "signed_at": now.isoformat(), "method": "electronic_attestation"}
+    item.payload_json = json.dumps(payload, ensure_ascii=False)
+    item.updated_at = now
+    db.commit()
+    db.refresh(item)
+    return assessment_payload(item, db)
+
+
+@app.get("/api/health-assessment/{assessment_id}/pdf")
+def health_assessment_pdf(assessment_id: int, db: Session = Depends(session)):
+    item = db.get(HealthAssessment, assessment_id)
+    if not item:
+        raise HTTPException(404, "Anamnese não encontrada.")
+    return StreamingResponse(_assessment_pdf_buffer(item), media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="RITMOX_Anamnese_{item.id}.pdf"'})
+
+
+@app.get("/api/profile/anamnesis/latest/pdf")
+def latest_profile_anamnesis_pdf(db: Session = Depends(session)):
+    item = db.scalars(select(HealthAssessment).order_by(HealthAssessment.id.desc())).first()
+    if not item:
+        raise HTTPException(404, "Nenhuma anamnese salva no perfil.")
+    return StreamingResponse(_assessment_pdf_buffer(item), media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="RITMOX_Anamnese_{item.id}.pdf"'})
 
 
 @app.get("/api/clearance-requests/latest")

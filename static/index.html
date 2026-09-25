@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
   <link rel="shortcut icon" type="image/png" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
   <link rel="apple-touch-icon" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
-  <link rel="stylesheet" href="/static/styles.css?v=20260925-40">
+  <link rel="stylesheet" href="/static/styles.css?v=20260925-41">
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true">
@@ -74,8 +74,8 @@
             <p>Disciplina hoje. Resultados sempre.</p>
           </div>
 
-          <button class="m-feature-card m-feature-strength" data-page="workouts">
-            <span class="m-feature-icon image-icon"><img class="m-feature-fixed-image m-feature-muscle-image" src="/static/assets/validated/muscle-approved.png?v=20260925-40" width="52" height="52" alt=""></span>
+          <button class="m-feature-card m-feature-strength home-image-card" data-page="workouts" aria-label="Abrir musculação">
+            <img class="home-card-art" src="/static/assets/home/home-strength-mobile.png?v=20260925-41" alt="">
             <span class="m-feature-copy">
               <small>TREINO DE HOJE</small>
               <strong>Musculação</strong>
@@ -84,8 +84,8 @@
             <span class="m-feature-arrow">›</span>
           </button>
 
-          <button class="m-feature-card m-feature-run" data-page="run">
-            <span class="m-feature-icon image-icon"><img class="m-feature-fixed-image" src="/static/assets/validated/run.webp?v=20260925-33" width="58" height="58" alt=""></span>
+          <button class="m-feature-card m-feature-run home-image-card" data-page="run" aria-label="Abrir corrida">
+            <img class="home-card-art" src="/static/assets/home/home-run-mobile.png?v=20260925-41" alt="">
             <span class="m-feature-copy">
               <small>CORRIDA</small>
               <strong>Corrida</strong>
@@ -114,9 +114,9 @@
         </div>
 
         <div class="hero-grid desktop-home-block">
-          <article class="hero-card strength-card" data-open="workouts">
+          <article class="hero-card strength-card home-image-card desktop-home-image-card" data-open="workouts">
+            <img class="home-card-art" src="/static/assets/home/home-strength-desktop.png?v=20260925-41" alt="">
             <div class="hero-card-head">
-              <div class="hero-icon image-icon desktop-hero-asset approved-desktop-asset"><img class="hero-asset-image hero-muscle-image" src="/static/assets/validated/muscle-approved.png?v=20260925-40" width="46" height="46" alt=""></div>
               <h2>Musculação</h2>
               <span class="hero-chevron">›</span>
             </div>
@@ -128,9 +128,9 @@
             <button class="hero-action pink">Iniciar treino</button>
           </article>
 
-          <article class="hero-card run-card" data-open="run">
+          <article class="hero-card run-card home-image-card desktop-home-image-card" data-open="run">
+            <img class="home-card-art" src="/static/assets/home/home-run-desktop.png?v=20260925-41" alt="">
             <div class="hero-card-head">
-              <div class="hero-icon image-icon desktop-hero-asset approved-desktop-asset"><img class="hero-asset-image" src="/static/assets/validated/run.webp?v=20260925-33" width="50" height="50" alt=""></div>
               <h2>Corrida</h2>
               <span class="hero-chevron">›</span>
             </div>
@@ -340,6 +340,18 @@
             <div class="profile-avatar">J</div>
             <div><h2>Júnior</h2><p>Atleta RITMOX</p></div>
           </article>
+          <article class="panel profile-anamnesis-card" id="profileAnamnesisCard">
+            <div class="profile-anamnesis-head">
+              <div><small>SAÚDE E TRIAGEM</small><h3>Anamnese</h3><p id="profileAnamnesisSubtitle">Carregando registro do aluno...</p></div>
+              <span id="profileAnamnesisStatus" class="status-pill">Carregando</span>
+            </div>
+            <div class="profile-anamnesis-meta" id="profileAnamnesisMeta"></div>
+            <div class="profile-anamnesis-actions">
+              <button type="button" class="ghost-btn" id="viewProfileAnamnesisBtn" hidden>Visualizar</button>
+              <button type="button" class="ghost-btn" id="signProfileAnamnesisBtn" hidden>Assinar anamnese</button>
+              <button type="button" class="primary-btn pink-btn" id="exportProfileAnamnesisBtn" hidden>Exportar PDF</button>
+            </div>
+          </article>
           <article class="panel profile-settings-card">
             <div>
               <small>ADMINISTRAÇÃO</small>
@@ -417,8 +429,19 @@
 
       <fieldset class="health-section consent-section">
         <legend>Declarações</legend>
-        <label><input id="haConsentTruthful" type="checkbox" required> Confirmo que as respostas são verdadeiras e atuais.</label>
-        <label><input id="haConsentScreening" type="checkbox" required> Entendo que esta triagem não substitui consulta, diagnóstico ou liberação médica quando necessária.</label>
+        <button type="button" class="consent-toggle" id="haConsentTruthful" data-consent-toggle role="checkbox" aria-checked="false">
+          <span class="consent-box" aria-hidden="true"></span><span>Confirmo que as respostas são verdadeiras e atuais.</span>
+        </button>
+        <button type="button" class="consent-toggle" id="haConsentScreening" data-consent-toggle role="checkbox" aria-checked="false">
+          <span class="consent-box" aria-hidden="true"></span><span>Entendo que esta triagem não substitui consulta, diagnóstico ou liberação médica quando necessária.</span>
+        </button>
+      </fieldset>
+      <fieldset class="health-section signature-request-section">
+        <legend>Assinatura</legend>
+        <button type="button" class="consent-toggle signature-request-toggle" id="haRequestSignature" data-consent-toggle role="checkbox" aria-checked="false">
+          <span class="consent-box" aria-hidden="true"></span><span>Solicitar assinatura eletrônica do aluno para esta anamnese.</span>
+        </button>
+        <small>Quando ativada, a anamnese ficará salva no perfil com assinatura pendente até ser assinada.</small>
       </fieldset>
 
       <div class="health-dialog-actions">
@@ -447,6 +470,27 @@
         <button type="button" class="ghost-btn" id="cancelClearanceBtn">Cancelar</button>
         <button type="submit" class="primary-btn pink-btn">Enviar solicitação</button>
       </div>
+    </form>
+  </div></div>
+
+  <div id="profileAnamnesisDialog" class="app-modal-overlay profile-anamnesis-dialog" hidden><div class="app-modal-surface">
+    <div class="profile-anamnesis-dialog-body">
+      <button type="button" class="dialog-close" id="closeProfileAnamnesisBtn" aria-label="Fechar">×</button>
+      <span class="eyebrow pink-text">ANAMNESE SALVA</span><h3>Registro do aluno</h3>
+      <div id="profileAnamnesisDetails" class="profile-anamnesis-details"></div>
+      <div class="dialog-actions"><button type="button" class="ghost-btn" id="closeProfileAnamnesisFooterBtn">Fechar</button><button type="button" class="primary-btn pink-btn" id="exportProfileAnamnesisDialogBtn">Exportar PDF</button></div>
+    </div>
+  </div></div>
+  <div id="signatureDialog" class="app-modal-overlay signature-dialog" hidden><div class="app-modal-surface">
+    <form id="signatureForm">
+      <button type="button" class="dialog-close" id="closeSignatureBtn" aria-label="Fechar">×</button>
+      <span class="eyebrow purple-text">ASSINATURA ELETRÔNICA</span><h3>Assinar anamnese</h3>
+      <p>Digite o nome completo do aluno e confirme a declaração abaixo.</p>
+      <label>Nome completo<input id="signatureName" required maxlength="160" placeholder="Nome completo do aluno"></label>
+      <button type="button" class="consent-toggle" id="signatureAccept" data-consent-toggle role="checkbox" aria-checked="false">
+        <span class="consent-box" aria-hidden="true"></span><span>Confirmo que sou o titular deste perfil e concordo em assinar eletronicamente esta anamnese.</span>
+      </button>
+      <div class="dialog-actions"><button type="button" class="ghost-btn" id="cancelSignatureBtn">Cancelar</button><button type="submit" class="primary-btn pink-btn">Confirmar assinatura</button></div>
     </form>
   </div></div>
 
@@ -567,6 +611,6 @@
   </dialog>
 
   <div id="toast" class="toast"></div>
-  <script src="/static/app.js?v=20260925-40"></script>
+  <script src="/static/app.js?v=20260925-41"></script>
 </body>
 </html>

@@ -20,6 +20,7 @@ const state = {
     loaded: false,
     formConfigured: false,
     formQuestions: [],
+    profile: null,
   },
   settings: {
     anamnesisQuestions: [],
@@ -71,6 +72,7 @@ function navigate(page){
   if(page==="home") setTimeout(drawProgressChart,50);
   if(page==="run") setTimeout(drawRunChart,50);
   if(page==="workouts") setTimeout(()=>loadHealthGate(),20);
+  if(page==="profile") setTimeout(()=>loadProfileAnamnesis(),20);
   if(page==="settings") setTimeout(()=>loadAnamnesisSettings(),20);
   window.scrollTo({top:0,behavior:"smooth"});
 }
@@ -515,8 +517,9 @@ function renderDynamicAnamnesis(){
     }
   });
 
-  $("#haConsentTruthful").checked=!!state.health.assessment?.data?.consent_truthful;
-  $("#haConsentScreening").checked=!!state.health.assessment?.data?.consent_screening;
+  setAriaCheck($("#haConsentTruthful"),!!state.health.assessment?.data?.consent_truthful);
+  setAriaCheck($("#haConsentScreening"),!!state.health.assessment?.data?.consent_screening);
+  setAriaCheck($("#haRequestSignature"),!!state.health.assessment?.signature_requested);
 }
 
 function renderAnamnesisQuestion(q){
@@ -609,8 +612,9 @@ async function submitHealthAssessment(ev){
   }
   const payload={
     answers:collectDynamicAnswers(),
-    consent_truthful:$("#haConsentTruthful").checked,
-    consent_screening:$("#haConsentScreening").checked
+    consent_truthful:isAriaChecked($("#haConsentTruthful")),
+    consent_screening:isAriaChecked($("#haConsentScreening")),
+    signature_requested:isAriaChecked($("#haRequestSignature"))
   };
   if(!payload.consent_truthful || !payload.consent_screening){
     toast("Confirme as duas declarações antes de concluir.");
@@ -646,6 +650,96 @@ async function loadHealthGate(){
     if(assessment?.training_allowed && form.configured){
       await loadTrainingCalendar(false);
     }
+  }catch(e){toast(e.message)}
+}
+
+
+function isAriaChecked(el){
+  return !!el && el.getAttribute("aria-checked")==="true";
+}
+function setAriaCheck(el,checked){
+  if(!el) return;
+  el.setAttribute("aria-checked",checked?"true":"false");
+  el.classList.toggle("is-checked",!!checked);
+}
+function toggleAriaCheck(el){ if(el) setAriaCheck(el,!isAriaChecked(el)); }
+function formatDateTimeBR(value){
+  if(!value) return "—";
+  const d=new Date(value);
+  return Number.isNaN(d.getTime())?String(value):d.toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"});
+}
+function assessmentStatusLabel(a){
+  if(!a) return "Sem anamnese";
+  if(a.professional_clearance) return "Liberada";
+  if(a.risk_status==="attention_required") return "Requer avaliação";
+  return "Concluída";
+}
+function signatureStatusLabel(a){
+  if(!a) return "—";
+  if(a.signature_status==="signed") return "Assinada";
+  if(a.signature_status==="pending") return "Assinatura pendente";
+  return "Não solicitada";
+}
+async function loadProfileAnamnesis(){
+  if(!$("#profileAnamnesisCard")) return;
+  try{ state.health.profile=await api("/api/profile/anamnesis"); renderProfileAnamnesis(); }
+  catch(e){ $("#profileAnamnesisSubtitle").textContent="Não foi possível carregar a anamnese."; toast(e.message); }
+}
+function renderProfileAnamnesis(){
+  const latest=state.health.profile?.latest||null;
+  const status=$("#profileAnamnesisStatus"), subtitle=$("#profileAnamnesisSubtitle"), meta=$("#profileAnamnesisMeta");
+  const view=$("#viewProfileAnamnesisBtn"), sign=$("#signProfileAnamnesisBtn"), pdf=$("#exportProfileAnamnesisBtn");
+  if(!latest){
+    status.textContent="Não preenchida"; status.className="status-pill"; subtitle.textContent="Nenhuma anamnese foi salva neste perfil.";
+    meta.innerHTML=""; view.hidden=sign.hidden=pdf.hidden=true; return;
+  }
+  status.textContent=assessmentStatusLabel(latest);
+  status.className="status-pill "+(latest.risk_status==="attention_required"&&!latest.professional_clearance?"warning":"connected");
+  subtitle.textContent="Última atualização: "+formatDateTimeBR(latest.updated_at||latest.completed_at);
+  meta.innerHTML='<div><small>TRIAGEM</small><strong>'+escapeHTML(assessmentStatusLabel(latest))+'</strong></div>'+
+    '<div><small>ASSINATURA</small><strong>'+escapeHTML(signatureStatusLabel(latest))+'</strong></div>'+
+    '<div><small>REGISTRO</small><strong>#'+latest.id+'</strong></div>';
+  view.hidden=false; pdf.hidden=false; sign.hidden=latest.signature_status!=="pending";
+}
+function answerText(value){
+  if(value===null||value===undefined||value==="") return "Não informado";
+  if(typeof value==="boolean") return value?"Sim":"Não";
+  if(Array.isArray(value)) return value.length?value.join(", "):"Não informado";
+  return String(value);
+}
+function openProfileAnamnesis(){
+  const a=state.health.profile?.latest; if(!a) return;
+  const questions=a.data?.questions_snapshot||[], answers=a.data?.answers||{}; let current=""; const body=[];
+  questions.forEach(q=>{
+    if(q.section!==current){current=q.section;body.push("<h4>"+escapeHTML(current||"Geral")+"</h4>");}
+    body.push('<div class="profile-answer-row"><strong>'+escapeHTML(q.label||"Pergunta")+'</strong><span>'+escapeHTML(answerText(answers[String(q.id)]))+'</span></div>');
+  });
+  body.push("<h4>Declarações e assinatura</h4>");
+  body.push('<div class="profile-answer-row"><strong>Respostas verdadeiras e atuais</strong><span>'+(a.data?.consent_truthful?"Confirmado":"Não confirmado")+'</span></div>');
+  body.push('<div class="profile-answer-row"><strong>Ciência da triagem</strong><span>'+(a.data?.consent_screening?"Confirmado":"Não confirmado")+'</span></div>');
+  body.push('<div class="profile-answer-row"><strong>Assinatura</strong><span>'+escapeHTML(signatureStatusLabel(a))+(a.signature?.signer_name?" · "+escapeHTML(a.signature.signer_name):"")+'</span></div>');
+  $("#profileAnamnesisDetails").innerHTML=body.join(""); openDialogSafe($("#profileAnamnesisDialog"));
+}
+function exportProfileAnamnesis(){
+  const a=state.health.profile?.latest; if(!a){toast("Nenhuma anamnese salva no perfil.");return;}
+  window.open("/api/health-assessment/"+a.id+"/pdf?ts="+Date.now(),"_blank");
+}
+function openSignatureDialog(){
+  const a=state.health.profile?.latest; if(!a||a.signature_status!=="pending") return;
+  const questions=a.data?.questions_snapshot||[];
+  const nameQ=questions.find(q=>(q.label||"").toLowerCase().includes("nome completo"));
+  const savedName=nameQ?a.data?.answers?.[String(nameQ.id)]:"";
+  $("#signatureName").value=savedName||""; setAriaCheck($("#signatureAccept"),false); openDialogSafe($("#signatureDialog"));
+}
+async function submitSignature(ev){
+  ev.preventDefault(); const a=state.health.profile?.latest; if(!a) return;
+  const signer_name=$("#signatureName").value.trim(), accepted=isAriaChecked($("#signatureAccept"));
+  if(signer_name.length<2){toast("Informe o nome completo para assinar.");return;}
+  if(!accepted){toast("Confirme a declaração de assinatura eletrônica.");return;}
+  try{
+    const result=await api("/api/health-assessment/"+a.id+"/signature",{method:"POST",body:JSON.stringify({signer_name:signer_name,accepted:true})});
+    closeDialogSafe($("#signatureDialog")); state.health.profile=await api("/api/profile/anamnesis"); state.health.assessment=result;
+    renderProfileAnamnesis(); toast("Anamnese assinada e atualizada no perfil.");
   }catch(e){toast(e.message)}
 }
 
@@ -1446,6 +1540,17 @@ if($("#closeClearanceBtn")) $("#closeClearanceBtn").onclick=closeClearanceDialog
 if($("#cancelClearanceBtn")) $("#cancelClearanceBtn").onclick=closeClearanceDialog;
 if($("#clearanceForm")) $("#clearanceForm").addEventListener("submit",submitClearance);
 
+
+if($("#viewProfileAnamnesisBtn")) $("#viewProfileAnamnesisBtn").onclick=openProfileAnamnesis;
+if($("#exportProfileAnamnesisBtn")) $("#exportProfileAnamnesisBtn").onclick=exportProfileAnamnesis;
+if($("#exportProfileAnamnesisDialogBtn")) $("#exportProfileAnamnesisDialogBtn").onclick=exportProfileAnamnesis;
+if($("#signProfileAnamnesisBtn")) $("#signProfileAnamnesisBtn").onclick=openSignatureDialog;
+if($("#closeProfileAnamnesisBtn")) $("#closeProfileAnamnesisBtn").onclick=()=>closeDialogSafe($("#profileAnamnesisDialog"));
+if($("#closeProfileAnamnesisFooterBtn")) $("#closeProfileAnamnesisFooterBtn").onclick=()=>closeDialogSafe($("#profileAnamnesisDialog"));
+if($("#closeSignatureBtn")) $("#closeSignatureBtn").onclick=()=>closeDialogSafe($("#signatureDialog"));
+if($("#cancelSignatureBtn")) $("#cancelSignatureBtn").onclick=()=>closeDialogSafe($("#signatureDialog"));
+if($("#signatureForm")) $("#signatureForm").addEventListener("submit",submitSignature);
+
 window.addEventListener("resize",()=>{
   clearTimeout(window._resize);
   window._resize=setTimeout(()=>{drawProgressChart();drawRunChart()},120);
@@ -1461,12 +1566,10 @@ window.addEventListener("resize",()=>{
   navigate(pageMeta[hash]?hash:"home");
 })();
 
-function handleAnamnesisCheckboxClick(ev){
-  const option=ev.target.closest("[data-anamnesis-option]");
+function handleAriaCheckboxClick(ev){
+  const option=ev.target.closest("[data-anamnesis-option],[data-consent-toggle]");
   if(!option) return;
   ev.preventDefault();
-  const checked=option.getAttribute("aria-checked")==="true";
-  option.setAttribute("aria-checked",checked?"false":"true");
-  option.classList.toggle("is-checked",!checked);
+  toggleAriaCheck(option);
 }
-document.addEventListener("click",handleAnamnesisCheckboxClick);
+document.addEventListener("click",handleAriaCheckboxClick);
