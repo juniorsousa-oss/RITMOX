@@ -25,7 +25,9 @@ jobs:
         run: |
           python -m pip install --quiet -r requirements.txt
           python - <<'PY'
-          import json
+          import json, base64
+          from io import BytesIO
+          from PIL import Image, ImageDraw
           import app
           from sqlalchemy import select
 
@@ -41,7 +43,12 @@ jobs:
                   elif q.question_type=="date": answers[str(q.id)]="1990-01-01"
                   elif q.question_type=="number": answers[str(q.id)]=1
                   else: answers[str(q.id)]="Teste"
-              signature="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL7WQAAAABJRU5ErkJggg=="
+              img=Image.new("RGBA",(500,140),(255,255,255,0))
+              draw=ImageDraw.Draw(img)
+              draw.line([(30,90),(110,55),(180,95),(260,48),(360,88),(455,62)],fill=(255,45,122,255),width=8)
+              bio=BytesIO()
+              img.save(bio,format="PNG")
+              signature="data:image/png;base64,"+base64.b64encode(bio.getvalue()).decode()
               data=app.DynamicHealthAssessmentIn(
                   answers=answers,
                   consent_truthful=True,
