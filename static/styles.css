@@ -1234,3 +1234,63 @@ input[type="checkbox"]{
   -webkit-user-select:none;
   touch-action:manipulation;
 }
+
+/* === v29: native checkbox reliability + approved icon spacing === */
+.dynamic-multiselect label,
+.settings-check,
+.consent-section label,
+.health-check-grid label{
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.dynamic-multiselect label{
+  display:flex!important;
+  align-items:center!important;
+  gap:12px!important;
+}
+.dynamic-multiselect label input[type="checkbox"]{
+  flex:0 0 20px!important;
+}
+input[type="checkbox"]{
+  -webkit-appearance:checkbox!important;
+  appearance:checkbox!important;
+  width:20px!important;
+  height:20px!important;
+  min-width:20px!important;
+  min-height:20px!important;
+  margin:0!important;
+  pointer-events:auto!important;
+  touch-action:manipulation!important;
+  cursor:pointer!important;
+  accent-color:var(--pink)!important;
+}
+
+/* Feature-card geometry: icon and copy cannot overlap. */
+@media (max-width:700px){
+  .m-feature-card{
+    grid-template-columns:58px minmax(0,1fr) auto!important;
+    column-gap:16px!important;
+    padding-left:16px!important;
+    padding-right:16px!important;
+  }
+  .m-feature-strength .m-feature-icon img,
+  .m-feature-run .m-feature-icon img{
+    width:58px!important;
+    height:58px!important;
+    object-fit:contain!important;
+    transform:none!important;
+  }
+  .m-feature-copy{
+    min-width:0!important;
+    padding-left:0!important;
+  }
+}
+@media (min-width:701px){
+  .hero-card-head{
+    gap:16px!important;
+  }
+  .hero-card-head .hero-copy,
+  .hero-card-head > div:not(.hero-icon){
+    min-width:0!important;
+  }
+}
