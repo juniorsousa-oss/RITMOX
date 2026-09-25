@@ -160,8 +160,8 @@ function renderWorkout(w){
       </div>
     </article>`;
   }).join("");
-  $$$("[data-complete]").forEach(b=>b.onclick=()=>completeSet(Number(b.dataset.complete)));
-  $$$("[data-undo]").forEach(b=>b.onclick=()=>undoSet(Number(b.dataset.undo)));
+  $$("[data-complete]").forEach(b=>b.onclick=()=>completeSet(Number(b.dataset.complete)));
+  $$("[data-undo]").forEach(b=>b.onclick=()=>undoSet(Number(b.dataset.undo)));
 
   const current=w.exercises.find(e=>e.sets_done<e.sets_total) || w.exercises[0];
   const currentIndex=Math.max(0,w.exercises.findIndex(e=>e.id===current?.id));
