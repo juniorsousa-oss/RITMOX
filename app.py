@@ -1,0 +1,294 @@
+from __future__ import annotations
+
+import os
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Generator
+
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, create_engine, select
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
+
+ROOT = Path(__file__).resolve().parent
+STATIC = ROOT / "static"
+
+database_url = os.getenv("DATABASE_URL", f"sqlite:///{ROOT / 'ritmox.db'}")
+if database_url.startswith("postgres://"):
+    database_url = "postgresql+psycopg://" + database_url[len("postgres://"):]
+elif database_url.startswith("postgresql://") and "+psycopg" not in database_url:
+    database_url = "postgresql+psycopg://" + database_url[len("postgresql://"):]
+
+engine = create_engine(
+    database_url,
+    connect_args={"check_same_thread": False} if database_url.startswith("sqlite:") else {},
+    pool_pre_ping=True,
+)
+DB = sessionmaker(bind=engine, expire_on_commit=False)
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class Workout(Base):
+    __tablename__ = "workouts"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    modality: Mapped[str] = mapped_column(String(40), default="musculacao")
+    title: Mapped[str] = mapped_column(String(160))
+    subtitle: Mapped[str] = mapped_column(String(220), default="")
+    duration_min: Mapped[int] = mapped_column(Integer, default=45)
+    started: Mapped[bool] = mapped_column(Boolean, default=False)
+    completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    exercises: Mapped[list["Exercise"]] = relationship(back_populates="workout", cascade="all, delete-orphan")
+
+
+class Exercise(Base):
+    __tablename__ = "exercises"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    workout_id: Mapped[int] = mapped_column(ForeignKey("workouts.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(160))
+    muscle: Mapped[str] = mapped_column(String(120), default="")
+    sets_total: Mapped[int] = mapped_column(Integer, default=4)
+    reps: Mapped[str] = mapped_column(String(30), default="8-10")
+    load_kg: Mapped[float] = mapped_column(Float, default=0)
+    sets_done: Mapped[int] = mapped_column(Integer, default=0)
+    workout: Mapped[Workout] = relationship(back_populates="exercises")
+
+
+class RunActivity(Base):
+    __tablename__ = "run_activities"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(160), default="Corrida Matinal")
+    distance_km: Mapped[float] = mapped_column(Float, default=5.02)
+    duration_sec: Mapped[int] = mapped_column(Integer, default=1716)
+    avg_pace: Mapped[str] = mapped_column(String(16), default="5:42")
+    calories: Mapped[int] = mapped_column(Integer, default=432)
+    avg_hr: Mapped[int] = mapped_column(Integer, default=162)
+    elevation_m: Mapped[int] = mapped_column(Integer, default=5)
+    source: Mapped[str] = mapped_column(String(30), default="manual")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class Modality(Base):
+    __tablename__ = "modalities"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), unique=True)
+    icon: Mapped[str] = mapped_column(String(16), default="●")
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+Base.metadata.create_all(engine)
+
+
+def session() -> Generator[Session, None, None]:
+    db = DB()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def seed() -> None:
+    db = DB()
+    try:
+        if db.scalar(select(Workout.id).limit(1)) is None:
+            w = Workout(
+                modality="musculacao",
+                title="Inferiores — Força e Hipertrofia",
+                subtitle="6 exercícios • nível intermediário",
+                duration_min=45,
+            )
+            w.exercises = [
+                Exercise(name="Agachamento Livre", muscle="Quadríceps • Glúteos • Posteriores", sets_total=4, reps="8-10", load_kg=60),
+                Exercise(name="Leg Press 45°", muscle="Quadríceps • Glúteos", sets_total=4, reps="10", load_kg=120),
+                Exercise(name="Cadeira Extensora", muscle="Quadríceps", sets_total=3, reps="12", load_kg=45),
+                Exercise(name="Mesa Flexora", muscle="Posteriores", sets_total=4, reps="10-12", load_kg=35),
+                Exercise(name="Elevação Pélvica", muscle="Glúteos", sets_total=4, reps="8-10", load_kg=80),
+                Exercise(name="Panturrilha em Pé", muscle="Panturrilhas", sets_total=4, reps="12-15", load_kg=50),
+            ]
+            db.add(w)
+        if db.scalar(select(RunActivity.id).limit(1)) is None:
+            db.add(RunActivity())
+        if db.scalar(select(Modality.id).limit(1)) is None:
+            db.add_all([
+                Modality(name="Musculação", icon="M"),
+                Modality(name="Corrida", icon="R"),
+            ])
+        db.commit()
+    finally:
+        db.close()
+
+
+seed()
+app = FastAPI(title="RITMOX", version="0.1.0")
+app.mount("/static", StaticFiles(directory=STATIC), name="static")
+
+
+@app.get("/", include_in_schema=False)
+def home():
+    return FileResponse(STATIC / "index.html")
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "app": "RITMOX"}
+
+
+def workout_payload(w: Workout) -> dict:
+    return {
+        "id": w.id,
+        "modality": w.modality,
+        "title": w.title,
+        "subtitle": w.subtitle,
+        "duration_min": w.duration_min,
+        "started": w.started,
+        "completed": w.completed,
+        "exercises": [
+            {
+                "id": e.id,
+                "name": e.name,
+                "muscle": e.muscle,
+                "sets_total": e.sets_total,
+                "reps": e.reps,
+                "load_kg": e.load_kg,
+                "sets_done": e.sets_done,
+            }
+            for e in w.exercises
+        ],
+    }
+
+
+@app.get("/api/dashboard")
+def dashboard(db: Session = Depends(session)):
+    workouts = db.scalars(select(Workout)).all()
+    run = db.scalars(select(RunActivity).order_by(RunActivity.created_at.desc())).first()
+    total_sets = sum(e.sets_done for w in workouts for e in w.exercises)
+    total_load = sum(e.sets_done * e.load_kg for w in workouts for e in w.exercises)
+    completed = sum(1 for w in workouts if w.completed)
+    return {
+        "user": {"name": "Júnior"},
+        "stats": {
+            "workouts": max(18, completed),
+            "distance_km": round(run.distance_km if run else 0, 1),
+            "total_load_kg": round(max(12480, total_load), 0),
+            "active_time": "16h 20min",
+            "sets_done": total_sets,
+        },
+        "weekly": [4, 6, 3, 7, 5, 8, 6, 9, 7, 10, 8, 12],
+    }
+
+
+@app.get("/api/workouts/current")
+def current_workout(db: Session = Depends(session)):
+    w = db.scalars(select(Workout).where(Workout.modality == "musculacao").order_by(Workout.id)).first()
+    if not w:
+        raise HTTPException(404, "Treino não encontrado")
+    return workout_payload(w)
+
+
+@app.post("/api/workouts/{workout_id}/start")
+def start_workout(workout_id: int, db: Session = Depends(session)):
+    w = db.get(Workout, workout_id)
+    if not w:
+        raise HTTPException(404, "Treino não encontrado")
+    w.started = True
+    db.commit()
+    return workout_payload(w)
+
+
+@app.post("/api/exercises/{exercise_id}/complete-set")
+def complete_set(exercise_id: int, db: Session = Depends(session)):
+    e = db.get(Exercise, exercise_id)
+    if not e:
+        raise HTTPException(404, "Exercício não encontrado")
+    if e.sets_done < e.sets_total:
+        e.sets_done += 1
+    w = e.workout
+    if all(x.sets_done >= x.sets_total for x in w.exercises):
+        w.completed = True
+    db.commit()
+    return {"exercise": {"id": e.id, "sets_done": e.sets_done, "sets_total": e.sets_total}, "workout_completed": w.completed}
+
+
+@app.post("/api/exercises/{exercise_id}/undo-set")
+def undo_set(exercise_id: int, db: Session = Depends(session)):
+    e = db.get(Exercise, exercise_id)
+    if not e:
+        raise HTTPException(404, "Exercício não encontrado")
+    e.sets_done = max(0, e.sets_done - 1)
+    e.workout.completed = False
+    db.commit()
+    return {"id": e.id, "sets_done": e.sets_done, "sets_total": e.sets_total}
+
+
+@app.get("/api/runs/latest")
+def latest_run(db: Session = Depends(session)):
+    r = db.scalars(select(RunActivity).order_by(RunActivity.created_at.desc())).first()
+    if not r:
+        raise HTTPException(404, "Corrida não encontrada")
+    return {
+        "id": r.id,
+        "title": r.title,
+        "distance_km": r.distance_km,
+        "duration_sec": r.duration_sec,
+        "duration": f"{r.duration_sec // 60}:{r.duration_sec % 60:02d}",
+        "avg_pace": r.avg_pace,
+        "calories": r.calories,
+        "avg_hr": r.avg_hr,
+        "elevation_m": r.elevation_m,
+        "source": r.source,
+        "splits": ["5:28", "5:20", "5:06", "5:03", "4:58"],
+    }
+
+
+class RunIn(BaseModel):
+    title: str = Field(default="Corrida", min_length=2, max_length=160)
+    distance_km: float = Field(gt=0, le=500)
+    duration_sec: int = Field(gt=0)
+    avg_pace: str = Field(min_length=3, max_length=16)
+    calories: int = Field(default=0, ge=0)
+    avg_hr: int = Field(default=0, ge=0)
+    elevation_m: int = Field(default=0, ge=0)
+
+
+@app.post("/api/runs")
+def create_run(data: RunIn, db: Session = Depends(session)):
+    r = RunActivity(**data.model_dump())
+    db.add(r)
+    db.commit()
+    db.refresh(r)
+    return {"id": r.id, "ok": True}
+
+
+@app.get("/api/modalities")
+def modalities(db: Session = Depends(session)):
+    return [{"id": m.id, "name": m.name, "icon": m.icon, "active": m.active} for m in db.scalars(select(Modality).order_by(Modality.id)).all()]
+
+
+class ModalityIn(BaseModel):
+    name: str = Field(min_length=2, max_length=100)
+    icon: str = Field(default="●", max_length=16)
+
+
+@app.post("/api/modalities")
+def add_modality(data: ModalityIn, db: Session = Depends(session)):
+    exists = db.scalar(select(Modality).where(Modality.name == data.name))
+    if exists:
+        raise HTTPException(409, "Modalidade já cadastrada")
+    m = Modality(name=data.name.strip(), icon=data.icon)
+    db.add(m)
+    db.commit()
+    db.refresh(m)
+    return {"id": m.id, "name": m.name, "icon": m.icon, "active": m.active}
+
+
+@app.get("/api/integrations/strava")
+def strava_status():
+    return {
+        "configured": bool(os.getenv("STRAVA_CLIENT_ID") and os.getenv("STRAVA_CLIENT_SECRET")),
+        "connected": False,
+        "message": "Estrutura preparada. OAuth será ativado na etapa de integração.",
+    }
