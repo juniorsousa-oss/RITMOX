@@ -1061,138 +1061,176 @@ body.modal-open{overflow:hidden}
   .settings-head-actions button{width:100%}
 }
 
-/* === DESKTOP ICON RENDER FIXES === */
-@media (min-width:701px){
-  .side-nav .nav-item img.desktop-nav-asset{
-    width:32px;
-    height:32px;
-    flex:0 0 32px;
-    object-fit:contain;
-    object-position:center;
-    border-radius:0;
-    overflow:visible;
-    transform:none;
-  }
-  .side-nav .nav-item img.profile-nav-asset{
-    width:31px;
-    height:31px;
-  }
 
-  .hero-card-head .desktop-hero-asset{
-    width:48px;
-    height:48px;
-    min-width:48px;
-    min-height:48px;
-    overflow:visible!important;
-    border-radius:0!important;
-    background:transparent!important;
-    display:grid;
-    place-items:center;
-  }
-  .hero-card-head .desktop-hero-asset .hero-asset-image{
-    width:46px;
-    height:46px;
-    max-width:none;
-    max-height:none;
-    object-fit:contain;
-    object-position:center;
-    border-radius:0;
-    display:block;
-  }
+/* === RITMOX CANONICAL ICON + CONTROL SYSTEM v28 === */
+:root{
+  --rtx-icon-nav: 42px;
+  --rtx-icon-feature: 58px;
+  --rtx-icon-kpi: 42px;
+  --rtx-icon-desktop-nav: 32px;
+  --rtx-icon-desktop-feature: 50px;
+  --rtx-icon-desktop-kpi: 38px;
 }
 
-/* === CLEAN DESKTOP ICON NORMALIZATION === */
-@media (min-width:701px){
-  .side-nav .nav-item img.profile-nav-asset{
-    width:30px!important;
-    height:30px!important;
-    flex:0 0 30px!important;
-    object-fit:contain!important;
-    object-position:center!important;
-    border-radius:8px!important;
-    transform:none!important;
-  }
-
-  .hero-card-head .desktop-hero-asset{
-    width:46px!important;
-    height:46px!important;
-    min-width:46px!important;
-    min-height:46px!important;
-    border-radius:12px!important;
-    overflow:hidden!important;
-    background:transparent!important;
-  }
-  .hero-card-head .desktop-hero-asset .hero-asset-image{
-    width:46px!important;
-    height:46px!important;
-    display:block!important;
-    object-fit:contain!important;
-    object-position:center!important;
-    border-radius:12px!important;
-    transform:none!important;
-  }
-
-  .stat-icon.desktop-stat-asset{
-    width:36px!important;
-    height:36px!important;
-    min-width:36px!important;
-    min-height:36px!important;
-    border-radius:10px!important;
-    overflow:hidden!important;
-    background:transparent!important;
-  }
-  .stat-icon.desktop-stat-asset img{
-    width:36px!important;
-    height:36px!important;
-    display:block!important;
-    object-fit:contain!important;
-    object-position:center!important;
-    border-radius:10px!important;
-  }
+/* One fixed square, alignment rule and image rule for every navigation icon. */
+.bottom-nav .nav-glyph{
+  width:var(--rtx-icon-nav)!important;
+  height:var(--rtx-icon-nav)!important;
+  min-width:var(--rtx-icon-nav)!important;
+  min-height:var(--rtx-icon-nav)!important;
+  display:grid!important;
+  place-items:center!important;
+  padding:0!important;
+  margin:0 auto 5px!important;
+  overflow:visible!important;
+}
+.bottom-nav .nav-glyph img{
+  width:100%!important;
+  height:100%!important;
+  max-width:none!important;
+  max-height:none!important;
+  display:block!important;
+  object-fit:contain!important;
+  object-position:center!important;
+  transform:none!important;
 }
 
-/* === APPROVED DESKTOP ASSET RESTORE === */
+/* Source artworks for Treinos/Corrida contain more internal breathing room.
+   Compensate inside the same 42x42 layout box so their visible footprint equals the other approved icons. */
+.bottom-nav [data-page="workouts"] .nav-glyph img,
+.bottom-nav [data-page="run"] .nav-glyph img{
+  transform:scale(1.12)!important;
+}
+
+/* Home feature icons: identical boxes, identical geometry. */
+.m-feature-icon{
+  width:var(--rtx-icon-feature)!important;
+  height:var(--rtx-icon-feature)!important;
+  min-width:var(--rtx-icon-feature)!important;
+  min-height:var(--rtx-icon-feature)!important;
+  display:grid!important;
+  place-items:center!important;
+  padding:0!important;
+  border-radius:14px!important;
+  overflow:visible!important;
+  background:transparent!important;
+}
+.m-feature-icon img{
+  width:100%!important;
+  height:100%!important;
+  max-width:none!important;
+  max-height:none!important;
+  object-fit:contain!important;
+  object-position:center!important;
+  display:block!important;
+  border-radius:14px!important;
+  transform:none!important;
+}
+
+/* KPI icons: same size/spacing regardless of modality. */
+.m-kpi-icon{
+  width:var(--rtx-icon-kpi)!important;
+  height:var(--rtx-icon-kpi)!important;
+  min-width:var(--rtx-icon-kpi)!important;
+  min-height:var(--rtx-icon-kpi)!important;
+  display:grid!important;
+  place-items:center!important;
+  padding:0!important;
+  overflow:visible!important;
+  background:transparent!important;
+}
+.m-kpi-icon img{
+  width:100%!important;
+  height:100%!important;
+  max-width:none!important;
+  max-height:none!important;
+  object-fit:contain!important;
+  object-position:center!important;
+  display:block!important;
+  transform:none!important;
+}
+
+/* Desktop follows the same sizing contract. */
 @media (min-width:701px){
-  .hero-card-head .approved-desktop-asset{
-    width:50px!important;
-    height:50px!important;
-    min-width:50px!important;
-    min-height:50px!important;
-    border-radius:12px!important;
-    overflow:visible!important;
-    background:transparent!important;
+  .side-nav .nav-item img{
+    width:var(--rtx-icon-desktop-nav)!important;
+    height:var(--rtx-icon-desktop-nav)!important;
+    min-width:var(--rtx-icon-desktop-nav)!important;
+    min-height:var(--rtx-icon-desktop-nav)!important;
+    flex:0 0 var(--rtx-icon-desktop-nav)!important;
+    object-fit:contain!important;
+    object-position:center!important;
+    transform:none!important;
+  }
+  .hero-card-head .image-icon,
+  .hero-card-head .desktop-hero-asset{
+    width:var(--rtx-icon-desktop-feature)!important;
+    height:var(--rtx-icon-desktop-feature)!important;
+    min-width:var(--rtx-icon-desktop-feature)!important;
+    min-height:var(--rtx-icon-desktop-feature)!important;
+    display:grid!important;
+    place-items:center!important;
     padding:0!important;
+    overflow:visible!important;
+    background:transparent!important;
   }
-  .hero-card-head .approved-desktop-asset img{
-    width:50px!important;
-    height:50px!important;
+  .hero-card-head .image-icon img,
+  .hero-card-head .desktop-hero-asset img{
+    width:100%!important;
+    height:100%!important;
     max-width:none!important;
     max-height:none!important;
-    display:block!important;
     object-fit:contain!important;
     object-position:center!important;
-    border-radius:12px!important;
     transform:none!important;
-    filter:none!important;
   }
-  .stat-icon.approved-desktop-asset{
-    width:38px!important;
-    height:38px!important;
-    min-width:38px!important;
-    min-height:38px!important;
+  .stat-card .stat-icon{
+    width:var(--rtx-icon-desktop-kpi)!important;
+    height:var(--rtx-icon-desktop-kpi)!important;
+    min-width:var(--rtx-icon-desktop-kpi)!important;
+    min-height:var(--rtx-icon-desktop-kpi)!important;
     padding:0!important;
+    display:grid!important;
+    place-items:center!important;
     overflow:visible!important;
     background:transparent!important;
-    border-radius:10px!important;
   }
-  .stat-icon.approved-desktop-asset img{
-    width:38px!important;
-    height:38px!important;
-    display:block!important;
+  .stat-card .stat-icon img{
+    width:100%!important;
+    height:100%!important;
     object-fit:contain!important;
     object-position:center!important;
-    border-radius:10px!important;
+    display:block!important;
     transform:none!important;
-    filter:none!important;
   }
+}
+
+/* Checkboxes: native interactive control restored and made touch-safe. */
+input[type="checkbox"]{
+  -webkit-appearance:checkbox!important;
+  appearance:checkbox!important;
+  width:18px!important;
+  height:18px!important;
+  min-width:18px!important;
+  min-height:18px!important;
+  padding:0!important;
+  margin:0!important;
+  opacity:1!important;
+  visibility:visible!important;
+  pointer-events:auto!important;
+  cursor:pointer!important;
+  touch-action:manipulation!important;
+  position:relative!important;
+  z-index:3!important;
+  accent-color:var(--pink)!important;
+}
+.settings-check,
+.dynamic-multiselect label,
+.consent-section label,
+.health-check-grid label{
+  cursor:pointer!important;
+  pointer-events:auto!important;
+  user-select:none;
+  -webkit-user-select:none;
+  touch-action:manipulation;
 }
