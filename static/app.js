@@ -963,8 +963,12 @@ function modalityLabel(modality){
 }
 
 function modalityIcon(modality){
-  if(modality==="musculacao") return "/static/assets/validated/muscle-approved.png";
-  if(modality==="corrida") return "/static/assets/validated/run-approved.png";
+  if(modality==="musculacao"){
+    return $(".m-feature-strength img")?.src || "/static/assets/validated/muscle-approved.png";
+  }
+  if(modality==="corrida"){
+    return $(".m-feature-run img")?.src || "/static/assets/validated/run-approved.png";
+  }
   return "/static/assets/validated/evolution.webp";
 }
 
