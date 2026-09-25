@@ -259,7 +259,7 @@ function fitCanvas(canvas, cssHeight){
 function drawProgressChart(){
   const canvas=$("#progressChart");
   if(!canvas || !canvas.parentElement.offsetParent) return;
-  const fit=fitCanvas(canvas,230); if(!fit)return;
+  const fit=fitCanvas(canvas, window.innerWidth > 700 ? 105 : 180); if(!fit)return;
   const {ctx,width,height}=fit;
   const data=(state.dashboard&&state.dashboard.weekly)||Array(12).fill(0);
   ctx.clearRect(0,0,width,height);
@@ -290,7 +290,7 @@ function drawProgressChart(){
 function drawRunChart(){
   const canvas=$("#runChart");
   if(!canvas || !canvas.parentElement.offsetParent) return;
-  const fit=fitCanvas(canvas,220); if(!fit)return;
+  const fit=fitCanvas(canvas, window.innerWidth > 700 ? 150 : 150); if(!fit)return;
   const {ctx,width,height}=fit;
   const vals=state.run ? [4.8,6.2,3.9,5.6,4.5,6.8,3.7,5.2,7.1,4.9,5.8,4.3] : Array(12).fill(0);
   ctx.clearRect(0,0,width,height);
