@@ -519,39 +519,46 @@ function renderAnamnesisQuestion(q){
   const req=q.required?'<span class="required-mark">*</span>':"";
   const help=q.help_text?`<small class="question-help">${escapeHTML(q.help_text)}</small>`:"";
   const common=`data-question="${q.id}"`;
+  const controlId=`anamnesis-control-${q.id}`;
   let control="";
+
   if(q.question_type==="yes_no"){
-    control=`<select data-answer ${q.required?"required":""}>
+    control=`<select id="${controlId}" data-answer ${q.required?"required":""}>
       <option value="">Selecione</option>
       <option value="sim">Sim</option>
       <option value="nao">Não</option>
     </select>`;
   }else if(q.question_type==="textarea"){
-    control=`<textarea data-answer rows="3" ${q.required?"required":""} placeholder="${escapeHTML(q.placeholder||"")}"></textarea>`;
+    control=`<textarea id="${controlId}" data-answer rows="3" ${q.required?"required":""} placeholder="${escapeHTML(q.placeholder||"")}"></textarea>`;
   }else if(q.question_type==="number"){
-    control=`<input data-answer type="number" step="any" ${q.required?"required":""} placeholder="${escapeHTML(q.placeholder||"")}">`;
+    control=`<input id="${controlId}" data-answer type="number" step="any" ${q.required?"required":""} placeholder="${escapeHTML(q.placeholder||"")}">`;
   }else if(q.question_type==="date"){
-    control=`<input data-answer type="date" ${q.required?"required":""}>`;
+    control=`<input id="${controlId}" data-answer type="date" ${q.required?"required":""}>`;
   }else if(q.question_type==="select"){
-    control=`<select data-answer ${q.required?"required":""}>
+    control=`<select id="${controlId}" data-answer ${q.required?"required":""}>
       <option value="">Selecione</option>
       ${(q.options||[]).map(opt=>`<option value="${escapeHTML(opt)}">${escapeHTML(opt)}</option>`).join("")}
     </select>`;
   }else if(q.question_type==="multiselect"){
-    control=`<div class="dynamic-multiselect">
+    control=`<div class="dynamic-multiselect" role="group" aria-labelledby="anamnesis-label-${q.id}">
       ${(q.options||[]).map((opt,index)=>{
         const inputId=`anamnesis-q-${q.id}-${index}`;
-        return `<label for="${inputId}"><input id="${inputId}" type="checkbox" value="${escapeHTML(opt)}"><span>${escapeHTML(opt)}</span></label>`;
+        return `<label class="dynamic-checkbox-option" for="${inputId}">
+          <input id="${inputId}" type="checkbox" value="${escapeHTML(opt)}">
+          <span>${escapeHTML(opt)}</span>
+        </label>`;
       }).join("")}
     </div>`;
   }else{
-    control=`<input data-answer type="text" ${q.required?"required":""} placeholder="${escapeHTML(q.placeholder||"")}">`;
+    control=`<input id="${controlId}" data-answer type="text" ${q.required?"required":""} placeholder="${escapeHTML(q.placeholder||"")}">`;
   }
-  return `<label class="dynamic-question" ${common}>
-    <span class="question-label">${escapeHTML(q.label)} ${req}</span>
+
+  const labelFor=q.question_type==="multiselect"?"":` for="${controlId}"`;
+  return `<div class="dynamic-question" ${common}>
+    <label id="anamnesis-label-${q.id}" class="question-label"${labelFor}>${escapeHTML(q.label)} ${req}</label>
     ${help}
     ${control}
-  </label>`;
+  </div>`;
 }
 
 function collectDynamicAnswers(){
