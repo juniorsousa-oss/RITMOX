@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="26" fill="#070d18"/>
+  <svg x="8" y="12" width="112" height="104" viewBox="0 0 112 104" overflow="hidden">
+    <image href="/static/assets/validated/ritmox-logo.webp"
+           x="0" y="0" width="410" height="104"
+           preserveAspectRatio="xMinYMid meet"/>
+  </svg>
+</svg>
