@@ -91,38 +91,33 @@ def session() -> Generator[Session, None, None]:
         db.close()
 
 
-def seed() -> None:
+def cleanup_initial_demo_data() -> None:
+    """Remove apenas os registros fictícios usados no primeiro mockup."""
     db = DB()
     try:
-        if db.scalar(select(Workout.id).limit(1)) is None:
-            w = Workout(
-                modality="musculacao",
-                title="Inferiores — Força e Hipertrofia",
-                subtitle="6 exercícios • nível intermediário",
-                duration_min=45,
+        demo_workouts = db.scalars(
+            select(Workout).where(Workout.title == "Inferiores — Força e Hipertrofia")
+        ).all()
+        for workout in demo_workouts:
+            db.delete(workout)
+
+        demo_runs = db.scalars(
+            select(RunActivity).where(
+                RunActivity.title == "Corrida Matinal",
+                RunActivity.distance_km == 5.02,
+                RunActivity.duration_sec == 1716,
             )
-            w.exercises = [
-                Exercise(name="Agachamento Livre", muscle="Quadríceps • Glúteos • Posteriores", sets_total=4, reps="8-10", load_kg=60),
-                Exercise(name="Leg Press 45°", muscle="Quadríceps • Glúteos", sets_total=4, reps="10", load_kg=120),
-                Exercise(name="Cadeira Extensora", muscle="Quadríceps", sets_total=3, reps="12", load_kg=45),
-                Exercise(name="Mesa Flexora", muscle="Posteriores", sets_total=4, reps="10-12", load_kg=35),
-                Exercise(name="Elevação Pélvica", muscle="Glúteos", sets_total=4, reps="8-10", load_kg=80),
-                Exercise(name="Panturrilha em Pé", muscle="Panturrilhas", sets_total=4, reps="12-15", load_kg=50),
-            ]
-            db.add(w)
-        if db.scalar(select(RunActivity.id).limit(1)) is None:
-            db.add(RunActivity())
-        if db.scalar(select(Modality.id).limit(1)) is None:
-            db.add_all([
-                Modality(name="Musculação", icon="M"),
-                Modality(name="Corrida", icon="R"),
-            ])
+        ).all()
+        for run in demo_runs:
+            db.delete(run)
+
+        # Modalidades são estrutura do aplicativo, não dados de treino do usuário.
         db.commit()
     finally:
         db.close()
 
 
-seed()
+cleanup_initial_demo_data()
 app = FastAPI(title="RITMOX", version="0.1.0")
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
@@ -164,20 +159,34 @@ def workout_payload(w: Workout) -> dict:
 @app.get("/api/dashboard")
 def dashboard(db: Session = Depends(session)):
     workouts = db.scalars(select(Workout)).all()
-    run = db.scalars(select(RunActivity).order_by(RunActivity.created_at.desc())).first()
-    total_sets = sum(e.sets_done for w in workouts for e in w.exercises)
-    total_load = sum(e.sets_done * e.load_kg for w in workouts for e in w.exercises)
-    completed = sum(1 for w in workouts if w.completed)
+    runs = db.scalars(select(RunActivity).order_by(RunActivity.created_at)).all()
+
+    completed_workouts = [w for w in workouts if w.completed]
+    total_load = sum(
+        e.sets_done * e.load_kg
+        for w in workouts
+        for e in w.exercises
+    )
+    total_distance = sum(r.distance_km for r in runs)
+    active_seconds = sum(r.duration_sec for r in runs) + sum(
+        w.duration_min * 60 for w in completed_workouts
+    )
+
+    hours, rem = divmod(active_seconds, 3600)
+    minutes = rem // 60
+    active_time = f"{hours}h {minutes:02d}min" if hours else f"{minutes} min"
+
     return {
         "user": {"name": "Júnior"},
         "stats": {
-            "workouts": max(18, completed),
-            "distance_km": round(run.distance_km if run else 0, 1),
-            "total_load_kg": round(max(12480, total_load), 0),
-            "active_time": "16h 20min",
-            "sets_done": total_sets,
+            "workouts": len(completed_workouts),
+            "distance_km": round(total_distance, 2),
+            "total_load_kg": round(total_load, 1),
+            "active_time": active_time,
+            "sets_done": sum(e.sets_done for w in workouts for e in w.exercises),
         },
-        "weekly": [4, 6, 3, 7, 5, 8, 6, 9, 7, 10, 8, 12],
+        "weekly": [0] * 12,
+        "empty": not workouts and not runs,
     }
 
 
@@ -185,7 +194,7 @@ def dashboard(db: Session = Depends(session)):
 def current_workout(db: Session = Depends(session)):
     w = db.scalars(select(Workout).where(Workout.modality == "musculacao").order_by(Workout.id)).first()
     if not w:
-        raise HTTPException(404, "Treino não encontrado")
+        return None
     return workout_payload(w)
 
 
@@ -228,7 +237,7 @@ def undo_set(exercise_id: int, db: Session = Depends(session)):
 def latest_run(db: Session = Depends(session)):
     r = db.scalars(select(RunActivity).order_by(RunActivity.created_at.desc())).first()
     if not r:
-        raise HTTPException(404, "Corrida não encontrada")
+        return None
     return {
         "id": r.id,
         "title": r.title,
