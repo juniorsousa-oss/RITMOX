@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 15
     env:
       APP_URL: https://ritmox.onrender.com
-      EXPECTED_BUILD: "20260925-32"
+      EXPECTED_BUILD: "20260925-33"
     steps:
       - name: Wait for Render build
         shell: bash
@@ -34,109 +34,98 @@ jobs:
       - name: Install browser test runtime
         run: npm install --no-save playwright-core
 
-      - name: Run six icon regression tests
+      - name: Run six repeated muscle-icon tests
         shell: bash
         run: |
           node <<'NODE'
           const { chromium } = require('playwright-core');
-
           const APP = process.env.APP_URL;
+          const expected = process.env.EXPECTED_BUILD;
           const results = [];
 
-          function record(name, ok, details) {
-            results.push({ name, ok, details });
+          function pass(name, ok, details) {
+            results.push({name, ok, details});
             console.log(`${ok ? 'PASS' : 'FAIL'} :: ${name} :: ${details}`);
-          }
-
-          async function box(page, selector) {
-            await page.locator(selector).waitFor({ state: 'visible', timeout: 30000 });
-            return await page.locator(selector).boundingBox();
           }
 
           (async () => {
             const browser = await chromium.launch({
-              executablePath: '/usr/bin/google-chrome',
-              headless: true,
-              args: ['--no-sandbox', '--disable-dev-shm-usage']
+              executablePath:'/usr/bin/google-chrome',
+              headless:true,
+              args:['--no-sandbox','--disable-dev-shm-usage']
             });
-
             try {
-              const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
-              await mobile.goto(APP, { waitUntil: 'networkidle', timeout: 120000 });
+              for (let i=1;i<=6;i++) {
+                const page = await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
+                await page.goto(`${APP}/?muscleIconTest=${i}&build=${expected}`,{waitUntil:'networkidle',timeout:120000});
+                const card = page.locator('.m-feature-strength');
+                const icon = page.locator('.m-feature-strength .m-feature-icon');
+                const img = page.locator('.m-feature-strength .m-feature-icon img');
+                const copy = page.locator('.m-feature-strength .m-feature-copy');
+                await img.waitFor({state:'visible',timeout:30000});
 
-              const mMuscleImg = await box(mobile, '.m-feature-strength .m-feature-icon img');
-              const mMuscleBox = await box(mobile, '.m-feature-strength .m-feature-icon');
-              const mMuscleCopy = await box(mobile, '.m-feature-strength .m-feature-copy');
-              record(
-                '1 mobile musculação: escala interna',
-                mMuscleImg.width <= 44.5 && mMuscleImg.height <= 44.5 && mMuscleImg.width >= 43,
-                JSON.stringify({ image: mMuscleImg, container: mMuscleBox })
-              );
+                const data = await img.evaluate(el => {
+                  const r = el.getBoundingClientRect();
+                  const s = getComputedStyle(el);
+                  return {
+                    src: el.getAttribute('src'),
+                    complete: el.complete,
+                    naturalWidth: el.naturalWidth,
+                    naturalHeight: el.naturalHeight,
+                    width: r.width,
+                    height: r.height,
+                    objectFit: s.objectFit,
+                    transform: s.transform,
+                    clipPath: s.clipPath
+                  };
+                });
+                const ib = await icon.boundingBox();
+                const xb = await img.boundingBox();
+                const cb = await copy.boundingBox();
+                const gap = cb.x - (ib.x + ib.width);
+                const inside =
+                  xb.x >= ib.x - 0.5 &&
+                  xb.y >= ib.y - 0.5 &&
+                  xb.x + xb.width <= ib.x + ib.width + 0.5 &&
+                  xb.y + xb.height <= ib.y + ib.height + 0.5;
 
-              const mRunImg = await box(mobile, '.m-feature-run .m-feature-icon img');
-              const mRunBox = await box(mobile, '.m-feature-run .m-feature-icon');
-              const mRunCopy = await box(mobile, '.m-feature-run .m-feature-copy');
-              record(
-                '2 mobile corrida: escala interna',
-                mRunImg.width <= 44.5 && mRunImg.height <= 44.5 && mRunImg.width >= 43,
-                JSON.stringify({ image: mRunImg, container: mRunBox })
-              );
+                const ok =
+                  data.complete &&
+                  data.naturalWidth > 0 &&
+                  data.naturalHeight > 0 &&
+                  data.src.includes(`muscle.webp?v=${expected}`) &&
+                  Math.abs(data.width - 58) < 0.6 &&
+                  Math.abs(data.height - 58) < 0.6 &&
+                  Math.abs(ib.width - 58) < 0.6 &&
+                  Math.abs(ib.height - 58) < 0.6 &&
+                  data.objectFit === 'contain' &&
+                  data.transform === 'none' &&
+                  data.clipPath === 'none' &&
+                  inside &&
+                  gap >= 17.5;
 
-              const muscleGap = mMuscleCopy.x - (mMuscleBox.x + mMuscleBox.width);
-              record(
-                '3 mobile musculação: texto sem sobreposição',
-                muscleGap >= 15,
-                `gap=${muscleGap.toFixed(2)}px`
-              );
+                pass(
+                  `muscle icon repetition ${i}/6`,
+                  ok,
+                  JSON.stringify({data,iconBox:ib,imageBox:xb,textGap:gap,inside})
+                );
 
-              const runGap = mRunCopy.x - (mRunBox.x + mRunBox.width);
-              record(
-                '4 mobile corrida: texto sem sobreposição',
-                runGap >= 15,
-                `gap=${runGap.toFixed(2)}px`
-              );
+                await card.screenshot({path:`muscle-icon-test-${i}.png`});
+                await page.close();
+              }
 
-              await mobile.screenshot({ path: 'ritmox-mobile.png', fullPage: true });
-
-              const desktop = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
-              await desktop.goto(APP, { waitUntil: 'networkidle', timeout: 120000 });
-
-              const dMuscleImg = await box(desktop, '.strength-card .hero-icon img');
-              const dMuscleBox = await box(desktop, '.strength-card .hero-icon');
-              record(
-                '5 desktop musculação: escala interna',
-                dMuscleImg.width <= 38.5 && dMuscleImg.height <= 38.5 && dMuscleImg.width >= 37,
-                JSON.stringify({ image: dMuscleImg, container: dMuscleBox })
-              );
-
-              const dRunImg = await box(desktop, '.run-card .hero-icon img');
-              const dRunBox = await box(desktop, '.run-card .hero-icon');
-              record(
-                '6 desktop corrida: escala interna',
-                dRunImg.width <= 38.5 && dRunImg.height <= 38.5 && dRunImg.width >= 37,
-                JSON.stringify({ image: dRunImg, container: dRunBox })
-              );
-
-              await desktop.screenshot({ path: 'ritmox-desktop.png', fullPage: true });
-
-              const failed = results.filter(r => !r.ok);
-              console.log('\nRESULTS=' + JSON.stringify(results));
-              if (failed.length) process.exit(1);
+              if (results.some(r=>!r.ok)) process.exit(1);
+              console.log('RESULTS='+JSON.stringify(results));
             } finally {
               await browser.close();
             }
-          })().catch(err => {
-            console.error(err);
-            process.exit(1);
-          });
+          })().catch(err=>{console.error(err);process.exit(1);});
           NODE
 
-      - name: Upload rendered screenshots
+      - name: Upload six rendered icon screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ritmox-live-screenshots
-          path: |
-            ritmox-mobile.png
-            ritmox-desktop.png
-          if-no-files-found: ignore
+          name: ritmox-muscle-icon-v33
+          path: muscle-icon-test-*.png
+          if-no-files-found: error

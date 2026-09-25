@@ -1063,15 +1063,13 @@ body.modal-open{overflow:hidden}
 
 
 
-/* === RITMOX CANONICAL UI SYSTEM v32 === */
+/* === RITMOX CANONICAL UI SYSTEM v33 === */
 :root{
   --rtx-mobile-nav-icon:42px;
   --rtx-mobile-feature-icon:58px;
-  --rtx-mobile-feature-art:44px;
   --rtx-mobile-kpi-icon:42px;
   --rtx-desktop-nav-icon:32px;
   --rtx-desktop-feature-icon:50px;
-  --rtx-desktop-feature-art:38px;
   --rtx-desktop-kpi-icon:38px;
 }
 
@@ -1116,19 +1114,22 @@ body.modal-open{overflow:hidden}
     background:transparent!important;
     box-sizing:border-box!important;
   }
-  .m-feature-icon img{
+  .m-feature-icon img.m-feature-fixed-image{
     position:static!important;
-    width:var(--rtx-mobile-feature-art)!important;
-    height:var(--rtx-mobile-feature-art)!important;
-    max-width:var(--rtx-mobile-feature-art)!important;
-    max-height:var(--rtx-mobile-feature-art)!important;
-    min-width:var(--rtx-mobile-feature-art)!important;
-    min-height:var(--rtx-mobile-feature-art)!important;
+    width:58px!important;
+    height:58px!important;
+    max-width:58px!important;
+    max-height:58px!important;
+    min-width:58px!important;
+    min-height:58px!important;
     display:block!important;
     object-fit:contain!important;
     object-position:center!important;
     transform:none!important;
     margin:0!important;
+    padding:0!important;
+    clip-path:none!important;
+    border-radius:14px!important;
   }
   .m-feature-strength .m-feature-icon::after,
   .m-feature-run .m-feature-icon::after{
@@ -1196,19 +1197,22 @@ body.modal-open{overflow:hidden}
     border-radius:12px!important;
     background:transparent!important;
   }
-  .hero-card-head .hero-icon img{
+  .hero-card-head .hero-icon img.hero-asset-image{
     position:static!important;
-    width:var(--rtx-desktop-feature-art)!important;
-    height:var(--rtx-desktop-feature-art)!important;
-    max-width:var(--rtx-desktop-feature-art)!important;
-    max-height:var(--rtx-desktop-feature-art)!important;
-    min-width:var(--rtx-desktop-feature-art)!important;
-    min-height:var(--rtx-desktop-feature-art)!important;
+    width:50px!important;
+    height:50px!important;
+    max-width:50px!important;
+    max-height:50px!important;
+    min-width:50px!important;
+    min-height:50px!important;
     display:block!important;
     object-fit:contain!important;
     object-position:center!important;
     transform:none!important;
     margin:0!important;
+    padding:0!important;
+    clip-path:none!important;
+    border-radius:12px!important;
   }
   .strength-card .hero-icon::after,
   .run-card .hero-icon::after{
