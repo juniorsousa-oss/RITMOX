@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 15
     env:
       APP_URL: https://ritmox.onrender.com
-      EXPECTED_BUILD: "20260925-38"
+      EXPECTED_BUILD: "20260925-39"
     steps:
       - name: Wait for Render build
         shell: bash
@@ -133,6 +133,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ritmox-muscle-icon-v38
+          name: ritmox-muscle-icon-v39
           path: muscle-icon-test-*.png
           if-no-files-found: error
