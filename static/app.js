@@ -374,7 +374,7 @@ document.addEventListener("click",(ev)=>{
 
   const runTab=ev.target.closest(".m-run-tabs button");
   if(runTab){
-    $(".m-run-tabs button").forEach(b=>b.classList.remove("active"));
+    $$(".m-run-tabs button").forEach(b=>b.classList.remove("active"));
     runTab.classList.add("active");
     if(runTab.textContent.trim()!=="Resumo"){
       toast(runTab.textContent.trim()+" ficará disponível quando houver uma corrida registrada.");
@@ -857,7 +857,7 @@ if($("#addPlanDayBtn")) $("#addPlanDayBtn").onclick=()=>openPlanDialog(null,stat
 if($("#addExerciseRowBtn")) $("#addExerciseRowBtn").onclick=()=>addExerciseRow();
 if($("#planModality")) $("#planModality").addEventListener("change",ev=>{
   const next=ev.target.value;
-  const rows=$(".planned-block-row",$("#plannedExerciseRows"));
+  const rows=$$(".planned-block-row",$("#plannedExerciseRows"));
   if(rows.length && next!==state.calendar.formModality){
     const ok=confirm("Ao mudar a modalidade, a estrutura atual será limpa para evitar campos incompatíveis. Continuar?");
     if(!ok){
