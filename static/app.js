@@ -1441,6 +1441,10 @@ window.addEventListener("resize",()=>{
 });
 
 (async function init(){
+  const workoutNavSource=$(".bottom-nav [data-page='workouts'] img")?.src;
+  const desktopWorkoutIcon=$(".side-nav [data-page='workouts'] img");
+  if(workoutNavSource && desktopWorkoutIcon) desktopWorkoutIcon.src=workoutNavSource;
+
   await Promise.all([loadDashboard(),loadRun()]);
   const hash=location.hash.replace("#","");
   navigate(pageMeta[hash]?hash:"home");
