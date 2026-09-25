@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
   <link rel="shortcut icon" type="image/png" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
   <link rel="apple-touch-icon" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
-  <link rel="stylesheet" href="/static/styles.css?v=20260925-41">
+  <link rel="stylesheet" href="/static/styles.css?v=20260925-42">
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true">
@@ -75,7 +75,7 @@
           </div>
 
           <button class="m-feature-card m-feature-strength home-image-card" data-page="workouts" aria-label="Abrir musculação">
-            <img class="home-card-art" src="/static/assets/home/home-strength-mobile.png?v=20260925-41" alt="">
+            <img class="home-card-art" src="/static/assets/home/home-strength-mobile-v42.png?v=20260925-42" alt="">
             <span class="m-feature-copy">
               <small>TREINO DE HOJE</small>
               <strong>Musculação</strong>
@@ -85,7 +85,7 @@
           </button>
 
           <button class="m-feature-card m-feature-run home-image-card" data-page="run" aria-label="Abrir corrida">
-            <img class="home-card-art" src="/static/assets/home/home-run-mobile.png?v=20260925-41" alt="">
+            <img class="home-card-art" src="/static/assets/home/home-run-mobile-v42.png?v=20260925-42" alt="">
             <span class="m-feature-copy">
               <small>CORRIDA</small>
               <strong>Corrida</strong>
@@ -115,7 +115,7 @@
 
         <div class="hero-grid desktop-home-block">
           <article class="hero-card strength-card home-image-card desktop-home-image-card" data-open="workouts">
-            <img class="home-card-art" src="/static/assets/home/home-strength-desktop.png?v=20260925-41" alt="">
+            <img class="home-card-art" src="/static/assets/home/home-strength-desktop-v42.png?v=20260925-42" alt="">
             <div class="hero-card-head">
               <h2>Musculação</h2>
               <span class="hero-chevron">›</span>
@@ -129,7 +129,7 @@
           </article>
 
           <article class="hero-card run-card home-image-card desktop-home-image-card" data-open="run">
-            <img class="home-card-art" src="/static/assets/home/home-run-desktop.png?v=20260925-41" alt="">
+            <img class="home-card-art" src="/static/assets/home/home-run-desktop-v42.png?v=20260925-42" alt="">
             <div class="hero-card-head">
               <h2>Corrida</h2>
               <span class="hero-chevron">›</span>
@@ -419,7 +419,7 @@
   </nav>
 
   <div id="healthAssessmentDialog" class="app-modal-overlay health-assessment-dialog" hidden><div class="app-modal-surface">
-    <form id="healthAssessmentForm">
+    <form id="healthAssessmentForm" novalidate>
       <button type="button" class="dialog-close" id="closeHealthAssessmentBtn" aria-label="Fechar">×</button>
       <span class="eyebrow pink-text">ANAMNESE DO ALUNO</span>
       <h3>Triagem pré-participação</h3>
@@ -436,17 +436,31 @@
           <span class="consent-box" aria-hidden="true"></span><span>Entendo que esta triagem não substitui consulta, diagnóstico ou liberação médica quando necessária.</span>
         </button>
       </fieldset>
-      <fieldset class="health-section signature-request-section">
-        <legend>Assinatura</legend>
-        <button type="button" class="consent-toggle signature-request-toggle" id="haRequestSignature" data-consent-toggle role="checkbox" aria-checked="false">
-          <span class="consent-box" aria-hidden="true"></span><span>Solicitar assinatura eletrônica do aluno para esta anamnese.</span>
+      <fieldset class="health-section signature-pad-section" id="haSignatureSection">
+        <legend>Assinatura do aluno <span class="required-mark">*</span></legend>
+        <p class="signature-pad-help">Assine abaixo com o dedo, caneta digital ou mouse. A assinatura será salva junto com a anamnese e aparecerá no PDF.</p>
+        <label class="signature-name-label">Nome do assinante
+          <input id="haSignatureName" maxlength="160" placeholder="Preenchido automaticamente pelo nome informado acima">
+        </label>
+        <div class="signature-pad-shell">
+          <canvas id="haSignatureCanvas" width="900" height="260" aria-label="Campo para assinatura do aluno"></canvas>
+          <span class="signature-pad-line"></span>
+          <small>ASSINE AQUI</small>
+        </div>
+        <div class="signature-pad-actions">
+          <span id="haSignatureStatus">Aguardando assinatura</span>
+          <button type="button" class="ghost-btn compact-btn" id="clearHaSignatureBtn">Limpar assinatura</button>
+        </div>
+        <button type="button" class="consent-toggle" id="haSignatureConfirm" data-consent-toggle role="checkbox" aria-checked="false">
+          <span class="consent-box" aria-hidden="true"></span><span>Confirmo que esta assinatura pertence ao aluno identificado nesta anamnese.</span>
         </button>
-        <small>Quando ativada, a anamnese ficará salva no perfil com assinatura pendente até ser assinada.</small>
       </fieldset>
+
+      <div id="anamnesisFormFeedback" class="anamnesis-form-feedback" role="alert" aria-live="assertive" hidden></div>
 
       <div class="health-dialog-actions">
         <button type="button" class="ghost-btn" id="cancelHealthAssessmentBtn">Cancelar</button>
-        <button type="submit" class="primary-btn pink-btn">Concluir anamnese</button>
+        <button type="submit" class="primary-btn pink-btn" id="submitHealthAssessmentBtn">Concluir e salvar</button>
       </div>
     </form>
   </div></div>
@@ -611,6 +625,6 @@
   </dialog>
 
   <div id="toast" class="toast"></div>
-  <script src="/static/app.js?v=20260925-41"></script>
+  <script src="/static/app.js?v=20260925-42"></script>
 </body>
 </html>

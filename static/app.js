@@ -21,6 +21,7 @@ const state = {
     formConfigured: false,
     formQuestions: [],
     profile: null,
+    signatureHasInk: false,
   },
   settings: {
     anamnesisQuestions: [],
@@ -519,7 +520,7 @@ function renderDynamicAnamnesis(){
 
   setAriaCheck($("#haConsentTruthful"),!!state.health.assessment?.data?.consent_truthful);
   setAriaCheck($("#haConsentScreening"),!!state.health.assessment?.data?.consent_screening);
-  setAriaCheck($("#haRequestSignature"),!!state.health.assessment?.signature_requested);
+  setAriaCheck($("#haSignatureConfirm"),false);
 }
 
 function renderAnamnesisQuestion(q){
@@ -587,6 +588,153 @@ function collectDynamicAnswers(){
   return answers;
 }
 
+
+function clearAnamnesisFeedback(){
+  const box=$("#anamnesisFormFeedback");
+  if(box){box.hidden=true;box.innerHTML="";}
+  $$(".dynamic-question.has-error").forEach(el=>el.classList.remove("has-error"));
+  $$(".health-section.has-error").forEach(el=>el.classList.remove("has-error"));
+}
+function showAnamnesisFeedback(title,messages=[]){
+  const box=$("#anamnesisFormFeedback");
+  if(!box) return;
+  const list=(messages||[]).filter(Boolean);
+  box.innerHTML="<strong>"+escapeHTML(title)+"</strong>"+(list.length?"<ul>"+list.map(x=>"<li>"+escapeHTML(x)+"</li>").join("")+"</ul>":"");
+  box.hidden=false;
+}
+function signatureNameFromForm(answers){
+  const typed=$("#haSignatureName")?.value.trim()||"";
+  if(typed) return typed;
+  const q=(state.health.formQuestions||[]).find(item=>(item.label||"").toLowerCase().includes("nome completo"));
+  if(!q) return "";
+  const value=answers?.[String(q.id)];
+  return typeof value==="string"?value.trim():"";
+}
+function validateHealthAssessment(answers){
+  clearAnamnesisFeedback();
+  const messages=[];
+  let firstElement=null;
+  (state.health.formQuestions||[]).forEach(q=>{
+    const value=answers[String(q.id)];
+    const empty=value===null||value===undefined||value===""||(Array.isArray(value)&&value.length===0);
+    const root=$(`[data-question="${q.id}"]`,$("#dynamicAnamnesisQuestions"));
+    const invalid=q.required&&empty;
+    root?.classList.toggle("has-error",invalid);
+    if(invalid){
+      messages.push(q.label);
+      if(!firstElement) firstElement=root;
+    }
+  });
+
+  if(!isAriaChecked($("#haConsentTruthful"))){
+    messages.push("Confirme que as respostas são verdadeiras e atuais.");
+    $("#haConsentTruthful")?.closest(".health-section")?.classList.add("has-error");
+    if(!firstElement) firstElement=$("#haConsentTruthful");
+  }
+  if(!isAriaChecked($("#haConsentScreening"))){
+    messages.push("Confirme a declaração sobre a finalidade da triagem.");
+    $("#haConsentScreening")?.closest(".health-section")?.classList.add("has-error");
+    if(!firstElement) firstElement=$("#haConsentScreening");
+  }
+
+  const signatureName=signatureNameFromForm(answers);
+  if(signatureName.length<2){
+    messages.push("Informe o nome do aluno responsável pela assinatura.");
+    $("#haSignatureSection")?.classList.add("has-error");
+    if(!firstElement) firstElement=$("#haSignatureName");
+  }
+  if(!state.health.signatureHasInk){
+    messages.push("Assine no campo de assinatura antes de salvar.");
+    $("#haSignatureSection")?.classList.add("has-error");
+    if(!firstElement) firstElement=$("#haSignatureCanvas");
+  }
+  if(!isAriaChecked($("#haSignatureConfirm"))){
+    messages.push("Confirme que a assinatura pertence ao aluno.");
+    $("#haSignatureSection")?.classList.add("has-error");
+    if(!firstElement) firstElement=$("#haSignatureConfirm");
+  }
+  return {ok:messages.length===0,messages,firstElement,signatureName};
+}
+function clearHealthSignaturePad(){
+  const canvas=$("#haSignatureCanvas");
+  if(!canvas) return;
+  const ctx=canvas.getContext("2d");
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  state.health.signatureHasInk=false;
+  const status=$("#haSignatureStatus");
+  if(status){status.textContent="Aguardando assinatura";status.classList.remove("is-signed");}
+}
+function setupHealthSignaturePad(){
+  const canvas=$("#haSignatureCanvas");
+  if(!canvas) return;
+  clearHealthSignaturePad();
+  setAriaCheck($("#haSignatureConfirm"),false);
+
+  const answers=collectDynamicAnswers();
+  const signatureName=$("#haSignatureName");
+  if(signatureName){
+    signatureName.dataset.userEdited="";
+    signatureName.value=signatureNameFromForm(answers);
+  }
+
+  const nameQ=(state.health.formQuestions||[]).find(item=>(item.label||"").toLowerCase().includes("nome completo"));
+  if(nameQ&&signatureName){
+    const source=$(`[data-question="${nameQ.id}"] [data-answer]`,$("#dynamicAnamnesisQuestions"));
+    if(source&&!source.dataset.signatureSyncBound){
+      source.dataset.signatureSyncBound="1";
+      source.addEventListener("input",()=>{
+        if(!signatureName.dataset.userEdited) signatureName.value=source.value||"";
+      });
+    }
+    signatureName.oninput=()=>{signatureName.dataset.userEdited="1";};
+  }
+
+  if(canvas.dataset.signatureBound==="1") return;
+  canvas.dataset.signatureBound="1";
+  canvas.style.touchAction="none";
+  const ctx=canvas.getContext("2d");
+  ctx.strokeStyle="#ff2d7a";
+  ctx.lineWidth=6;
+  ctx.lineCap="round";
+  ctx.lineJoin="round";
+  let drawing=false;
+
+  function point(ev){
+    const rect=canvas.getBoundingClientRect();
+    return {
+      x:(ev.clientX-rect.left)*(canvas.width/rect.width),
+      y:(ev.clientY-rect.top)*(canvas.height/rect.height)
+    };
+  }
+  canvas.addEventListener("pointerdown",ev=>{
+    ev.preventDefault();
+    drawing=true;
+    canvas.setPointerCapture?.(ev.pointerId);
+    const p=point(ev);
+    ctx.beginPath();
+    ctx.moveTo(p.x,p.y);
+  });
+  canvas.addEventListener("pointermove",ev=>{
+    if(!drawing) return;
+    ev.preventDefault();
+    const p=point(ev);
+    ctx.lineTo(p.x,p.y);
+    ctx.stroke();
+    state.health.signatureHasInk=true;
+    const status=$("#haSignatureStatus");
+    if(status){status.textContent="Assinatura registrada";status.classList.add("is-signed");}
+    $("#haSignatureSection")?.classList.remove("has-error");
+  });
+  const finish=ev=>{
+    if(!drawing) return;
+    drawing=false;
+    try{canvas.releasePointerCapture?.(ev.pointerId);}catch{}
+  };
+  canvas.addEventListener("pointerup",finish);
+  canvas.addEventListener("pointercancel",finish);
+  canvas.addEventListener("pointerleave",ev=>{if(ev.buttons===0) finish(ev);});
+}
+
 async function openHealthAssessment(){
   try{
     await loadAnamnesisFormConfig(true);
@@ -597,6 +745,8 @@ async function openHealthAssessment(){
     }
     renderDynamicAnamnesis();
     openDialogSafe($("#healthAssessmentDialog"));
+    setupHealthSignaturePad();
+    clearAnamnesisFeedback();
   }catch(e){toast(e.message)}
 }
 
@@ -607,32 +757,59 @@ function closeHealthAssessment(){
 async function submitHealthAssessment(ev){
   ev.preventDefault();
   if(!state.health.formConfigured){
+    showAnamnesisFeedback("A anamnese ainda não foi parametrizada.");
     toast("A anamnese ainda não foi parametrizada.");
     return;
   }
-  const payload={
-    answers:collectDynamicAnswers(),
-    consent_truthful:isAriaChecked($("#haConsentTruthful")),
-    consent_screening:isAriaChecked($("#haConsentScreening")),
-    signature_requested:isAriaChecked($("#haRequestSignature"))
-  };
-  if(!payload.consent_truthful || !payload.consent_screening){
-    toast("Confirme as duas declarações antes de concluir.");
+
+  const answers=collectDynamicAnswers();
+  const validation=validateHealthAssessment(answers);
+  if(!validation.ok){
+    showAnamnesisFeedback("Existem pendências antes de salvar.",validation.messages);
+    toast(`Revise ${validation.messages.length} pendência${validation.messages.length===1?"":"s"} antes de salvar.`);
+    validation.firstElement?.scrollIntoView({behavior:"smooth",block:"center"});
     return;
   }
+
+  const payload={
+    answers,
+    consent_truthful:isAriaChecked($("#haConsentTruthful")),
+    consent_screening:isAriaChecked($("#haConsentScreening")),
+    signature_requested:false,
+    signature_name:validation.signatureName,
+    signature_data:$("#haSignatureCanvas").toDataURL("image/png"),
+    signature_confirmed:isAriaChecked($("#haSignatureConfirm"))
+  };
+
+  const submitBtn=$("#submitHealthAssessmentBtn");
+  const originalText=submitBtn?.textContent||"Concluir e salvar";
+  if(submitBtn){
+    submitBtn.disabled=true;
+    submitBtn.textContent="Salvando...";
+    submitBtn.setAttribute("aria-busy","true");
+  }
+  clearAnamnesisFeedback();
+
   try{
     const result=await api("/api/health-assessment",{method:"POST",body:JSON.stringify(payload)});
     state.health.assessment=result;
     state.health.loaded=true;
     closeHealthAssessment();
     renderHealthGate();
+    toast("Anamnese salva com assinatura no perfil do aluno.");
     if(result.training_allowed){
-      toast("Anamnese concluída. Planejamento liberado.");
       await loadTrainingCalendar(false);
-    }else{
-      toast("A triagem identificou respostas que exigem avaliação profissional.");
     }
-  }catch(e){toast(e.message)}
+  }catch(e){
+    showAnamnesisFeedback("Não foi possível salvar a anamnese.",[e.message]);
+    toast("Erro ao salvar: "+e.message);
+  }finally{
+    if(submitBtn){
+      submitBtn.disabled=false;
+      submitBtn.textContent=originalText;
+      submitBtn.removeAttribute("aria-busy");
+    }
+  }
 }
 
 async function loadHealthGate(){
@@ -1530,6 +1707,7 @@ if($("#deleteAnamnesisQuestionBtn")) $("#deleteAnamnesisQuestionBtn").onclick=de
 if($("#aqType")) $("#aqType").addEventListener("change",updateQuestionEditorVisibility);
 if($("#aqRiskEnabled")) $("#aqRiskEnabled").addEventListener("change",updateQuestionEditorVisibility);
 
+if($("#clearHaSignatureBtn")) $("#clearHaSignatureBtn").onclick=clearHealthSignaturePad;
 if($("#startHealthAssessmentBtn")) $("#startHealthAssessmentBtn").onclick=openHealthAssessment;
 if($("#reviewHealthAssessmentBtn")) $("#reviewHealthAssessmentBtn").onclick=openHealthAssessment;
 if($("#closeHealthAssessmentBtn")) $("#closeHealthAssessmentBtn").onclick=closeHealthAssessment;

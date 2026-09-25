@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import json
+import base64
 import html as html_lib
 from io import BytesIO
 from datetime import date, datetime, timezone
@@ -16,13 +17,13 @@ from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import Image as RLImage, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
 ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
-BUILD_VERSION = "20260925-41"
+BUILD_VERSION = "20260925-42"
 
 database_url = os.getenv("DATABASE_URL", f"sqlite:///{ROOT / 'ritmox.db'}")
 if database_url.startswith("postgres://"):
@@ -844,6 +845,9 @@ class DynamicHealthAssessmentIn(BaseModel):
     consent_truthful: bool = False
     consent_screening: bool = False
     signature_requested: bool = False
+    signature_name: str = Field(default="", max_length=160)
+    signature_data: str = Field(default="", max_length=500000)
+    signature_confirmed: bool = False
 
 
 class AssessmentSignatureIn(BaseModel):
@@ -1103,6 +1107,10 @@ def assessment_payload(item: HealthAssessment | None, db: Session | None = None)
     signature_requested = bool(data.get("signature_requested", False))
     signature = data.get("signature") if isinstance(data.get("signature"), dict) else None
     signature_status = "signed" if signature else ("pending" if signature_requested else "not_requested")
+    public_data = dict(data)
+    if isinstance(public_data.get("signature"), dict):
+        public_data["signature"] = {k: v for k, v in public_data["signature"].items() if k != "image_data"}
+    public_signature = None if not signature else {k: v for k, v in signature.items() if k != "image_data"}
     request = None
     if db is not None:
         request = db.scalars(
@@ -1123,7 +1131,7 @@ def assessment_payload(item: HealthAssessment | None, db: Session | None = None)
     }
     return {
         "id": item.id,
-        "data": data,
+        "data": public_data,
         "risk_status": item.risk_status,
         "red_flags": red_flags,
         "professional_clearance": item.professional_clearance,
@@ -1132,7 +1140,7 @@ def assessment_payload(item: HealthAssessment | None, db: Session | None = None)
         "training_allowed": allowed,
         "signature_requested": signature_requested,
         "signature_status": signature_status,
-        "signature": signature,
+        "signature": public_signature,
         "clearance_request": request_payload,
         "completed_at": item.completed_at.isoformat() if item.completed_at else None,
         "updated_at": item.updated_at.isoformat() if item.updated_at else None,
@@ -1148,7 +1156,19 @@ def latest_health_assessment(db: Session = Depends(session)):
 @app.post("/api/health-assessment")
 def save_health_assessment(data: DynamicHealthAssessmentIn, db: Session = Depends(session)):
     if not data.consent_truthful or not data.consent_screening:
-        raise HTTPException(422, "É necessário confirmar as declarações da triagem.")
+        raise HTTPException(422, "Confirme as duas declarações antes de concluir a anamnese.")
+    if not data.signature_confirmed:
+        raise HTTPException(422, "Confirme a assinatura eletrônica do aluno antes de salvar.")
+    if len(data.signature_name.strip()) < 2:
+        raise HTTPException(422, "Informe o nome do aluno responsável pela assinatura.")
+    if not data.signature_data.startswith("data:image/png;base64,"):
+        raise HTTPException(422, "A assinatura do aluno é obrigatória antes de salvar.")
+    try:
+        signature_raw = base64.b64decode(data.signature_data.split(",", 1)[1], validate=True)
+    except Exception as exc:
+        raise HTTPException(422, "A assinatura informada é inválida. Limpe e assine novamente.") from exc
+    if len(signature_raw) < 150:
+        raise HTTPException(422, "A assinatura está vazia. Assine no campo indicado antes de salvar.")
 
     questions = db.scalars(
         select(AnamnesisQuestion)
@@ -1170,15 +1190,24 @@ def save_health_assessment(data: DynamicHealthAssessmentIn, db: Session = Depend
             flags.append(q.risk_message.strip() or q.label)
 
     if missing:
-        raise HTTPException(422, "Responda as perguntas obrigatórias: " + "; ".join(missing[:5]))
+        suffix = "; ".join(missing[:5])
+        if len(missing) > 5:
+            suffix += f"; e mais {len(missing)-5}"
+        raise HTTPException(422, "Existem respostas obrigatórias pendentes: " + suffix)
 
+    now = datetime.now(timezone.utc)
     status = "attention_required" if flags else "screening_complete"
     payload = {
         "answers": data.answers,
         "consent_truthful": data.consent_truthful,
         "consent_screening": data.consent_screening,
-        "signature_requested": data.signature_requested,
-        "signature": None,
+        "signature_requested": False,
+        "signature": {
+            "signer_name": data.signature_name.strip(),
+            "signed_at": now.isoformat(),
+            "method": "drawn_signature",
+            "image_data": data.signature_data,
+        },
         "questions_snapshot": [question_payload(q) for q in questions],
     }
     item = HealthAssessment(
@@ -1186,14 +1215,13 @@ def save_health_assessment(data: DynamicHealthAssessmentIn, db: Session = Depend
         risk_status=status,
         red_flags_json=json.dumps(flags, ensure_ascii=False),
         professional_clearance=False,
-        completed_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+        completed_at=now,
+        updated_at=now,
     )
     db.add(item)
     db.commit()
     db.refresh(item)
     return assessment_payload(item, db)
-
 
 
 def _pdf_answer(value: Any) -> str:
@@ -1278,15 +1306,26 @@ def _assessment_pdf_buffer(item: HealthAssessment) -> BytesIO:
 
     story.append(Paragraph("Assinatura eletrônica", section))
     if signature:
+        image_data = str(signature.get("image_data") or "")
+        if image_data.startswith("data:image/png;base64,"):
+            try:
+                image_raw = base64.b64decode(image_data.split(",", 1)[1])
+                signature_image = RLImage(BytesIO(image_raw))
+                signature_image.drawWidth = 180
+                signature_image.drawHeight = 52
+                story.append(signature_image)
+                story.append(Spacer(1, 4))
+            except Exception:
+                pass
         story.append(Paragraph(
             "Assinado eletronicamente por <b>" + html_lib.escape(str(signature.get("signer_name") or "-")) +
             "</b> em " + html_lib.escape(str(signature.get("signed_at") or "-")) +
-            ". Método: confirmação eletrônica no perfil do RITMOX.", note
+            ". Método: assinatura desenhada no formulário do RITMOX.", note
         ))
     elif payload.get("signature_requested"):
         story.append(Paragraph("Assinatura solicitada e ainda pendente.", note))
     else:
-        story.append(Paragraph("Assinatura não solicitada.", note))
+        story.append(Paragraph("Assinatura não registrada.", note))
 
     story += [Spacer(1,16), Paragraph("Documento gerado automaticamente pelo RITMOX. A triagem não substitui avaliação médica ou profissional quando indicada.", sub)]
     doc.build(story)

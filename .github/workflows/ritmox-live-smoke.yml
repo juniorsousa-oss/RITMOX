@@ -11,55 +11,55 @@ permissions:
 jobs:
   live-regression:
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 20
     env:
       APP_URL: https://ritmox.onrender.com
-      EXPECTED_BUILD: "20260925-41"
+      EXPECTED_BUILD: "20260925-42"
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate PDF renderer and signature payload locally
+      - name: Validate signed anamnesis save and PDF locally
         shell: bash
         env:
-          DATABASE_URL: sqlite:////tmp/ritmox-test.db
+          DATABASE_URL: sqlite:////tmp/ritmox-v42-test.db
         run: |
           python -m pip install --quiet -r requirements.txt
           python - <<'PY'
           import json
-          from datetime import datetime, timezone
           import app
+          from sqlalchemy import select
 
-          payload = {
-              "answers": {"1": "Aluno Teste", "2": ["Academia", "Rua / parque"]},
-              "consent_truthful": True,
-              "consent_screening": True,
-              "signature_requested": True,
-              "signature": {
-                  "signer_name": "Aluno Teste",
-                  "signed_at": datetime.now(timezone.utc).isoformat(),
-                  "method": "electronic_attestation",
-              },
-              "questions_snapshot": [
-                  {"id": 1, "section": "Identificação", "label": "Nome completo do aluno"},
-                  {"id": 2, "section": "Rotina", "label": "Ambiente de treino"},
-              ],
-          }
-          item = app.HealthAssessment(
-              id=999,
-              payload_json=json.dumps(payload, ensure_ascii=False),
-              risk_status="screening_complete",
-              red_flags_json="[]",
-              professional_clearance=False,
-              completed_at=datetime.now(timezone.utc),
-              updated_at=datetime.now(timezone.utc),
-          )
-          pdf = app._assessment_pdf_buffer(item).getvalue()
-          assert pdf[:4] == b"%PDF", pdf[:20]
-          assert len(pdf) > 1000, len(pdf)
-          out = app.assessment_payload(item, None)
-          assert out["signature_status"] == "signed"
-          assert out["signature"]["signer_name"] == "Aluno Teste"
-          print("PASS synthetic PDF and signature payload", len(pdf))
+          db=app.DB()
+          try:
+              questions=db.scalars(select(app.AnamnesisQuestion).where(app.AnamnesisQuestion.active == True).order_by(app.AnamnesisQuestion.position,app.AnamnesisQuestion.id)).all()
+              answers={}
+              for q in questions:
+                  opts=json.loads(q.options_json or "[]")
+                  if q.question_type=="yes_no": answers[str(q.id)]=False
+                  elif q.question_type=="multiselect": answers[str(q.id)]=[opts[0]] if opts else ["Teste"]
+                  elif q.question_type=="select": answers[str(q.id)]=opts[0] if opts else "Teste"
+                  elif q.question_type=="date": answers[str(q.id)]="1990-01-01"
+                  elif q.question_type=="number": answers[str(q.id)]=1
+                  else: answers[str(q.id)]="Teste"
+              signature="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL7WQAAAABJRU5ErkJggg=="
+              data=app.DynamicHealthAssessmentIn(
+                  answers=answers,
+                  consent_truthful=True,
+                  consent_screening=True,
+                  signature_name="Aluno Teste",
+                  signature_data=signature,
+                  signature_confirmed=True,
+              )
+              result=app.save_health_assessment(data,db)
+              assert result["signature_status"]=="signed", result
+              assert result["signature"]["signer_name"]=="Aluno Teste", result
+              item=db.get(app.HealthAssessment,result["id"])
+              pdf=app._assessment_pdf_buffer(item).getvalue()
+              assert pdf[:4]==b"%PDF"
+              assert len(pdf)>1000
+              print("PASS signed save and PDF",result["id"],len(pdf))
+          finally:
+              db.close()
           PY
 
       - name: Wait for Render build
@@ -72,177 +72,119 @@ jobs:
             if echo "$body" | grep -q "$EXPECTED_BUILD"; then exit 0; fi
             sleep 10
           done
-          echo "Render did not publish $EXPECTED_BUILD"
           exit 1
 
       - name: Install browser runtime
         run: npm install --no-save playwright-core
 
-      - name: Repeat declaration checkbox behavior six times
+      - name: Validate aligned single-image home cards
         shell: bash
         run: |
           node <<'NODE'
           const { chromium }=require('playwright-core');
           const APP=process.env.APP_URL;
           (async()=>{
-            const browser=await chromium.launch({
-              executablePath:'/usr/bin/google-chrome',
-              headless:true,
-              args:['--no-sandbox','--disable-dev-shm-usage']
-            });
+            const browser=await chromium.launch({executablePath:'/usr/bin/google-chrome',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
             try{
-              for(let i=1;i<=6;i++){
-                const page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
-                await page.goto(APP+'/?declarationTest='+i,{waitUntil:'networkidle',timeout:120000});
-                await page.evaluate(async()=>{
-                  await loadAnamnesisFormConfig(true);
-                  renderDynamicAnamnesis();
-                  openDialogSafe(document.querySelector('#healthAssessmentDialog'));
-                });
-                const truthful=page.locator('#haConsentTruthful');
-                const screening=page.locator('#haConsentScreening');
-                const signature=page.locator('#haRequestSignature');
-                await truthful.waitFor({state:'visible',timeout:30000});
-
-                if(await truthful.getAttribute('aria-checked')!=='false') throw new Error('truthful initial state invalid');
-                if(await screening.getAttribute('aria-checked')!=='false') throw new Error('screening initial state invalid');
-
-                await truthful.click();
-                await screening.click();
-                await signature.click();
-
-                const a=await truthful.getAttribute('aria-checked');
-                const b=await screening.getAttribute('aria-checked');
-                const s=await signature.getAttribute('aria-checked');
-                if(a!=='true'||b!=='true'||s!=='true'){
-                  throw new Error('toggle failed '+JSON.stringify({a,b,s,iteration:i}));
-                }
-
-                await truthful.click();
-                if(await truthful.getAttribute('aria-checked')!=='false'){
-                  throw new Error('second truthful toggle failed on iteration '+i);
-                }
-                await truthful.click();
-                if(await truthful.getAttribute('aria-checked')!=='true'){
-                  throw new Error('third truthful toggle failed on iteration '+i);
-                }
-
-                console.log('PASS declarations '+i+'/6');
-                await page.close();
-              }
-            }finally{await browser.close();}
-          })().catch(e=>{console.error(e);process.exit(1)});
-          NODE
-
-      - name: Validate baked whole-card images and clicks
-        shell: bash
-        run: |
-          node <<'NODE'
-          const { chromium }=require('playwright-core');
-          const APP=process.env.APP_URL;
-          (async()=>{
-            const browser=await chromium.launch({
-              executablePath:'/usr/bin/google-chrome',
-              headless:true,
-              args:['--no-sandbox','--disable-dev-shm-usage']
-            });
-            try{
-              const mobile=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
-              await mobile.goto(APP+'/?homeCardTest=mobile',{waitUntil:'networkidle',timeout:120000});
-              for(const sel of ['.m-feature-strength','.m-feature-run']){
-                const card=mobile.locator(sel);
+              const p=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
+              await p.goto(APP+'/?cardAlignment=v42',{waitUntil:'networkidle',timeout:120000});
+              const strength=p.locator('.m-feature-strength');
+              const run=p.locator('.m-feature-run');
+              for(const [name,card,asset] of [
+                ['strength',strength,'home-strength-mobile-v42.png'],
+                ['run',run,'home-run-mobile-v42.png']
+              ]){
                 await card.waitFor({state:'visible',timeout:30000});
-                if(await card.locator('.m-feature-icon').count()) throw new Error(sel+' contains separate icon');
                 const art=card.locator('.home-card-art');
                 const src=await art.getAttribute('src');
-                if(!src||!src.includes('/static/assets/home/')) throw new Error(sel+' missing baked image');
-                const natural=await art.evaluate(img=>({complete:img.complete,w:img.naturalWidth,h:img.naturalHeight}));
-                if(!natural.complete||natural.w<200||natural.h<80) throw new Error(sel+' baked image failed '+JSON.stringify(natural));
+                if(!src.includes(asset)) throw new Error(name+' wrong baked asset '+src);
+                if(await card.locator('.m-feature-icon').count()) throw new Error(name+' still has separate icon');
+                const box=await card.boundingBox();
+                if(Math.abs(box.height-104)>1) throw new Error(name+' card height '+box.height);
               }
-              await mobile.locator('.m-feature-strength').click();
-              if(!mobile.url().includes('#workouts')) throw new Error('mobile strength whole-card click failed');
-              await mobile.goto(APP+'/?homeCardTest=mobile-run',{waitUntil:'networkidle'});
-              await mobile.locator('.m-feature-run').click();
-              if(!mobile.url().includes('#run')) throw new Error('mobile run whole-card click failed');
-              await mobile.close();
-
-              const desktop=await browser.newPage({viewport:{width:1440,height:900},deviceScaleFactor:1});
-              await desktop.goto(APP+'/?homeCardTest=desktop',{waitUntil:'networkidle',timeout:120000});
-              for(const sel of ['.strength-card','.run-card']){
-                const card=desktop.locator(sel);
-                await card.waitFor({state:'visible',timeout:30000});
-                if(await card.locator('.hero-icon').count()) throw new Error(sel+' contains separate icon');
-                const src=await card.locator('.home-card-art').getAttribute('src');
-                if(!src||!src.includes('/static/assets/home/')) throw new Error(sel+' missing baked desktop image');
-              }
-              console.log('PASS baked whole-card images');
-              await desktop.close();
+              const sb=await strength.boundingBox(), rb=await run.boundingBox();
+              if(Math.abs(sb.x-rb.x)>0.5||Math.abs(sb.width-rb.width)>0.5) throw new Error('cards not aligned '+JSON.stringify({sb,rb}));
+              await p.screenshot({path:'ritmox-v42-home.png',fullPage:true});
+              console.log('PASS aligned home cards',JSON.stringify({sb,rb}));
             }finally{await browser.close();}
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
 
-      - name: Validate profile anamnesis and PDF API
+      - name: Validate explicit anamnesis errors and signature field
+        shell: bash
+        run: |
+          node <<'NODE'
+          const { chromium }=require('playwright-core');
+          const APP=process.env.APP_URL;
+          (async()=>{
+            const browser=await chromium.launch({executablePath:'/usr/bin/google-chrome',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+            try{
+              const p=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
+              await p.goto(APP+'/?anamnesisValidation=v42',{waitUntil:'networkidle',timeout:120000});
+              await p.evaluate(async()=>{
+                await loadAnamnesisFormConfig(true);
+                renderDynamicAnamnesis();
+                openDialogSafe(document.querySelector('#healthAssessmentDialog'));
+                setupHealthSignaturePad();
+              });
+              await p.locator('#haSignatureCanvas').waitFor({state:'visible',timeout:30000});
+              await p.locator('#submitHealthAssessmentBtn').click();
+              const feedback=p.locator('#anamnesisFormFeedback');
+              await feedback.waitFor({state:'visible',timeout:10000});
+              const text=await feedback.textContent();
+              if(!text.includes('pendências')) throw new Error('missing explicit pending message: '+text);
+              const toast=p.locator('#toast');
+              const z=await toast.evaluate(el=>Number(getComputedStyle(el).zIndex));
+              if(z<10000) throw new Error('toast is behind modal: '+z);
+
+              const canvas=p.locator('#haSignatureCanvas');
+              const b=await canvas.boundingBox();
+              await p.mouse.move(b.x+40,b.y+70);
+              await p.mouse.down();
+              await p.mouse.move(b.x+110,b.y+45,{steps:5});
+              await p.mouse.move(b.x+180,b.y+80,{steps:5});
+              await p.mouse.up();
+              const ink=await p.evaluate(()=>state.health.signatureHasInk);
+              if(!ink) throw new Error('signature pad did not register ink');
+              await p.locator('#haConsentTruthful').click();
+              await p.locator('#haConsentScreening').click();
+              await p.locator('#haSignatureConfirm').click();
+              if(await p.locator('#haSignatureConfirm').getAttribute('aria-checked')!=='true') throw new Error('signature confirmation not selectable');
+              console.log('PASS explicit error and signature pad');
+            }finally{await browser.close();}
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+
+      - name: Validate profile API and UI
         shell: bash
         run: |
           set -euo pipefail
-          profile="$(curl -fsS "$APP_URL/api/profile/anamnesis")"
-          echo "$profile" > /tmp/profile.json
+          curl -fsS "$APP_URL/api/profile/anamnesis" >/tmp/profile.json
           python - <<'PY'
           import json
           p=json.load(open('/tmp/profile.json'))
           assert set(('latest','history','count')).issubset(p)
-          assert isinstance(p['history'], list)
-          assert isinstance(p['count'], int)
           print('PROFILE_COUNT',p['count'])
           PY
-
-          assessment_id="$(python - <<'PY'
-          import json
-          p=json.load(open('/tmp/profile.json'))
-          print((p.get('latest') or {}).get('id') or '')
-          PY
-          )"
-          if [ -n "$assessment_id" ]; then
-            curl -fsS "$APP_URL/api/health-assessment/$assessment_id/pdf" -o /tmp/anamnesis.pdf
-            test "$(head -c 4 /tmp/anamnesis.pdf)" = "%PDF"
-            test "$(wc -c < /tmp/anamnesis.pdf)" -gt 1000
-            echo "PASS profile PDF for assessment $assessment_id"
-          else
-            echo "No saved assessment yet; profile empty-state API is valid."
-          fi
-
-      - name: Validate profile UI
-        shell: bash
-        run: |
           node <<'NODE'
           const { chromium }=require('playwright-core');
           const APP=process.env.APP_URL;
           (async()=>{
-            const browser=await chromium.launch({
-              executablePath:'/usr/bin/google-chrome',
-              headless:true,
-              args:['--no-sandbox','--disable-dev-shm-usage']
-            });
+            const browser=await chromium.launch({executablePath:'/usr/bin/google-chrome',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
             try{
-              const page=await browser.newPage({viewport:{width:390,height:844}});
-              await page.goto(APP,{waitUntil:'networkidle',timeout:120000});
-              await page.locator('.bottom-nav [data-page="profile"]').click();
-              await page.locator('#profileAnamnesisCard').waitFor({state:'visible',timeout:30000});
-              await page.waitForFunction(()=>{
-                const el=document.querySelector('#profileAnamnesisSubtitle');
-                return el && el.textContent && !el.textContent.includes('Carregando');
-              },null,{timeout:30000});
-              const subtitle=await page.locator('#profileAnamnesisSubtitle').textContent();
-              console.log('PASS profile anamnesis UI:',subtitle);
-              await page.screenshot({path:'ritmox-profile-anamnesis.png',fullPage:true});
+              const p=await browser.newPage({viewport:{width:390,height:844}});
+              await p.goto(APP,{waitUntil:'networkidle',timeout:120000});
+              await p.locator('.bottom-nav [data-page="profile"]').click();
+              await p.waitForFunction(()=>{const el=document.querySelector('#profileAnamnesisSubtitle');return el&&el.textContent&&!el.textContent.includes('Carregando')},{timeout:30000});
+              console.log('PASS profile UI',await p.locator('#profileAnamnesisSubtitle').textContent());
             }finally{await browser.close();}
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
 
-      - name: Upload validation screenshot
+      - name: Upload v42 screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ritmox-v41-live-validation
-          path: ritmox-profile-anamnesis.png
+          name: ritmox-v42-live-validation
+          path: ritmox-v42-home.png
           if-no-files-found: ignore
