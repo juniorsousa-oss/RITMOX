@@ -1095,6 +1095,16 @@ if($("#cancelPlanBtn")) $("#cancelPlanBtn").onclick=closePlanDialog;
 if($("#deletePlanBtn")) $("#deletePlanBtn").onclick=deleteCurrentPlan;
 if($("#planForm")) $("#planForm").addEventListener("submit",savePlan);
 
+if($("#startHealthAssessmentBtn")) $("#startHealthAssessmentBtn").onclick=openHealthAssessment;
+if($("#reviewHealthAssessmentBtn")) $("#reviewHealthAssessmentBtn").onclick=openHealthAssessment;
+if($("#closeHealthAssessmentBtn")) $("#closeHealthAssessmentBtn").onclick=closeHealthAssessment;
+if($("#cancelHealthAssessmentBtn")) $("#cancelHealthAssessmentBtn").onclick=closeHealthAssessment;
+if($("#healthAssessmentForm")) $("#healthAssessmentForm").addEventListener("submit",submitHealthAssessment);
+if($("#registerClearanceBtn")) $("#registerClearanceBtn").onclick=openClearanceDialog;
+if($("#closeClearanceBtn")) $("#closeClearanceBtn").onclick=closeClearanceDialog;
+if($("#cancelClearanceBtn")) $("#cancelClearanceBtn").onclick=closeClearanceDialog;
+if($("#clearanceForm")) $("#clearanceForm").addEventListener("submit",submitClearance);
+
 window.addEventListener("resize",()=>{
   clearTimeout(window._resize);
   window._resize=setTimeout(()=>{drawProgressChart();drawRunChart()},120);
