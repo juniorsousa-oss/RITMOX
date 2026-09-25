@@ -152,6 +152,14 @@ class AnamnesisQuestion(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
+class AppSetting(Base):
+    __tablename__ = "app_settings"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(120), unique=True, index=True)
+    value: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
 class HealthAssessment(Base):
     __tablename__ = "health_assessments"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -190,6 +198,155 @@ def session() -> Generator[Session, None, None]:
         db.close()
 
 
+
+DEFAULT_ANAMNESIS_QUESTIONS = [
+    # 1. Identificação e contexto
+    {"section":"Identificação e contexto","label":"Nome completo do aluno","question_type":"text","required":True,"placeholder":"Nome completo"},
+    {"section":"Identificação e contexto","label":"Data de nascimento","question_type":"date","required":True},
+    {"section":"Identificação e contexto","label":"Sexo / identificação","question_type":"select","options":["Masculino","Feminino","Outro","Prefiro não informar"],"required":False},
+    {"section":"Identificação e contexto","label":"Profissão / ocupação principal","question_type":"text","placeholder":"Ex.: administrativo, motorista, estudante","required":False},
+    {"section":"Identificação e contexto","label":"Telefone para contato de emergência","question_type":"text","placeholder":"DDD + número","required":True},
+    {"section":"Identificação e contexto","label":"Nome do contato de emergência","question_type":"text","required":True},
+    {"section":"Identificação e contexto","label":"Qual é seu principal objetivo com o treinamento?","question_type":"multiselect","options":["Saúde geral","Condicionamento cardiorrespiratório","Ganho de força","Hipertrofia","Emagrecimento / composição corporal","Corrida / performance","Mobilidade / flexibilidade","Qualidade de vida","Retorno ao exercício","Outro"],"required":True},
+    {"section":"Identificação e contexto","label":"Existe alguma meta, prova, competição ou prazo importante?","question_type":"textarea","placeholder":"Descreva, se houver","required":False},
+
+    # 2. Histórico de atividade física
+    {"section":"Histórico de atividade física","label":"Como você classifica seu nível atual de atividade física?","question_type":"select","options":["Sedentário","Pouco ativo","Regularmente ativo","Muito ativo / treinamento estruturado"],"required":True},
+    {"section":"Histórico de atividade física","label":"Quantos dias por semana você pratica atividade física atualmente?","question_type":"select","options":["0","1","2","3","4","5","6","7"],"required":True},
+    {"section":"Histórico de atividade física","label":"Há quanto tempo você mantém uma rotina regular de exercícios?","question_type":"select","options":["Não mantenho atualmente","Menos de 1 mês","1 a 3 meses","3 a 6 meses","6 a 12 meses","Mais de 1 ano"],"required":True},
+    {"section":"Histórico de atividade física","label":"Quais modalidades você pratica ou praticou recentemente?","question_type":"multiselect","options":["Musculação","Corrida","Caminhada","Ciclismo","Natação","Funcional / Cross training","Esportes coletivos","Lutas","Pilates / Yoga","Outra"],"required":False},
+    {"section":"Histórico de atividade física","label":"Descreva seu histórico de treinamento, incluindo frequência, duração e intensidade habituais.","question_type":"textarea","required":False,"placeholder":"Ex.: musculação 3x/semana, corrida 2x/semana"},
+    {"section":"Histórico de atividade física","label":"Você está retornando ao exercício após período prolongado de inatividade?","question_type":"yes_no","required":True},
+    {"section":"Histórico de atividade física","label":"Você já interrompeu exercícios por dor, mal-estar ou orientação profissional?","question_type":"yes_no","required":True,"risk_enabled":True,"risk_values":["Sim"],"risk_message":"Histórico de interrupção do exercício por dor, mal-estar ou orientação profissional"},
+    {"section":"Histórico de atividade física","label":"Há algum movimento, exercício ou modalidade que você não deseja ou não consegue realizar?","question_type":"textarea","required":False},
+
+    # 3. Sintomas e sinais de alerta
+    {"section":"Sintomas e sinais de alerta","label":"Você sente dor, pressão, aperto ou desconforto no peito durante esforço ou em repouso?","question_type":"yes_no","required":True,"risk_enabled":True,"risk_values":["Sim"],"risk_message":"Dor, pressão ou desconforto no peito"},
+    {"section":"Sintomas e sinais de alerta","label":"Você já teve desmaio, perda de consciência ou tontura importante, especialmente durante esforço?","question_type":"yes_no","required":True,"risk_enabled":True,"risk_values":["Sim"],"risk_message":"Desmaio, perda de consciência ou tontura importante"},
+    {"section":"Sintomas e sinais de alerta","label":"Você apresenta falta de ar desproporcional, em repouso ou com esforço leve?","question_type":"yes_no","required":True,"risk_enabled":True,"risk_values":["Sim"],"risk_message":"Falta de ar desproporcional em repouso ou esforço leve"},
+    {"section":"Sintomas e sinais de alerta","label":"Você apresenta palpitações ou batimentos irregulares acompanhados de tontura, dor no peito ou mal-estar?","question_type":"yes_no","required":True,"risk_enabled":True,"risk_values":["Sim"],"risk_message":"Palpitações associadas a sintomas"},
+    {"section":"Sintomas e sinais de alerta","label":"Você apresenta inchaço persistente e sem causa conhecida em pés, tornozelos ou pernas?","question_type":"yes_no","required":True,"risk_enabled":True,"risk_values":["Sim"],"risk_message":"Edema persistente sem causa conhecida"},
+    {"section":"Sintomas e sinais de alerta","label":"Você sente dor ou câimbra nas panturrilhas ao caminhar que melhora ao parar?","question_type":"yes_no","required":True,"risk_enabled":True,"risk_values":["Sim"],"risk_message":"Dor em panturrilha ao esforço compatível com possível claudicação"},
+    {"section":"Sintomas e sinais de alerta","label":"Você apresenta fadiga intensa, fraqueza incomum ou queda recente e inexplicada da tolerância ao esforço?","question_type":"yes_no","required":True,"risk_enabled":True,"risk_values":["Sim"],"risk_message":"Fadiga ou redução inexplicada da tolerância ao esforço"},
+    {"section":"Sintomas e sinais de alerta","label":"Existe algum sintoma atual que piore com atividade física e ainda não tenha sido avaliado?","question_type":"yes_no","required":True,"risk_enabled":True,"risk_values":["Sim"],"risk_message":"Sintoma atual agravado por atividade física sem avaliação profissional"},
+
+    # 4. Histórico cardiovascular, metabólico, renal e respiratório
+    {"section":"Histórico clínico","label":"Algum profissional já informou que você possui doença cardíaca, insuficiência cardíaca, arritmia relevante ou outra condição cardiovascular?","question_type":"yes_no","required":True,"risk_enabled":True,"risk_values":["Sim"],"risk_message":"Condição cardiovascular conhecida"},
+    {"section":"Histórico clínico","label":"Você já teve infarto, angina, cirurgia cardíaca, angioplastia, marca-passo ou outro procedimento cardiovascular?","question_type":"yes_no","required":True,"risk_enabled":True,"risk_values":["Sim"],"risk_message":"Histórico de evento ou procedimento cardiovascular"},
+    {"section":"Histórico clínico","label":"Você já teve AVC, AIT ou outro evento cerebrovascular?","question_type":"yes_no","required":True,"risk_enabled":True,"risk_values":["Sim"],"risk_message":"Histórico de AVC/AIT"},
+    {"section":"Histórico clínico","label":"Você possui hipertensão arterial diagnosticada?","question_type":"yes_no","required":True},
+    {"section":"Histórico clínico","label":"Sua pressão arterial está atualmente sem controle, ou houve orientação profissional para restringir exercícios por causa da pressão?","question_type":"yes_no","required":True,"risk_enabled":True,"risk_values":["Sim"],"risk_message":"Hipertensão não controlada ou restrição profissional relacionada à pressão arterial"},
+    {"section":"Histórico clínico","label":"Você possui diabetes mellitus?","question_type":"yes_no","required":True},
+    {"section":"Histórico clínico","label":"Seu diabetes apresenta complicações, episódios frequentes de hipoglicemia ou orientação específica para exercício?","question_type":"yes_no","required":True,"risk_enabled":True,"risk_values":["Sim"],"risk_message":"Diabetes com complicações, hipoglicemia recorrente ou necessidade de orientação específica"},
+    {"section":"Histórico clínico","label":"Você possui doença renal crônica ou está em acompanhamento por alteração importante da função renal?","question_type":"yes_no","required":True,"risk_enabled":True,"risk_values":["Sim"],"risk_message":"Doença renal crônica ou alteração renal relevante"},
+    {"section":"Histórico clínico","label":"Você possui asma, DPOC ou outra doença respiratória?","question_type":"yes_no","required":True},
+    {"section":"Histórico clínico","label":"Sua condição respiratória está descontrolada, com crises recentes ou limitação importante ao esforço?","question_type":"yes_no","required":True,"risk_enabled":True,"risk_values":["Sim"],"risk_message":"Condição respiratória descontrolada ou limitante"},
+    {"section":"Histórico clínico","label":"Você possui outra doença crônica, neurológica, autoimune, infecciosa ou condição clínica relevante para o exercício?","question_type":"textarea","required":False,"placeholder":"Informe diagnóstico e situação atual"},
+
+    # 5. Musculoesquelético e neurológico
+    {"section":"Sistema musculoesquelético e neurológico","label":"Você sente dor musculoesquelética atualmente?","question_type":"yes_no","required":True},
+    {"section":"Sistema musculoesquelético e neurológico","label":"Existe lesão, dor ou limitação que impeça ou modifique movimentos do dia a dia ou do exercício?","question_type":"yes_no","required":True,"risk_enabled":True,"risk_values":["Sim"],"risk_message":"Lesão, dor ou limitação funcional que interfere no exercício"},
+    {"section":"Sistema musculoesquelético e neurológico","label":"Descreva lesões atuais ou anteriores relevantes.","question_type":"textarea","required":False,"placeholder":"Local, diagnóstico, quando ocorreu e situação atual"},
+    {"section":"Sistema musculoesquelético e neurológico","label":"Você já realizou cirurgia ortopédica, neurológica ou de coluna?","question_type":"yes_no","required":True},
+    {"section":"Sistema musculoesquelético e neurológico","label":"Descreva cirurgias anteriores relevantes e possíveis restrições.","question_type":"textarea","required":False},
+    {"section":"Sistema musculoesquelético e neurológico","label":"Você apresenta perda de equilíbrio, quedas recorrentes, fraqueza neurológica ou alteração importante de coordenação?","question_type":"yes_no","required":True,"risk_enabled":True,"risk_values":["Sim"],"risk_message":"Alteração de equilíbrio, quedas recorrentes ou déficit neurológico relevante"},
+    {"section":"Sistema musculoesquelético e neurológico","label":"Você possui osteoporose, fratura por fragilidade ou alto risco conhecido de fratura?","question_type":"yes_no","required":True},
+    {"section":"Sistema musculoesquelético e neurológico","label":"Você possui epilepsia ou histórico de convulsões?","question_type":"yes_no","required":True},
+    {"section":"Sistema musculoesquelético e neurológico","label":"Houve convulsão recente, alteração no controle da epilepsia ou orientação para restrição de exercício?","question_type":"yes_no","required":True,"risk_enabled":True,"risk_values":["Sim"],"risk_message":"Convulsão recente ou epilepsia sem controle adequado para atividade física"},
+
+    # 6. Medicamentos, alergias e acompanhamento
+    {"section":"Medicamentos e acompanhamento","label":"Você utiliza medicamentos de uso contínuo?","question_type":"yes_no","required":True},
+    {"section":"Medicamentos e acompanhamento","label":"Informe os medicamentos em uso e, se souber, a finalidade.","question_type":"textarea","required":False,"placeholder":"Nome, dose e finalidade"},
+    {"section":"Medicamentos e acompanhamento","label":"Algum medicamento já provocou tontura, queda de pressão, alteração de frequência cardíaca ou hipoglicemia durante atividade?","question_type":"yes_no","required":True,"risk_enabled":True,"risk_values":["Sim"],"risk_message":"Efeito de medicamento com potencial impacto durante exercício"},
+    {"section":"Medicamentos e acompanhamento","label":"Você possui alergia importante, inclusive a medicamentos?","question_type":"yes_no","required":True},
+    {"section":"Medicamentos e acompanhamento","label":"Descreva alergias relevantes e condutas de emergência, se houver.","question_type":"textarea","required":False},
+    {"section":"Medicamentos e acompanhamento","label":"Algum profissional de saúde já recomendou que você faça exercícios somente com supervisão ou após avaliação específica?","question_type":"yes_no","required":True,"risk_enabled":True,"risk_values":["Sim"],"risk_message":"Orientação profissional prévia para supervisão ou avaliação antes do exercício"},
+
+    # 7. Histórico familiar
+    {"section":"Histórico familiar","label":"Pai, mãe ou irmão(ã) teve infarto, morte súbita ou doença cardiovascular em idade precoce?","question_type":"yes_no","required":True},
+    {"section":"Histórico familiar","label":"Existe histórico familiar de morte súbita inexplicada, cardiomiopatia ou arritmia hereditária?","question_type":"yes_no","required":True,"risk_enabled":True,"risk_values":["Sim"],"risk_message":"Histórico familiar de morte súbita ou doença cardíaca hereditária"},
+    {"section":"Histórico familiar","label":"Existe histórico familiar relevante de hipertensão, diabetes, AVC ou doença renal?","question_type":"multiselect","options":["Hipertensão","Diabetes","AVC","Doença renal","Nenhum conhecido"],"required":False},
+
+    # 8. Hábitos e recuperação
+    {"section":"Hábitos, sono e recuperação","label":"Você fuma atualmente?","question_type":"select","options":["Não","Sim","Ex-fumante"],"required":True},
+    {"section":"Hábitos, sono e recuperação","label":"Com que frequência consome bebidas alcoólicas?","question_type":"select","options":["Não consumo","Ocasionalmente","1 a 2 dias por semana","3 ou mais dias por semana"],"required":True},
+    {"section":"Hábitos, sono e recuperação","label":"Quantas horas você dorme, em média, por noite?","question_type":"number","required":False,"placeholder":"Ex.: 7.5"},
+    {"section":"Hábitos, sono e recuperação","label":"Como você avalia a qualidade do seu sono?","question_type":"select","options":["Muito boa","Boa","Regular","Ruim","Muito ruim"],"required":True},
+    {"section":"Hábitos, sono e recuperação","label":"Como você avalia seu nível atual de estresse?","question_type":"select","options":["Baixo","Moderado","Alto","Muito alto"],"required":True},
+    {"section":"Hábitos, sono e recuperação","label":"Sua rotina de trabalho envolve esforço físico intenso, longos períodos em pé, trabalho noturno ou movimentos repetitivos?","question_type":"textarea","required":False},
+    {"section":"Hábitos, sono e recuperação","label":"Existe alguma questão de alimentação, relação com comida ou peso que você considere importante para o planejamento do treino?","question_type":"textarea","required":False},
+
+    # 9. Gestação e situações especiais
+    {"section":"Situações especiais","label":"Você está gestante ou em período pós-parto?","question_type":"select","options":["Não","Gestante","Pós-parto até 12 semanas","Pós-parto há mais de 12 semanas","Não se aplica / prefiro não informar"],"required":False},
+    {"section":"Situações especiais","label":"Em caso de gestação ou pós-parto, existe complicação, sintoma ou orientação profissional para restringir atividade física?","question_type":"yes_no","required":False,"risk_enabled":True,"risk_values":["Sim"],"risk_message":"Gestação/pós-parto com complicação, sintoma ou restrição profissional"},
+    {"section":"Situações especiais","label":"Você possui deficiência ou condição funcional que exija adaptação específica do treinamento?","question_type":"yes_no","required":True},
+    {"section":"Situações especiais","label":"Descreva adaptações de acessibilidade, comunicação ou execução que devam ser consideradas.","question_type":"textarea","required":False},
+
+    # 10. Medidas e exames recentes
+    {"section":"Medidas e informações recentes","label":"Altura (cm), se souber","question_type":"number","required":False,"placeholder":"Ex.: 175"},
+    {"section":"Medidas e informações recentes","label":"Peso corporal atual (kg), se desejar informar","question_type":"number","required":False,"placeholder":"Ex.: 75.5"},
+    {"section":"Medidas e informações recentes","label":"Pressão arterial sistólica mais recente, se disponível (mmHg)","question_type":"number","required":False,"placeholder":"Ex.: 120"},
+    {"section":"Medidas e informações recentes","label":"Pressão arterial diastólica mais recente, se disponível (mmHg)","question_type":"number","required":False,"placeholder":"Ex.: 80"},
+    {"section":"Medidas e informações recentes","label":"Frequência cardíaca de repouso mais recente, se disponível (bpm)","question_type":"number","required":False,"placeholder":"Ex.: 65"},
+    {"section":"Medidas e informações recentes","label":"Existe exame, laudo ou recomendação profissional recente que deva ser considerado no treinamento?","question_type":"textarea","required":False,"placeholder":"Descreva ou informe onde está registrado"},
+
+    # 11. Preferências e segurança
+    {"section":"Preferências e segurança","label":"Quais dias da semana você normalmente consegue treinar?","question_type":"multiselect","options":["Segunda","Terça","Quarta","Quinta","Sexta","Sábado","Domingo"],"required":False},
+    {"section":"Preferências e segurança","label":"Quanto tempo você normalmente tem disponível por sessão?","question_type":"select","options":["Até 30 min","30 a 45 min","45 a 60 min","60 a 90 min","Mais de 90 min"],"required":False},
+    {"section":"Preferências e segurança","label":"Qual ambiente você utilizará com maior frequência?","question_type":"multiselect","options":["Academia","Casa","Rua / parque","Pista","Esteira","Bicicleta / rolo","Outro"],"required":False},
+    {"section":"Preferências e segurança","label":"Há qualquer outra informação que o profissional responsável deva saber antes de prescrever seu treinamento?","question_type":"textarea","required":False},
+]
+
+
+def _insert_default_anamnesis(db: Session, replace: bool = False) -> int:
+    if replace:
+        for item in db.scalars(select(AnamnesisQuestion)).all():
+            db.delete(item)
+        db.flush()
+
+    count = 0
+    for index, item in enumerate(DEFAULT_ANAMNESIS_QUESTIONS, start=1):
+        q = AnamnesisQuestion(
+            section=item["section"],
+            label=item["label"],
+            question_type=item.get("question_type", "yes_no"),
+            help_text=item.get("help_text", ""),
+            placeholder=item.get("placeholder", ""),
+            options_json=json.dumps(item.get("options", []), ensure_ascii=False),
+            required=item.get("required", False),
+            risk_enabled=item.get("risk_enabled", False),
+            risk_values_json=json.dumps(item.get("risk_values", []), ensure_ascii=False),
+            risk_message=item.get("risk_message", ""),
+            active=True,
+            position=index * 10,
+            updated_at=datetime.now(timezone.utc),
+        )
+        db.add(q)
+        count += 1
+    return count
+
+
+def seed_default_anamnesis_once() -> None:
+    db = DB()
+    try:
+        seeded = db.scalar(select(AppSetting).where(AppSetting.key == "default_anamnesis_seeded"))
+        if seeded:
+            return
+
+        existing = db.scalars(select(AnamnesisQuestion).order_by(AnamnesisQuestion.id)).all()
+        if not existing:
+            _insert_default_anamnesis(db)
+
+        db.add(AppSetting(
+            key="default_anamnesis_seeded",
+            value="1",
+            updated_at=datetime.now(timezone.utc),
+        ))
+        db.commit()
+    finally:
+        db.close()
+
+
 def cleanup_initial_demo_data() -> None:
     """Remove apenas os registros fictícios usados no primeiro mockup."""
     db = DB()
@@ -217,6 +374,7 @@ def cleanup_initial_demo_data() -> None:
 
 
 cleanup_initial_demo_data()
+seed_default_anamnesis_once()
 app = FastAPI(title="RITMOX", version="0.1.0")
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
@@ -783,6 +941,20 @@ def delete_anamnesis_question(question_id: int, db: Session = Depends(session)):
     db.delete(item)
     db.commit()
     return {"ok": True}
+
+
+
+@app.post("/api/settings/anamnesis/restore-default")
+def restore_default_anamnesis(db: Session = Depends(session)):
+    count = _insert_default_anamnesis(db, replace=True)
+    seeded = db.scalar(select(AppSetting).where(AppSetting.key == "default_anamnesis_seeded"))
+    if seeded:
+        seeded.value = "1"
+        seeded.updated_at = datetime.now(timezone.utc)
+    else:
+        db.add(AppSetting(key="default_anamnesis_seeded", value="1", updated_at=datetime.now(timezone.utc)))
+    db.commit()
+    return {"ok": True, "count": count}
 
 
 class HealthAssessmentIn(BaseModel):
