@@ -64,11 +64,29 @@ function renderDashboard(d){
   $("#statDistance").textContent=Number(d.stats.distance_km).toLocaleString("pt-BR",{minimumFractionDigits:1})+" km";
   $("#statLoad").textContent=formatLoad(d.stats.total_load_kg);
   $("#statTime").textContent=d.stats.active_time;
+  if(d.empty){
+    $("#homeWorkoutTitle").textContent="Nenhum treino programado";
+  }
   drawProgressChart();
 }
 
 function renderWorkout(w){
   state.workout=w;
+  if(!w){
+    $("#workoutTitle").textContent="Nenhum treino cadastrado";
+    $("#workoutSubtitle").textContent="Crie seu primeiro treino de musculação.";
+    $("#homeWorkoutTitle").textContent="Nenhum treino programado";
+    $("#workoutProgress").style.width="0%";
+    $("#exerciseList").innerHTML=`<article class="exercise empty-card">
+      <div class="exercise-thumb">+</div>
+      <div>
+        <h4>Comece do zero</h4>
+        <p>Seus exercícios, séries, repetições e cargas aparecerão aqui.</p>
+      </div>
+    </article>`;
+    $("#startWorkoutBtn").textContent="Criar primeiro treino";
+    return;
+  }
   $("#workoutTitle").textContent=w.title;
   $("#workoutSubtitle").textContent=w.subtitle;
   $("#homeWorkoutTitle").textContent=w.title;
@@ -114,6 +132,19 @@ async function undoSet(id){
 
 function renderRun(r){
   state.run=r;
+  if(!r){
+    $("#runTitle").textContent="Nenhuma corrida registrada";
+    $("#runDistance").textContent="0,00 km";
+    $("#runDuration").textContent="00:00";
+    $("#metricDistance").textContent="0,00";
+    $("#metricTime").textContent="00:00";
+    $("#metricPace").textContent="--:--";
+    $("#runCalories").textContent="0";
+    $("#runHeart").textContent="0";
+    $("#runElevation").textContent="0";
+    drawRunChart();
+    return;
+  }
   $("#runTitle").textContent=r.title;
   $("#runDistance").textContent=Number(r.distance_km).toLocaleString("pt-BR",{minimumFractionDigits:2})+" km";
   $("#runDuration").textContent=r.duration;
@@ -154,12 +185,12 @@ function drawProgressChart(){
   if(!canvas || !canvas.parentElement.offsetParent) return;
   const fit=fitCanvas(canvas,230); if(!fit)return;
   const {ctx,width,height}=fit;
-  const data=(state.dashboard&&state.dashboard.weekly)||[4,6,3,7,5,8,6,9,7,10,8,12];
+  const data=(state.dashboard&&state.dashboard.weekly)||Array(12).fill(0);
   ctx.clearRect(0,0,width,height);
   ctx.strokeStyle="rgba(255,255,255,.07)";
   ctx.lineWidth=1;
   for(let y=25;y<height-25;y+=42){ctx.beginPath();ctx.moveTo(10,y);ctx.lineTo(width-10,y);ctx.stroke()}
-  const pad=18, base=height-24, max=Math.max(...data)+2, gap=(width-pad*2)/data.length;
+  const pad=18, base=height-24, max=Math.max(1,...data)+2, gap=(width-pad*2)/data.length;
   data.forEach((v,i)=>{
     const h=v/max*(height-60);
     const x=pad+i*gap+gap*.14;
@@ -185,7 +216,7 @@ function drawRunChart(){
   if(!canvas || !canvas.parentElement.offsetParent) return;
   const fit=fitCanvas(canvas,220); if(!fit)return;
   const {ctx,width,height}=fit;
-  const vals=[4.8,6.2,3.9,5.6,4.5,6.8,3.7,5.2,7.1,4.9,5.8,4.3];
+  const vals=state.run ? [4.8,6.2,3.9,5.6,4.5,6.8,3.7,5.2,7.1,4.9,5.8,4.3] : Array(12).fill(0);
   ctx.clearRect(0,0,width,height);
   for(let y=28;y<height-28;y+=40){ctx.strokeStyle="rgba(255,255,255,.06)";ctx.beginPath();ctx.moveTo(8,y);ctx.lineTo(width-8,y);ctx.stroke()}
   const pad=16, base=height-25, gap=(width-pad*2)/vals.length, max=8;
@@ -210,7 +241,10 @@ function startLocalTimer(){
 }
 
 $("#startWorkoutBtn").onclick=async()=>{
-  if(!state.workout)return;
+  if(!state.workout){
+    toast("O cadastro do primeiro treino será a próxima tela que vamos construir.");
+    return;
+  }
   try{
     const w=await api(`/api/workouts/${state.workout.id}/start`,{method:"POST"});
     renderWorkout(w); startLocalTimer(); toast("Treino iniciado.");
