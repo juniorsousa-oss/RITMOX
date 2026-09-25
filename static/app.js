@@ -353,9 +353,27 @@ $("#comingSoonBtn").onclick=()=>toast("Comunidade, desafios e rankings entram na
 
 document.addEventListener("click",(ev)=>{
   const target=ev.target.closest("[data-page]");
-  if(!target) return;
-  ev.preventDefault();
-  navigate(target.dataset.page);
+  if(target){
+    ev.preventDefault();
+    navigate(target.dataset.page);
+    return;
+  }
+
+  const more=ev.target.closest(".m-more");
+  if(more){
+    ev.preventDefault();
+    toast("Mais opções serão adicionadas nesta tela.");
+    return;
+  }
+
+  const runTab=ev.target.closest(".m-run-tabs button");
+  if(runTab){
+    $(".m-run-tabs button").forEach(b=>b.classList.remove("active"));
+    runTab.classList.add("active");
+    if(runTab.textContent.trim()!=="Resumo"){
+      toast(runTab.textContent.trim()+" ficará disponível quando houver uma corrida registrada.");
+    }
+  }
 });
 $$("[data-open]").forEach(card=>card.addEventListener("click",(ev)=>{
   if(ev.target.closest("button")) ev.preventDefault();
