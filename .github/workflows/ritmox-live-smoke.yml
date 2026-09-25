@@ -1,4 +1,4 @@
-name: RITMOX live smoke tests
+name: RITMOX live regression tests
 
 on:
   push:
@@ -9,130 +9,191 @@ permissions:
   contents: read
 
 jobs:
-  live-smoke:
+  live-regression:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 18
     env:
       APP_URL: https://ritmox.onrender.com
-      EXPECTED_BUILD: "20260925-40"
+      EXPECTED_BUILD: "20260925-41"
     steps:
       - name: Wait for Render build
         shell: bash
         run: |
           set -euo pipefail
-          for attempt in {1..60}; do
+          for attempt in {1..70}; do
             body="$(curl -fsS --max-time 20 "$APP_URL/api/version" || true)"
             echo "attempt=$attempt body=$body"
-            if echo "$body" | grep -q "$EXPECTED_BUILD"; then
-              exit 0
-            fi
+            if echo "$body" | grep -q "$EXPECTED_BUILD"; then exit 0; fi
             sleep 10
           done
-          echo "Render did not publish $EXPECTED_BUILD within the test window."
+          echo "Render did not publish $EXPECTED_BUILD"
           exit 1
 
-      - name: Install browser test runtime
+      - name: Install browser runtime
         run: npm install --no-save playwright-core
 
-      - name: Run six repeated muscle-icon tests
+      - name: Repeat declaration checkbox behavior six times
         shell: bash
         run: |
           node <<'NODE'
-          const { chromium } = require('playwright-core');
-          const APP = process.env.APP_URL;
-          const expected = process.env.EXPECTED_BUILD;
-          const results = [];
-
-          function pass(name, ok, details) {
-            results.push({name, ok, details});
-            console.log(`${ok ? 'PASS' : 'FAIL'} :: ${name} :: ${details}`);
-          }
-
-          (async () => {
-            const browser = await chromium.launch({
+          const { chromium }=require('playwright-core');
+          const APP=process.env.APP_URL;
+          (async()=>{
+            const browser=await chromium.launch({
               executablePath:'/usr/bin/google-chrome',
               headless:true,
               args:['--no-sandbox','--disable-dev-shm-usage']
             });
-            try {
-              for (let i=1;i<=6;i++) {
-                const page = await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
-                await page.goto(`${APP}/?muscleIconTest=${i}&build=${expected}`,{waitUntil:'networkidle',timeout:120000});
-                const card = page.locator('.m-feature-strength');
-                const icon = page.locator('.m-feature-strength .m-feature-icon');
-                const img = page.locator('.m-feature-strength .m-feature-icon img');
-                const copy = page.locator('.m-feature-strength .m-feature-copy');
-                await img.waitFor({state:'visible',timeout:30000});
-
-                const data = await img.evaluate(el => {
-                  const r = el.getBoundingClientRect();
-                  const s = getComputedStyle(el);
-                  return {
-                    src: el.getAttribute('src'),
-                    complete: el.complete,
-                    naturalWidth: el.naturalWidth,
-                    naturalHeight: el.naturalHeight,
-                    width: r.width,
-                    height: r.height,
-                    objectFit: s.objectFit,
-                    transform: s.transform,
-                    clipPath: s.clipPath,
-                    paddingTop: s.paddingTop,
-                    paddingRight: s.paddingRight,
-                    paddingBottom: s.paddingBottom,
-                    paddingLeft: s.paddingLeft
-                  };
+            try{
+              for(let i=1;i<=6;i++){
+                const page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
+                await page.goto(APP+'/?declarationTest='+i,{waitUntil:'networkidle',timeout:120000});
+                await page.evaluate(async()=>{
+                  await loadAnamnesisFormConfig(true);
+                  renderDynamicAnamnesis();
+                  openDialogSafe(document.querySelector('#healthAssessmentDialog'));
                 });
-                const ib = await icon.boundingBox();
-                const xb = await img.boundingBox();
-                const cb = await copy.boundingBox();
-                const gap = cb.x - (ib.x + ib.width);
-                const imageCenterY = xb.y + xb.height / 2;
-                const iconCenterY = ib.y + ib.height / 2;
-                const verticalOffset = imageCenterY - iconCenterY;
-                const horizontallyInside =
-                  xb.x >= ib.x - 0.5 &&
-                  xb.x + xb.width <= ib.x + ib.width + 0.5;
+                const truthful=page.locator('#haConsentTruthful');
+                const screening=page.locator('#haConsentScreening');
+                const signature=page.locator('#haRequestSignature');
+                await truthful.waitFor({state:'visible',timeout:30000});
 
-                const ok =
-                  data.complete &&
-                  data.naturalWidth > 0 &&
-                  data.naturalHeight > 0 &&
-                  data.src.includes(`muscle-approved.png?v=${expected}`) &&
-                  Math.abs(data.width - 52) < 0.6 &&
-                  Math.abs(data.height - 52) < 0.6 &&
-                  Math.abs(ib.width - 58) < 0.6 &&
-                  Math.abs(ib.height - 58) < 0.6 &&
-                  data.objectFit === 'contain' &&
-                  data.transform === 'matrix(1, 0, 0, 1, 0, -12)' &&
-                  data.clipPath === 'none' &&
-                  horizontallyInside &&
-                  verticalOffset <= -11.5 &&
-                  verticalOffset >= -12.5 &&
-                  gap >= 17.5;
+                if(await truthful.getAttribute('aria-checked')!=='false') throw new Error('truthful initial state invalid');
+                if(await screening.getAttribute('aria-checked')!=='false') throw new Error('screening initial state invalid');
 
-                pass(
-                  `muscle icon repetition ${i}/6`,
-                  ok,
-                  JSON.stringify({data,iconBox:ib,imageBox:xb,textGap:gap,verticalOffset,horizontallyInside})
-                );
+                await truthful.click();
+                await screening.click();
+                await signature.click();
 
-                await card.screenshot({path:`muscle-icon-test-${i}.png`});
+                const a=await truthful.getAttribute('aria-checked');
+                const b=await screening.getAttribute('aria-checked');
+                const s=await signature.getAttribute('aria-checked');
+                if(a!=='true'||b!=='true'||s!=='true'){
+                  throw new Error('toggle failed '+JSON.stringify({a,b,s,iteration:i}));
+                }
+
+                await truthful.click();
+                if(await truthful.getAttribute('aria-checked')!=='false'){
+                  throw new Error('second truthful toggle failed on iteration '+i);
+                }
+                await truthful.click();
+                if(await truthful.getAttribute('aria-checked')!=='true'){
+                  throw new Error('third truthful toggle failed on iteration '+i);
+                }
+
+                console.log('PASS declarations '+i+'/6');
                 await page.close();
               }
-
-              if (results.some(r=>!r.ok)) process.exit(1);
-              console.log('RESULTS='+JSON.stringify(results));
-            } finally {
-              await browser.close();
-            }
-          })().catch(err=>{console.error(err);process.exit(1);});
+            }finally{await browser.close();}
+          })().catch(e=>{console.error(e);process.exit(1)});
           NODE
 
-      - name: Upload six rendered icon screenshots
+      - name: Validate baked whole-card images and clicks
+        shell: bash
+        run: |
+          node <<'NODE'
+          const { chromium }=require('playwright-core');
+          const APP=process.env.APP_URL;
+          (async()=>{
+            const browser=await chromium.launch({
+              executablePath:'/usr/bin/google-chrome',
+              headless:true,
+              args:['--no-sandbox','--disable-dev-shm-usage']
+            });
+            try{
+              const mobile=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
+              await mobile.goto(APP+'/?homeCardTest=mobile',{waitUntil:'networkidle',timeout:120000});
+              for(const sel of ['.m-feature-strength','.m-feature-run']){
+                const card=mobile.locator(sel);
+                await card.waitFor({state:'visible',timeout:30000});
+                if(await card.locator('.m-feature-icon').count()) throw new Error(sel+' contains separate icon');
+                const art=card.locator('.home-card-art');
+                const src=await art.getAttribute('src');
+                if(!src||!src.includes('/static/assets/home/')) throw new Error(sel+' missing baked image');
+                const natural=await art.evaluate(img=>({complete:img.complete,w:img.naturalWidth,h:img.naturalHeight}));
+                if(!natural.complete||natural.w<200||natural.h<80) throw new Error(sel+' baked image failed '+JSON.stringify(natural));
+              }
+              await mobile.locator('.m-feature-strength').click();
+              if(!mobile.url().includes('#workouts')) throw new Error('mobile strength whole-card click failed');
+              await mobile.goto(APP+'/?homeCardTest=mobile-run',{waitUntil:'networkidle'});
+              await mobile.locator('.m-feature-run').click();
+              if(!mobile.url().includes('#run')) throw new Error('mobile run whole-card click failed');
+              await mobile.close();
+
+              const desktop=await browser.newPage({viewport:{width:1440,height:900},deviceScaleFactor:1});
+              await desktop.goto(APP+'/?homeCardTest=desktop',{waitUntil:'networkidle',timeout:120000});
+              for(const sel of ['.strength-card','.run-card']){
+                const card=desktop.locator(sel);
+                await card.waitFor({state:'visible',timeout:30000});
+                if(await card.locator('.hero-icon').count()) throw new Error(sel+' contains separate icon');
+                const src=await card.locator('.home-card-art').getAttribute('src');
+                if(!src||!src.includes('/static/assets/home/')) throw new Error(sel+' missing baked desktop image');
+              }
+              console.log('PASS baked whole-card images');
+              await desktop.close();
+            }finally{await browser.close();}
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+
+      - name: Validate profile anamnesis and PDF API
+        shell: bash
+        run: |
+          set -euo pipefail
+          profile="$(curl -fsS "$APP_URL/api/profile/anamnesis")"
+          echo "$profile" > /tmp/profile.json
+          python - <<'PY'
+          import json
+          p=json.load(open('/tmp/profile.json'))
+          assert set(('latest','history','count')).issubset(p)
+          assert isinstance(p['history'], list)
+          assert isinstance(p['count'], int)
+          print('PROFILE_COUNT',p['count'])
+          PY
+
+          assessment_id="$(python - <<'PY'
+          import json
+          p=json.load(open('/tmp/profile.json'))
+          print((p.get('latest') or {}).get('id') or '')
+          PY
+          )"
+          if [ -n "$assessment_id" ]; then
+            curl -fsS "$APP_URL/api/health-assessment/$assessment_id/pdf" -o /tmp/anamnesis.pdf
+            test "$(head -c 4 /tmp/anamnesis.pdf)" = "%PDF"
+            test "$(wc -c < /tmp/anamnesis.pdf)" -gt 1000
+            echo "PASS profile PDF for assessment $assessment_id"
+          else
+            echo "No saved assessment yet; profile empty-state API is valid."
+          fi
+
+      - name: Validate profile UI
+        shell: bash
+        run: |
+          node <<'NODE'
+          const { chromium }=require('playwright-core');
+          const APP=process.env.APP_URL;
+          (async()=>{
+            const browser=await chromium.launch({
+              executablePath:'/usr/bin/google-chrome',
+              headless:true,
+              args:['--no-sandbox','--disable-dev-shm-usage']
+            });
+            try{
+              const page=await browser.newPage({viewport:{width:390,height:844}});
+              await page.goto(APP,{waitUntil:'networkidle',timeout:120000});
+              await page.locator('.bottom-nav [data-page="profile"]').click();
+              await page.locator('#profileAnamnesisCard').waitFor({state:'visible',timeout:30000});
+              const subtitle=await page.locator('#profileAnamnesisSubtitle').textContent();
+              if(!subtitle||subtitle.includes('Carregando')) throw new Error('profile anamnesis did not load');
+              console.log('PASS profile anamnesis UI:',subtitle);
+              await page.screenshot({path:'ritmox-profile-anamnesis.png',fullPage:true});
+            }finally{await browser.close();}
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+
+      - name: Upload validation screenshot
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ritmox-muscle-icon-v40
-          path: muscle-icon-test-*.png
-          if-no-files-found: error
+          name: ritmox-v41-live-validation
+          path: ritmox-profile-anamnesis.png
+          if-no-files-found: ignore
