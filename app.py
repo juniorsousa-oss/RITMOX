@@ -93,6 +93,9 @@ class WorkoutPlan(Base):
     exercises: Mapped[list["PlannedExercise"]] = relationship(
         back_populates="plan", cascade="all, delete-orphan", order_by="PlannedExercise.position"
     )
+    blocks: Mapped[list["PlannedBlock"]] = relationship(
+        back_populates="plan", cascade="all, delete-orphan", order_by="PlannedBlock.position"
+    )
 
 
 class PlannedExercise(Base):
@@ -106,6 +109,26 @@ class PlannedExercise(Base):
     reps: Mapped[str] = mapped_column(String(30), default="8-10")
     load_kg: Mapped[float] = mapped_column(Float, default=0)
     plan: Mapped[WorkoutPlan] = relationship(back_populates="exercises")
+
+
+class PlannedBlock(Base):
+    __tablename__ = "planned_blocks"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    plan_id: Mapped[int] = mapped_column(ForeignKey("workout_plans.id", ondelete="CASCADE"), index=True)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    kind: Mapped[str] = mapped_column(String(40), default="strength")
+    name: Mapped[str] = mapped_column(String(160), default="")
+    detail: Mapped[str] = mapped_column(String(160), default="")
+    sets_total: Mapped[int] = mapped_column(Integer, default=0)
+    reps: Mapped[str] = mapped_column(String(30), default="")
+    load_kg: Mapped[float] = mapped_column(Float, default=0)
+    distance_km: Mapped[float] = mapped_column(Float, default=0)
+    duration_min: Mapped[int] = mapped_column(Integer, default=0)
+    pace_target: Mapped[str] = mapped_column(String(30), default="")
+    repetitions: Mapped[int] = mapped_column(Integer, default=0)
+    rest_sec: Mapped[int] = mapped_column(Integer, default=0)
+    intensity: Mapped[str] = mapped_column(String(40), default="")
+    plan: Mapped[WorkoutPlan] = relationship(back_populates="blocks")
 
 
 Base.metadata.create_all(engine)
@@ -331,6 +354,21 @@ class PlannedExerciseIn(BaseModel):
     load_kg: float = Field(default=0, ge=0, le=2000)
 
 
+class PlannedBlockIn(BaseModel):
+    kind: str = Field(default="strength", min_length=2, max_length=40)
+    name: str = Field(default="", max_length=160)
+    detail: str = Field(default="", max_length=160)
+    sets_total: int = Field(default=0, ge=0, le=30)
+    reps: str = Field(default="", max_length=30)
+    load_kg: float = Field(default=0, ge=0, le=2000)
+    distance_km: float = Field(default=0, ge=0, le=500)
+    duration_min: int = Field(default=0, ge=0, le=600)
+    pace_target: str = Field(default="", max_length=30)
+    repetitions: int = Field(default=0, ge=0, le=100)
+    rest_sec: int = Field(default=0, ge=0, le=3600)
+    intensity: str = Field(default="", max_length=40)
+
+
 class WorkoutPlanIn(BaseModel):
     planned_date: str = Field(min_length=10, max_length=10)
     title: str = Field(min_length=2, max_length=160)
@@ -338,6 +376,7 @@ class WorkoutPlanIn(BaseModel):
     duration_min: int = Field(default=45, ge=5, le=600)
     notes: str = Field(default="", max_length=500)
     exercises: list[PlannedExerciseIn] = Field(default_factory=list)
+    blocks: list[PlannedBlockIn] = Field(default_factory=list)
 
     def parsed_date(self) -> date:
         try:
@@ -354,7 +393,26 @@ def plan_payload(plan: WorkoutPlan) -> dict:
         "modality": plan.modality,
         "duration_min": plan.duration_min,
         "notes": plan.notes,
-        "exercise_count": len(plan.exercises),
+        "exercise_count": len(plan.blocks) if plan.blocks else len(plan.exercises),
+        "blocks": [
+            {
+                "id": b.id,
+                "position": b.position,
+                "kind": b.kind,
+                "name": b.name,
+                "detail": b.detail,
+                "sets_total": b.sets_total,
+                "reps": b.reps,
+                "load_kg": b.load_kg,
+                "distance_km": b.distance_km,
+                "duration_min": b.duration_min,
+                "pace_target": b.pace_target,
+                "repetitions": b.repetitions,
+                "rest_sec": b.rest_sec,
+                "intensity": b.intensity,
+            }
+            for b in plan.blocks
+        ],
         "exercises": [
             {
                 "id": e.id,
@@ -427,6 +485,24 @@ def create_training_plan(data: WorkoutPlanIn, db: Session = Depends(session)):
         )
         for i, e in enumerate(data.exercises)
     ]
+    plan.blocks = [
+        PlannedBlock(
+            position=i,
+            kind=b.kind.strip().lower(),
+            name=b.name.strip(),
+            detail=b.detail.strip(),
+            sets_total=b.sets_total,
+            reps=b.reps.strip(),
+            load_kg=b.load_kg,
+            distance_km=b.distance_km,
+            duration_min=b.duration_min,
+            pace_target=b.pace_target.strip(),
+            repetitions=b.repetitions,
+            rest_sec=b.rest_sec,
+            intensity=b.intensity.strip(),
+        )
+        for i, b in enumerate(data.blocks)
+    ]
     db.add(plan)
     db.commit()
     db.refresh(plan)
@@ -459,6 +535,25 @@ def update_training_plan(plan_id: int, data: WorkoutPlanIn, db: Session = Depend
             load_kg=e.load_kg,
         )
         for i, e in enumerate(data.exercises)
+    ])
+    plan.blocks.clear()
+    plan.blocks.extend([
+        PlannedBlock(
+            position=i,
+            kind=b.kind.strip().lower(),
+            name=b.name.strip(),
+            detail=b.detail.strip(),
+            sets_total=b.sets_total,
+            reps=b.reps.strip(),
+            load_kg=b.load_kg,
+            distance_km=b.distance_km,
+            duration_min=b.duration_min,
+            pace_target=b.pace_target.strip(),
+            repetitions=b.repetitions,
+            rest_sec=b.rest_sec,
+            intensity=b.intensity.strip(),
+        )
+        for i, b in enumerate(data.blocks)
     ])
     db.commit()
     db.refresh(plan)
