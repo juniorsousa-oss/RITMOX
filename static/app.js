@@ -539,7 +539,10 @@ function renderAnamnesisQuestion(q){
     </select>`;
   }else if(q.question_type==="multiselect"){
     control=`<div class="dynamic-multiselect">
-      ${(q.options||[]).map(opt=>`<label><input type="checkbox" value="${escapeHTML(opt)}"> ${escapeHTML(opt)}</label>`).join("")}
+      ${(q.options||[]).map((opt,index)=>{
+        const inputId=`anamnesis-q-${q.id}-${index}`;
+        return `<label for="${inputId}"><input id="${inputId}" type="checkbox" value="${escapeHTML(opt)}"><span>${escapeHTML(opt)}</span></label>`;
+      }).join("")}
     </div>`;
   }else{
     control=`<input data-answer type="text" ${q.required?"required":""} placeholder="${escapeHTML(q.placeholder||"")}">`;
@@ -1449,16 +1452,3 @@ window.addEventListener("resize",()=>{
   const hash=location.hash.replace("#","");
   navigate(pageMeta[hash]?hash:"home");
 })();
-
-function bindCheckboxRowFallback(){
-  document.addEventListener("click",(ev)=>{
-    const row=ev.target.closest(".settings-check,.dynamic-multiselect label,.consent-section label,.health-check-grid label");
-    if(!row || ev.target.matches('input[type="checkbox"]')) return;
-    const checkbox=row.querySelector('input[type="checkbox"]');
-    if(!checkbox || checkbox.disabled) return;
-    ev.preventDefault();
-    checkbox.checked=!checkbox.checked;
-    checkbox.dispatchEvent(new Event("change",{bubbles:true}));
-  },{passive:false});
-}
-bindCheckboxRowFallback();
