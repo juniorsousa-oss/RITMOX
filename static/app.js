@@ -15,6 +15,10 @@ const state = {
     editingId: null,
     loaded: false,
   },
+  health: {
+    assessment: null,
+    loaded: false,
+  },
 };
 
 function toast(message){
@@ -59,7 +63,7 @@ function navigate(page){
   history.replaceState(null,"","#"+page);
   if(page==="home") setTimeout(drawProgressChart,50);
   if(page==="run") setTimeout(drawRunChart,50);
-  if(page==="workouts") setTimeout(()=>loadTrainingCalendar(false),20);
+  if(page==="workouts") setTimeout(()=>loadHealthGate(),20);
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
@@ -399,6 +403,219 @@ $("#globalSearch").addEventListener("input",ev=>{
 });
 
 
+
+function selectedValues(containerSelector){
+  return $("input[type=checkbox]:checked",$(containerSelector)).map(el=>el.value);
+}
+
+function resetHealthForm(){
+  const form=$("#healthAssessmentForm");
+  if(form) form.reset();
+}
+
+function fillHealthForm(assessment){
+  resetHealthForm();
+  const d=assessment?.data||{};
+  $("#haFullName").value=d.full_name||"Júnior";
+  $("#haBirthDate").value=d.birth_date||"";
+  $("#haSex").value=d.sex||"";
+  $("#haOccupation").value=d.occupation||"";
+  $("#haActivityLevel").value=d.current_activity_level||"";
+  $("#haGoal").value=d.goal||"";
+  $("#haEmergencyContact").value=d.emergency_contact||"";
+  $("#haEmergencyPhone").value=d.emergency_phone||"";
+  $("#haSurgeries").value=d.surgeries_injuries||"";
+  $("#haMedications").value=d.medications||"";
+  $("#haAllergies").value=d.allergies||"";
+  $("#haChestPain").checked=!!d.chest_pain;
+  $("#haSyncope").checked=!!d.syncope_dizziness;
+  $("#haBreathlessness").checked=!!d.breathlessness_light_activity;
+  $("#haPalpitations").checked=!!d.palpitations;
+  $("#haFatigue").checked=!!d.unexplained_fatigue;
+  $("#haEdema").checked=!!d.edema;
+  $("#haMusculoskeletal").checked=!!d.musculoskeletal_limitations;
+  $("#haPregnancy").checked=!!d.pregnant_or_recent_postpartum;
+  $("#haSmoking").value=d.smoking||"";
+  $("#haAlcohol").value=d.alcohol||"";
+  $("#haSleep").value=d.sleep_hours||"";
+  $("#haStress").value=d.stress_level||"";
+  $("#haSystolic").value=d.systolic_bp??"";
+  $("#haDiastolic").value=d.diastolic_bp??"";
+  $("#haRestingHr").value=d.resting_hr??"";
+  $("#haNotes").value=d.additional_notes||"";
+  $("#haConsentTruthful").checked=!!d.consent_truthful;
+  $("#haConsentScreening").checked=!!d.consent_screening;
+
+  const medical=new Set(d.medical_conditions||[]);
+  $("#medicalConditions input").forEach(el=>el.checked=medical.has(el.value));
+  const family=new Set(d.family_history||[]);
+  $("#familyHistory input").forEach(el=>el.checked=family.has(el.value));
+}
+
+function openHealthAssessment(){
+  const dialog=$("#healthAssessmentDialog");
+  if(!dialog) return;
+  fillHealthForm(state.health.assessment);
+  dialog.showModal();
+}
+
+function closeHealthAssessment(){
+  const dialog=$("#healthAssessmentDialog");
+  if(dialog?.open) dialog.close();
+}
+
+function healthPayload(){
+  const numberOrNull=id=>{
+    const value=$(id).value;
+    return value===""?null:Number(value);
+  };
+  return {
+    full_name:$("#haFullName").value.trim(),
+    birth_date:$("#haBirthDate").value,
+    sex:$("#haSex").value,
+    emergency_contact:$("#haEmergencyContact").value.trim(),
+    emergency_phone:$("#haEmergencyPhone").value.trim(),
+    goal:$("#haGoal").value.trim(),
+    current_activity_level:$("#haActivityLevel").value,
+    occupation:$("#haOccupation").value.trim(),
+    medical_conditions:selectedValues("#medicalConditions"),
+    surgeries_injuries:$("#haSurgeries").value.trim(),
+    medications:$("#haMedications").value.trim(),
+    allergies:$("#haAllergies").value.trim(),
+    family_history:selectedValues("#familyHistory"),
+    chest_pain:$("#haChestPain").checked,
+    syncope_dizziness:$("#haSyncope").checked,
+    breathlessness_light_activity:$("#haBreathlessness").checked,
+    palpitations:$("#haPalpitations").checked,
+    unexplained_fatigue:$("#haFatigue").checked,
+    edema:$("#haEdema").checked,
+    musculoskeletal_limitations:$("#haMusculoskeletal").checked,
+    pregnant_or_recent_postpartum:$("#haPregnancy").checked,
+    smoking:$("#haSmoking").value,
+    alcohol:$("#haAlcohol").value,
+    sleep_hours:Number($("#haSleep").value||0),
+    stress_level:$("#haStress").value,
+    systolic_bp:numberOrNull("#haSystolic"),
+    diastolic_bp:numberOrNull("#haDiastolic"),
+    resting_hr:numberOrNull("#haRestingHr"),
+    additional_notes:$("#haNotes").value.trim(),
+    consent_truthful:$("#haConsentTruthful").checked,
+    consent_screening:$("#haConsentScreening").checked
+  };
+}
+
+async function submitHealthAssessment(ev){
+  ev.preventDefault();
+  const payload=healthPayload();
+  if(!payload.full_name || !payload.birth_date){
+    toast("Informe nome e data de nascimento.");
+    return;
+  }
+  if(!payload.consent_truthful || !payload.consent_screening){
+    toast("Confirme as duas declarações antes de concluir.");
+    return;
+  }
+  try{
+    const result=await api("/api/health-assessment",{method:"POST",body:JSON.stringify(payload)});
+    state.health.assessment=result;
+    state.health.loaded=true;
+    closeHealthAssessment();
+    renderHealthGate();
+    if(result.training_allowed){
+      toast("Anamnese concluída sem alertas que bloqueiem o planejamento.");
+      await loadTrainingCalendar(false);
+    }else{
+      toast("A triagem identificou pontos que exigem avaliação profissional.");
+    }
+  }catch(e){toast(e.message)}
+}
+
+async function loadHealthGate(){
+  if(!$("#healthGate")) return;
+  try{
+    const assessment=await api("/api/health-assessment/latest");
+    state.health.assessment=assessment;
+    state.health.loaded=true;
+    renderHealthGate();
+    if(assessment?.training_allowed){
+      await loadTrainingCalendar(false);
+    }
+  }catch(e){
+    toast(e.message);
+  }
+}
+
+function renderHealthGate(){
+  const gate=$("#healthGate");
+  const calendar=$("#trainingCalendar");
+  const assessment=state.health.assessment;
+  if(!gate || !calendar) return;
+
+  $("#startHealthAssessmentBtn").hidden=true;
+  $("#registerClearanceBtn").hidden=true;
+  $("#healthGateFlags").innerHTML="";
+
+  if(!assessment){
+    gate.hidden=false;
+    calendar.hidden=true;
+    $("#healthGateTitle").textContent="Antes do primeiro treino, complete a anamnese";
+    $("#healthGateText").textContent="O planejamento fica bloqueado até o aluno responder à triagem pré-participação.";
+    $("#startHealthAssessmentBtn").hidden=false;
+    return;
+  }
+
+  if(assessment.training_allowed){
+    gate.hidden=true;
+    calendar.hidden=false;
+    const text=assessment.professional_clearance
+      ? `Anamnese concluída · liberação profissional registrada em ${parseISODate(assessment.clearance_date).toLocaleDateString("pt-BR")}`
+      : "Anamnese concluída · sem alertas de bloqueio declarados";
+    $("#healthStatusText").textContent=text;
+    return;
+  }
+
+  gate.hidden=false;
+  calendar.hidden=true;
+  $("#healthGateTitle").textContent="Avaliação profissional necessária";
+  $("#healthGateText").textContent="A anamnese indicou sinais ou condições que exigem avaliação antes de programar atividades físicas.";
+  $("#healthGateFlags").innerHTML=(assessment.red_flags||[]).map(flag=>`<div class="health-flag">${escapeHTML(flag)}</div>`).join("");
+  $("#startHealthAssessmentBtn").textContent="Revisar anamnese";
+  $("#startHealthAssessmentBtn").hidden=false;
+  $("#registerClearanceBtn").hidden=false;
+}
+
+function openClearanceDialog(){
+  if(!state.health.assessment) return;
+  $("#clearanceProvider").value="";
+  $("#clearanceDate").value=localISO(new Date());
+  $("#clearanceDialog").showModal();
+}
+
+function closeClearanceDialog(){
+  if($("#clearanceDialog")?.open) $("#clearanceDialog").close();
+}
+
+async function submitClearance(ev){
+  ev.preventDefault();
+  const provider=$("#clearanceProvider").value.trim();
+  const clearance_date=$("#clearanceDate").value;
+  if(!provider||!clearance_date){
+    toast("Informe o profissional e a data da liberação.");
+    return;
+  }
+  try{
+    const result=await api(`/api/health-assessment/${state.health.assessment.id}/clearance`,{
+      method:"POST",
+      body:JSON.stringify({provider_name:provider,clearance_date})
+    });
+    state.health.assessment=result;
+    closeClearanceDialog();
+    renderHealthGate();
+    await loadTrainingCalendar(false);
+    toast("Liberação profissional registrada.");
+  }catch(e){toast(e.message)}
+}
+
 function localISO(d){
   const y=d.getFullYear();
   const m=String(d.getMonth()+1).padStart(2,"0");
@@ -590,6 +807,11 @@ function configurePlanStructure(modality){
 }
 
 function openPlanDialog(plan=null,dateValue=null){
+  if(!state.health.assessment?.training_allowed){
+    toast("Conclua a anamnese e a triagem de segurança antes de planejar treinos.");
+    loadHealthGate();
+    return;
+  }
   const dialog=$("#planDialog");
   if(!dialog) return;
   state.calendar.editingId=plan?.id||null;
