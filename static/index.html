@@ -57,7 +57,58 @@
       </header>
 
       <section class="page active" id="page-home">
-        <div class="hero-grid">
+
+        <div class="mobile-only mobile-home-shell">
+          <div class="m-brandbar">
+            <div class="m-brand-lockup"><div class="brand-mark">R</div><div><div class="brand-name">RITMO<span>X</span></div><small>TREINO EM MOVIMENTO</small></div></div>
+            <button class="m-avatar" data-page="profile">J</button>
+          </div>
+          <div class="m-greeting">
+            <small>SEU DIA NO RITMOX</small>
+            <h1>Bom dia, Júnior!</h1>
+            <p>Disciplina hoje. Resultados sempre.</p>
+          </div>
+
+          <button class="m-feature-card m-feature-strength" data-page="workouts">
+            <span class="m-feature-icon"><svg><use href="#i-dumbbell"/></svg></span>
+            <span class="m-feature-copy">
+              <small>TREINO DE HOJE</small>
+              <strong>Musculação</strong>
+              <span id="mHomeWorkoutTitle">Nenhum treino programado</span>
+            </span>
+            <span class="m-feature-arrow">›</span>
+          </button>
+
+          <button class="m-feature-card m-feature-run" data-page="run">
+            <span class="m-feature-icon"><svg><use href="#i-run"/></svg></span>
+            <span class="m-feature-copy">
+              <small>CORRIDA</small>
+              <strong>Corrida</strong>
+              <span id="mHomeRunTitle">Nenhuma corrida registrada</span>
+            </span>
+            <span class="m-feature-arrow">›</span>
+          </button>
+
+          <div class="m-section-heading">
+            <div><small>MINHA EVOLUÇÃO</small><h2>Seu progresso</h2></div>
+            <button data-page="evolution">Ver tudo</button>
+          </div>
+
+          <div class="m-kpi-grid">
+            <article class="m-kpi"><span class="m-kpi-icon pink-bg"><svg><use href="#i-dumbbell"/></svg></span><small>Treinos</small><strong id="mStatWorkouts">0</strong></article>
+            <article class="m-kpi"><span class="m-kpi-icon cyan-bg"><svg><use href="#i-run"/></svg></span><small>Corrida</small><strong id="mStatDistance">0,0 km</strong></article>
+            <article class="m-kpi"><span class="m-kpi-icon purple-bg"><svg><use href="#i-chart"/></svg></span><small>Carga</small><strong id="mStatLoad">0 kg</strong></article>
+            <article class="m-kpi"><span class="m-kpi-icon coral-bg">◷</span><small>Tempo ativo</small><strong id="mStatTime">0 min</strong></article>
+          </div>
+
+          <article class="m-progress-card">
+            <div class="m-card-head"><div><small>RESUMO DA SEMANA</small><strong>Comece sua jornada</strong></div><span>0%</span></div>
+            <div class="m-empty-track"><span></span></div>
+            <p>Seus treinos concluídos e corridas registradas vão aparecer aqui.</p>
+          </article>
+        </div>
+
+        <div class="hero-grid desktop-home-block">
           <article class="hero-card strength-card" data-open="workouts">
             <div class="hero-icon"><svg><use href="#i-dumbbell"/></svg></div>
             <div class="hero-copy">
@@ -81,7 +132,7 @@
           </article>
         </div>
 
-        <section class="section-block">
+        <section class="section-block desktop-home-block">
           <div class="section-head">
             <div><h3>Minha evolução</h3><p>Acompanhe seu ritmo e sua consistência.</p></div>
             <select id="periodSelect"><option>Últimos 30 dias</option><option>7 dias</option><option>3 meses</option></select>
@@ -113,7 +164,42 @@
       </section>
 
       <section class="page" id="page-workouts">
-        <div class="page-grid workout-layout">
+
+        <div class="mobile-only mobile-workout-screen">
+          <div class="m-screen-head">
+            <button class="m-back" data-page="home">‹</button>
+            <strong>Treino de hoje</strong>
+            <button class="m-more">•••</button>
+          </div>
+
+          <div class="m-mode-switch">
+            <button class="active">Musculação</button>
+            <button data-page="run">Corrida</button>
+          </div>
+
+          <div class="m-plan-heading">
+            <h2 id="mWorkoutTitle">Nenhum treino cadastrado</h2>
+            <p id="mWorkoutMeta">Crie seu primeiro treino de musculação.</p>
+          </div>
+
+          <div class="m-workout-progress"><span id="mWorkoutProgress"></span></div>
+
+          <article class="m-focus-exercise" id="mExerciseFocus">
+            <div class="m-empty-exercise">
+              <div class="m-empty-plus">+</div>
+              <strong>Comece seu primeiro treino</strong>
+              <p>Adicione exercícios, séries, repetições e cargas.</p>
+              <button id="mCreateWorkoutBtn" class="m-primary-action">Criar treino</button>
+            </div>
+          </article>
+
+          <article class="m-next-exercise" id="mNextExercise">
+            <small>PRÓXIMO EXERCÍCIO</small>
+            <div><span class="m-next-thumb">—</span><p><strong>Nenhum exercício</strong><small>Seu próximo exercício aparecerá aqui</small></p><span>›</span></div>
+          </article>
+        </div>
+
+        <div class="page-grid workout-layout desktop-workout">
           <article class="panel workout-panel">
             <div class="panel-heading">
               <div>
@@ -138,7 +224,47 @@
       </section>
 
       <section class="page" id="page-run">
-        <div class="run-layout">
+
+        <div class="mobile-only mobile-run-screen">
+          <div class="m-screen-head">
+            <button class="m-back" data-page="home">‹</button>
+            <strong>Corrida</strong>
+            <button class="m-more">•••</button>
+          </div>
+
+          <div class="m-run-tabs">
+            <button class="active">Resumo</button>
+            <button>Parciais</button>
+            <button>Mapa</button>
+          </div>
+
+          <article class="m-run-hero">
+            <div class="m-run-hero-overlay">
+              <small id="mRunTitle">Nenhuma corrida registrada</small>
+              <div><strong id="mRunDistance">0,00</strong><span>km</span></div>
+              <p id="mRunDuration">00:00</p>
+            </div>
+          </article>
+
+          <div class="m-run-metrics">
+            <article><small>Distância</small><strong id="mMetricDistance">0,00</strong><span>km</span></article>
+            <article><small>Tempo</small><strong id="mMetricTime">00:00</strong><span>duração</span></article>
+            <article><small>Ritmo médio</small><strong id="mMetricPace">--:--</strong><span>min/km</span></article>
+          </div>
+
+          <article class="m-run-evolution">
+            <div class="m-card-head"><div><small>MINHA EVOLUÇÃO</small><strong>Últimas 4 semanas</strong></div><button data-page="evolution">Ver tudo</button></div>
+            <div class="m-run-empty-chart"><span>Sem histórico de corrida</span></div>
+          </article>
+
+          <div class="m-run-bottom-metrics">
+            <article><span>🔥</span><strong id="mRunCalories">0</strong><small>Calorias</small></article>
+            <article><span>♥</span><strong id="mRunHeart">0</strong><small>Freq. média</small></article>
+            <article><span>▲</span><strong id="mRunElevation">0</strong><small>Elevação</small></article>
+          </div>
+        </div>
+
+        <div class="run-layout desktop-run">
           <article class="panel run-summary">
             <div class="tabs"><button class="tab active">Resumo</button><button class="tab">Parciais</button><button class="tab">Mapa</button></div>
             <div class="run-visual">
