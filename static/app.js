@@ -153,8 +153,8 @@ function renderWorkout(w){
       </div>
     </article>`;
   }).join("");
-  $("[data-complete]").forEach(b=>b.onclick=()=>completeSet(Number(b.dataset.complete)));
-  $("[data-undo]").forEach(b=>b.onclick=()=>undoSet(Number(b.dataset.undo)));
+  $$("[data-complete]").forEach(b=>b.onclick=()=>completeSet(Number(b.dataset.complete)));
+  $$("[data-undo]").forEach(b=>b.onclick=()=>undoSet(Number(b.dataset.undo)));
 
   const current=w.exercises.find(e=>e.sets_done<e.sets_total) || w.exercises[0];
   const currentIndex=Math.max(0,w.exercises.findIndex(e=>e.id===current?.id));
@@ -460,9 +460,9 @@ function fillHealthForm(assessment){
   $("#haConsentScreening").checked=!!d.consent_screening;
 
   const medical=new Set(d.medical_conditions||[]);
-  $("#medicalConditions input").forEach(el=>el.checked=medical.has(el.value));
+  $$("#medicalConditions input").forEach(el=>el.checked=medical.has(el.value));
   const family=new Set(d.family_history||[]);
-  $("#familyHistory input").forEach(el=>el.checked=family.has(el.value));
+  $$("#familyHistory input").forEach(el=>el.checked=family.has(el.value));
 }
 
 function openDialogSafe(dialog){
