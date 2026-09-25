@@ -43,6 +43,7 @@ const pageMeta = {
 function navigate(page){
   if(!$("#page-"+page)) page = "home";
   state.page = page;
+  document.body.dataset.page = page;
   $$(".page").forEach(x=>x.classList.toggle("active",x.id==="page-"+page));
   $$("[data-page]").forEach(x=>x.classList.toggle("active",x.dataset.page===page));
   const meta = pageMeta[page] || pageMeta.home;
@@ -60,12 +61,20 @@ function formatLoad(v){
 
 function renderDashboard(d){
   state.dashboard=d;
+  const distance=Number(d.stats.distance_km).toLocaleString("pt-BR",{minimumFractionDigits:1})+" km";
+  const load=formatLoad(d.stats.total_load_kg);
   $("#statWorkouts").textContent=d.stats.workouts;
-  $("#statDistance").textContent=Number(d.stats.distance_km).toLocaleString("pt-BR",{minimumFractionDigits:1})+" km";
-  $("#statLoad").textContent=formatLoad(d.stats.total_load_kg);
+  $("#statDistance").textContent=distance;
+  $("#statLoad").textContent=load;
   $("#statTime").textContent=d.stats.active_time;
+  if($("#mStatWorkouts")) $("#mStatWorkouts").textContent=d.stats.workouts;
+  if($("#mStatDistance")) $("#mStatDistance").textContent=distance;
+  if($("#mStatLoad")) $("#mStatLoad").textContent=load;
+  if($("#mStatTime")) $("#mStatTime").textContent=d.stats.active_time;
   if(d.empty){
     $("#homeWorkoutTitle").textContent="Nenhum treino programado";
+    if($("#mHomeWorkoutTitle")) $("#mHomeWorkoutTitle").textContent="Nenhum treino programado";
+    if($("#mHomeRunTitle")) $("#mHomeRunTitle").textContent="Nenhuma corrida registrada";
   }
   drawProgressChart();
 }
@@ -85,14 +94,35 @@ function renderWorkout(w){
       </div>
     </article>`;
     $("#startWorkoutBtn").textContent="Criar primeiro treino";
+    if($("#mWorkoutTitle")) $("#mWorkoutTitle").textContent="Nenhum treino cadastrado";
+    if($("#mWorkoutMeta")) $("#mWorkoutMeta").textContent="Crie seu primeiro treino de musculação.";
+    if($("#mWorkoutProgress")) $("#mWorkoutProgress").style.width="0%";
+    if($("#mHomeWorkoutTitle")) $("#mHomeWorkoutTitle").textContent="Nenhum treino programado";
+    if($("#mExerciseFocus")) $("#mExerciseFocus").innerHTML=`
+      <div class="m-empty-exercise">
+        <div class="m-empty-plus">+</div>
+        <strong>Comece seu primeiro treino</strong>
+        <p>Adicione exercícios, séries, repetições e cargas.</p>
+        <button id="mCreateWorkoutBtn" class="m-primary-action">Criar treino</button>
+      </div>`;
+    if($("#mNextExercise")) $("#mNextExercise").innerHTML=`
+      <small>PRÓXIMO EXERCÍCIO</small>
+      <div><span class="m-next-thumb">—</span><p><strong>Nenhum exercício</strong><small>Seu próximo exercício aparecerá aqui</small></p><span>›</span></div>`;
+    const create=$("#mCreateWorkoutBtn");
+    if(create) create.onclick=()=>toast("A tela de criação de treinos entra na próxima etapa.");
     return;
   }
   $("#workoutTitle").textContent=w.title;
   $("#workoutSubtitle").textContent=w.subtitle;
   $("#homeWorkoutTitle").textContent=w.title;
+  if($("#mHomeWorkoutTitle")) $("#mHomeWorkoutTitle").textContent=w.title;
+  if($("#mWorkoutTitle")) $("#mWorkoutTitle").textContent=w.title;
+  if($("#mWorkoutMeta")) $("#mWorkoutMeta").textContent=w.subtitle;
   const total=w.exercises.reduce((a,e)=>a+e.sets_total,0);
   const done=w.exercises.reduce((a,e)=>a+e.sets_done,0);
-  $("#workoutProgress").style.width=(total?done/total*100:0)+"%";
+  const progress=(total?done/total*100:0)+"%";
+  $("#workoutProgress").style.width=progress;
+  if($("#mWorkoutProgress")) $("#mWorkoutProgress").style.width=progress;
   $("#startWorkoutBtn").textContent=w.started ? "Treino em andamento" : "Iniciar treino";
   $("#exerciseList").innerHTML=w.exercises.map((e,i)=>{
     const complete=e.sets_done>=e.sets_total;
@@ -109,8 +139,34 @@ function renderWorkout(w){
       </div>
     </article>`;
   }).join("");
-  $$("[data-complete]").forEach(b=>b.onclick=()=>completeSet(Number(b.dataset.complete)));
-  $$("[data-undo]").forEach(b=>b.onclick=()=>undoSet(Number(b.dataset.undo)));
+  $("[data-complete]").forEach(b=>b.onclick=()=>completeSet(Number(b.dataset.complete)));
+  $("[data-undo]").forEach(b=>b.onclick=()=>undoSet(Number(b.dataset.undo)));
+
+  const current=w.exercises.find(e=>e.sets_done<e.sets_total) || w.exercises[0];
+  const currentIndex=Math.max(0,w.exercises.findIndex(e=>e.id===current?.id));
+  const next=w.exercises[currentIndex+1];
+  if(current && $("#mExerciseFocus")){
+    $("#mExerciseFocus").innerHTML=`
+      <div class="m-exercise-visual"><span class="m-exercise-badge">EXERCÍCIO ${currentIndex+1} DE ${w.exercises.length}</span></div>
+      <div class="m-exercise-info">
+        <h3>${current.name}</h3>
+        <p>${current.muscle || "Treino de musculação"}</p>
+        <div class="m-exercise-stats">
+          <div><small>Séries</small><strong>${current.sets_total}</strong></div>
+          <div><small>Repetições</small><strong>${current.reps}</strong></div>
+          <div><small>Carga</small><strong>${String(current.load_kg).replace(".",",")} kg</strong></div>
+        </div>
+        <button class="m-primary-action" id="mCompleteSetBtn">${current.sets_done>=current.sets_total?"Exercício concluído":"Concluir série · "+current.sets_done+"/"+current.sets_total}</button>
+      </div>`;
+    const btn=$("#mCompleteSetBtn");
+    if(btn) btn.onclick=()=>completeSet(current.id);
+  }
+  if($("#mNextExercise")){
+    $("#mNextExercise").innerHTML=next ? `
+      <small>PRÓXIMO EXERCÍCIO</small>
+      <div><span class="m-next-thumb">${String(currentIndex+2).padStart(2,"0")}</span><p><strong>${next.name}</strong><small>${next.sets_total} séries · ${next.reps} repetições</small></p><span>›</span></div>`
+      : `<small>PRÓXIMO EXERCÍCIO</small><div><span class="m-next-thumb">✓</span><p><strong>Último exercício</strong><small>Você está no fim deste treino</small></p><span>›</span></div>`;
+  }
 }
 
 async function completeSet(id){
@@ -142,6 +198,16 @@ function renderRun(r){
     $("#runCalories").textContent="0";
     $("#runHeart").textContent="0";
     $("#runElevation").textContent="0";
+    if($("#mRunTitle")) $("#mRunTitle").textContent="Nenhuma corrida registrada";
+    if($("#mRunDistance")) $("#mRunDistance").textContent="0,00";
+    if($("#mRunDuration")) $("#mRunDuration").textContent="00:00";
+    if($("#mMetricDistance")) $("#mMetricDistance").textContent="0,00";
+    if($("#mMetricTime")) $("#mMetricTime").textContent="00:00";
+    if($("#mMetricPace")) $("#mMetricPace").textContent="--:--";
+    if($("#mRunCalories")) $("#mRunCalories").textContent="0";
+    if($("#mRunHeart")) $("#mRunHeart").textContent="0";
+    if($("#mRunElevation")) $("#mRunElevation").textContent="0";
+    if($("#mHomeRunTitle")) $("#mHomeRunTitle").textContent="Nenhuma corrida registrada";
     drawRunChart();
     return;
   }
@@ -154,6 +220,16 @@ function renderRun(r){
   $("#runCalories").textContent=r.calories;
   $("#runHeart").textContent=r.avg_hr;
   $("#runElevation").textContent=r.elevation_m;
+  if($("#mRunTitle")) $("#mRunTitle").textContent=r.title;
+  if($("#mRunDistance")) $("#mRunDistance").textContent=Number(r.distance_km).toLocaleString("pt-BR",{minimumFractionDigits:2});
+  if($("#mRunDuration")) $("#mRunDuration").textContent=r.duration;
+  if($("#mMetricDistance")) $("#mMetricDistance").textContent=Number(r.distance_km).toLocaleString("pt-BR",{minimumFractionDigits:2});
+  if($("#mMetricTime")) $("#mMetricTime").textContent=r.duration;
+  if($("#mMetricPace")) $("#mMetricPace").textContent=r.avg_pace;
+  if($("#mRunCalories")) $("#mRunCalories").textContent=r.calories;
+  if($("#mRunHeart")) $("#mRunHeart").textContent=r.avg_hr;
+  if($("#mRunElevation")) $("#mRunElevation").textContent=r.elevation_m;
+  if($("#mHomeRunTitle")) $("#mHomeRunTitle").textContent=r.title;
   drawRunChart();
 }
 
@@ -275,7 +351,7 @@ $("#stravaBtn").onclick=async()=>{
 
 $("#comingSoonBtn").onclick=()=>toast("Comunidade, desafios e rankings entram nas próximas etapas.");
 
-$$(".nav-item,.bottom-item").forEach(b=>b.addEventListener("click",()=>navigate(b.dataset.page)));
+$("[data-page]").forEach(b=>b.addEventListener("click",()=>navigate(b.dataset.page)));
 $$("[data-open]").forEach(card=>card.addEventListener("click",(ev)=>{
   if(ev.target.closest("button")) ev.preventDefault();
   navigate(card.dataset.open);
