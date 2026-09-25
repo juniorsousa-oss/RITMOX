@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Generator
 
@@ -78,6 +78,34 @@ class Modality(Base):
     name: Mapped[str] = mapped_column(String(100), unique=True)
     icon: Mapped[str] = mapped_column(String(16), default="●")
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+
+class WorkoutPlan(Base):
+    __tablename__ = "workout_plans"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    planned_date: Mapped[str] = mapped_column(String(10), index=True)
+    title: Mapped[str] = mapped_column(String(160))
+    modality: Mapped[str] = mapped_column(String(40), default="musculacao")
+    duration_min: Mapped[int] = mapped_column(Integer, default=45)
+    notes: Mapped[str] = mapped_column(String(500), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    exercises: Mapped[list["PlannedExercise"]] = relationship(
+        back_populates="plan", cascade="all, delete-orphan", order_by="PlannedExercise.position"
+    )
+
+
+class PlannedExercise(Base):
+    __tablename__ = "planned_exercises"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    plan_id: Mapped[int] = mapped_column(ForeignKey("workout_plans.id", ondelete="CASCADE"), index=True)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    name: Mapped[str] = mapped_column(String(160))
+    muscle: Mapped[str] = mapped_column(String(120), default="")
+    sets_total: Mapped[int] = mapped_column(Integer, default=4)
+    reps: Mapped[str] = mapped_column(String(30), default="8-10")
+    load_kg: Mapped[float] = mapped_column(Float, default=0)
+    plan: Mapped[WorkoutPlan] = relationship(back_populates="exercises")
 
 
 Base.metadata.create_all(engine)
@@ -292,6 +320,159 @@ def add_modality(data: ModalityIn, db: Session = Depends(session)):
     db.commit()
     db.refresh(m)
     return {"id": m.id, "name": m.name, "icon": m.icon, "active": m.active}
+
+
+
+class PlannedExerciseIn(BaseModel):
+    name: str = Field(min_length=1, max_length=160)
+    muscle: str = Field(default="", max_length=120)
+    sets_total: int = Field(default=4, ge=1, le=20)
+    reps: str = Field(default="8-10", min_length=1, max_length=30)
+    load_kg: float = Field(default=0, ge=0, le=2000)
+
+
+class WorkoutPlanIn(BaseModel):
+    planned_date: str = Field(min_length=10, max_length=10)
+    title: str = Field(min_length=2, max_length=160)
+    modality: str = Field(default="musculacao", min_length=2, max_length=40)
+    duration_min: int = Field(default=45, ge=5, le=600)
+    notes: str = Field(default="", max_length=500)
+    exercises: list[PlannedExerciseIn] = Field(default_factory=list)
+
+    def parsed_date(self) -> date:
+        try:
+            return date.fromisoformat(self.planned_date)
+        except ValueError as exc:
+            raise ValueError("Data inválida. Use AAAA-MM-DD.") from exc
+
+
+def plan_payload(plan: WorkoutPlan) -> dict:
+    return {
+        "id": plan.id,
+        "planned_date": plan.planned_date,
+        "title": plan.title,
+        "modality": plan.modality,
+        "duration_min": plan.duration_min,
+        "notes": plan.notes,
+        "exercise_count": len(plan.exercises),
+        "exercises": [
+            {
+                "id": e.id,
+                "position": e.position,
+                "name": e.name,
+                "muscle": e.muscle,
+                "sets_total": e.sets_total,
+                "reps": e.reps,
+                "load_kg": e.load_kg,
+            }
+            for e in plan.exercises
+        ],
+    }
+
+
+def validate_plan_date(value: str) -> None:
+    try:
+        date.fromisoformat(value)
+    except ValueError:
+        raise HTTPException(422, "Data inválida. Use AAAA-MM-DD.")
+
+
+@app.get("/api/training-plans")
+def list_training_plans(
+    start_date: str,
+    end_date: str,
+    db: Session = Depends(session),
+):
+    validate_plan_date(start_date)
+    validate_plan_date(end_date)
+    if end_date < start_date:
+        raise HTTPException(422, "Período inválido.")
+    plans = db.scalars(
+        select(WorkoutPlan)
+        .where(WorkoutPlan.planned_date >= start_date, WorkoutPlan.planned_date <= end_date)
+        .order_by(WorkoutPlan.planned_date, WorkoutPlan.id)
+    ).all()
+    return [plan_payload(p) for p in plans]
+
+
+@app.get("/api/training-plans/{plan_id}")
+def get_training_plan(plan_id: int, db: Session = Depends(session)):
+    plan = db.get(WorkoutPlan, plan_id)
+    if not plan:
+        raise HTTPException(404, "Treino planejado não encontrado")
+    return plan_payload(plan)
+
+
+@app.post("/api/training-plans")
+def create_training_plan(data: WorkoutPlanIn, db: Session = Depends(session)):
+    try:
+        data.parsed_date()
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+    plan = WorkoutPlan(
+        planned_date=data.planned_date,
+        title=data.title.strip(),
+        modality=data.modality.strip().lower(),
+        duration_min=data.duration_min,
+        notes=data.notes.strip(),
+    )
+    plan.exercises = [
+        PlannedExercise(
+            position=i,
+            name=e.name.strip(),
+            muscle=e.muscle.strip(),
+            sets_total=e.sets_total,
+            reps=e.reps.strip(),
+            load_kg=e.load_kg,
+        )
+        for i, e in enumerate(data.exercises)
+    ]
+    db.add(plan)
+    db.commit()
+    db.refresh(plan)
+    return plan_payload(plan)
+
+
+@app.put("/api/training-plans/{plan_id}")
+def update_training_plan(plan_id: int, data: WorkoutPlanIn, db: Session = Depends(session)):
+    plan = db.get(WorkoutPlan, plan_id)
+    if not plan:
+        raise HTTPException(404, "Treino planejado não encontrado")
+    try:
+        data.parsed_date()
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+
+    plan.planned_date = data.planned_date
+    plan.title = data.title.strip()
+    plan.modality = data.modality.strip().lower()
+    plan.duration_min = data.duration_min
+    plan.notes = data.notes.strip()
+    plan.exercises.clear()
+    plan.exercises.extend([
+        PlannedExercise(
+            position=i,
+            name=e.name.strip(),
+            muscle=e.muscle.strip(),
+            sets_total=e.sets_total,
+            reps=e.reps.strip(),
+            load_kg=e.load_kg,
+        )
+        for i, e in enumerate(data.exercises)
+    ])
+    db.commit()
+    db.refresh(plan)
+    return plan_payload(plan)
+
+
+@app.delete("/api/training-plans/{plan_id}")
+def delete_training_plan(plan_id: int, db: Session = Depends(session)):
+    plan = db.get(WorkoutPlan, plan_id)
+    if not plan:
+        raise HTTPException(404, "Treino planejado não encontrado")
+    db.delete(plan)
+    db.commit()
+    return {"ok": True}
 
 
 @app.get("/api/integrations/strava")
