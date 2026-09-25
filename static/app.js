@@ -362,6 +362,16 @@ $("#stravaBtn").onclick=async()=>{
 $("#comingSoonBtn").onclick=()=>toast("Comunidade, desafios e rankings entram nas próximas etapas.");
 
 document.addEventListener("click",(ev)=>{
+  const healthAction=ev.target.closest("[data-health-action]");
+  if(healthAction){
+    ev.preventDefault();
+    const action=healthAction.dataset.healthAction;
+    if(action==="assessment") openHealthAssessment();
+    if(action==="clearance") openClearanceDialog();
+    if(action==="review") openHealthAssessment();
+    return;
+  }
+
   const target=ev.target.closest("[data-page]");
   if(target){
     ev.preventDefault();
@@ -405,7 +415,9 @@ $("#globalSearch").addEventListener("input",ev=>{
 
 
 function selectedValues(containerSelector){
-  return $("input[type=checkbox]:checked",$(containerSelector)).map(el=>el.value);
+  const root=$(containerSelector);
+  if(!root) return [];
+  return $("input[type=checkbox]:checked",root).map(el=>el.value);
 }
 
 function resetHealthForm(){
@@ -452,16 +464,41 @@ function fillHealthForm(assessment){
   $("#familyHistory input").forEach(el=>el.checked=family.has(el.value));
 }
 
+function openDialogSafe(dialog){
+  if(!dialog) return;
+  try{
+    if(typeof dialog.showModal==="function"){
+      if(!dialog.open) dialog.showModal();
+    }else{
+      dialog.setAttribute("open","");
+      dialog.classList.add("dialog-fallback-open");
+    }
+  }catch{
+    dialog.setAttribute("open","");
+    dialog.classList.add("dialog-fallback-open");
+  }
+}
+
+function closeDialogSafe(dialog){
+  if(!dialog) return;
+  try{
+    if(typeof dialog.close==="function" && dialog.open) dialog.close();
+    else dialog.removeAttribute("open");
+  }catch{
+    dialog.removeAttribute("open");
+  }
+  dialog.classList.remove("dialog-fallback-open");
+}
+
 function openHealthAssessment(){
   const dialog=$("#healthAssessmentDialog");
   if(!dialog) return;
   fillHealthForm(state.health.assessment);
-  dialog.showModal();
+  openDialogSafe(dialog);
 }
 
 function closeHealthAssessment(){
-  const dialog=$("#healthAssessmentDialog");
-  if(dialog?.open) dialog.close();
+  closeDialogSafe($("#healthAssessmentDialog"));
 }
 
 function healthPayload(){
@@ -588,11 +625,11 @@ function openClearanceDialog(){
   if(!state.health.assessment) return;
   $("#clearanceProvider").value="";
   $("#clearanceDate").value=localISO(new Date());
-  $("#clearanceDialog").showModal();
+  openDialogSafe($("#clearanceDialog"));
 }
 
 function closeClearanceDialog(){
-  if($("#clearanceDialog")?.open) $("#clearanceDialog").close();
+  closeDialogSafe($("#clearanceDialog"));
 }
 
 async function submitClearance(ev){
