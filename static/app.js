@@ -963,8 +963,8 @@ function modalityLabel(modality){
 }
 
 function modalityIcon(modality){
-  if(modality==="musculacao") return "/static/assets/validated/muscle.webp";
-  if(modality==="corrida") return "/static/assets/validated/run-card.webp";
+  if(modality==="musculacao") return "/static/assets/validated/muscle-approved.png";
+  if(modality==="corrida") return "/static/assets/validated/run-approved.png";
   return "/static/assets/validated/evolution.webp";
 }
 
