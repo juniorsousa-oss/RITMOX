@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Generator
@@ -9,7 +10,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, create_engine, select
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
 ROOT = Path(__file__).resolve().parent
@@ -129,6 +130,20 @@ class PlannedBlock(Base):
     rest_sec: Mapped[int] = mapped_column(Integer, default=0)
     intensity: Mapped[str] = mapped_column(String(40), default="")
     plan: Mapped[WorkoutPlan] = relationship(back_populates="blocks")
+
+
+
+class HealthAssessment(Base):
+    __tablename__ = "health_assessments"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    payload_json: Mapped[str] = mapped_column(Text, default="{}")
+    risk_status: Mapped[str] = mapped_column(String(40), default="screening_complete")
+    red_flags_json: Mapped[str] = mapped_column(Text, default="[]")
+    professional_clearance: Mapped[bool] = mapped_column(Boolean, default=False)
+    clearance_provider: Mapped[str] = mapped_column(String(160), default="")
+    clearance_date: Mapped[str] = mapped_column(String(10), default="")
+    completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 Base.metadata.create_all(engine)
@@ -568,6 +583,156 @@ def delete_training_plan(plan_id: int, db: Session = Depends(session)):
     db.delete(plan)
     db.commit()
     return {"ok": True}
+
+
+
+class HealthAssessmentIn(BaseModel):
+    full_name: str = Field(min_length=2, max_length=160)
+    birth_date: str = Field(min_length=10, max_length=10)
+    sex: str = Field(default="", max_length=40)
+    emergency_contact: str = Field(default="", max_length=160)
+    emergency_phone: str = Field(default="", max_length=40)
+    goal: str = Field(default="", max_length=300)
+    current_activity_level: str = Field(default="", max_length=80)
+    occupation: str = Field(default="", max_length=120)
+    medical_conditions: list[str] = Field(default_factory=list)
+    surgeries_injuries: str = Field(default="", max_length=1200)
+    medications: str = Field(default="", max_length=1200)
+    allergies: str = Field(default="", max_length=800)
+    family_history: list[str] = Field(default_factory=list)
+    chest_pain: bool = False
+    syncope_dizziness: bool = False
+    breathlessness_light_activity: bool = False
+    palpitations: bool = False
+    unexplained_fatigue: bool = False
+    edema: bool = False
+    musculoskeletal_limitations: bool = False
+    pregnant_or_recent_postpartum: bool = False
+    smoking: str = Field(default="", max_length=80)
+    alcohol: str = Field(default="", max_length=80)
+    sleep_hours: float = Field(default=0, ge=0, le=24)
+    stress_level: str = Field(default="", max_length=40)
+    systolic_bp: int | None = Field(default=None, ge=50, le=300)
+    diastolic_bp: int | None = Field(default=None, ge=30, le=200)
+    resting_hr: int | None = Field(default=None, ge=20, le=250)
+    additional_notes: str = Field(default="", max_length=1500)
+    consent_truthful: bool = False
+    consent_screening: bool = False
+
+
+class ProfessionalClearanceIn(BaseModel):
+    provider_name: str = Field(min_length=2, max_length=160)
+    clearance_date: str = Field(min_length=10, max_length=10)
+
+
+def health_red_flags(data: HealthAssessmentIn) -> list[str]:
+    flags: list[str] = []
+    symptom_map = {
+        "chest_pain": "Dor ou desconforto no peito",
+        "syncope_dizziness": "Desmaio ou tontura importante",
+        "breathlessness_light_activity": "Falta de ar em repouso ou esforço leve",
+        "palpitations": "Palpitações relevantes",
+        "unexplained_fatigue": "Fadiga inexplicada",
+        "edema": "Inchaço persistente em membros",
+        "musculoskeletal_limitations": "Limitação musculoesquelética importante",
+        "pregnant_or_recent_postpartum": "Gestação ou pós-parto recente",
+    }
+    for key, label in symptom_map.items():
+        if getattr(data, key):
+            flags.append(label)
+
+    high_attention_conditions = {
+        "cardiopatia": "Doença cardíaca",
+        "hipertensao_nao_controlada": "Hipertensão não controlada",
+        "avc": "Histórico de AVC",
+        "doenca_renal": "Doença renal",
+        "doenca_pulmonar_relevante": "Doença pulmonar relevante",
+        "diabetes_com_complicacoes": "Diabetes com complicações",
+    }
+    selected = set(data.medical_conditions)
+    for key, label in high_attention_conditions.items():
+        if key in selected:
+            flags.append(label)
+
+    if data.systolic_bp is not None and data.systolic_bp >= 180:
+        flags.append("Pressão sistólica informada muito elevada")
+    if data.diastolic_bp is not None and data.diastolic_bp >= 120:
+        flags.append("Pressão diastólica informada muito elevada")
+
+    return flags
+
+
+def assessment_payload(item: HealthAssessment | None) -> dict | None:
+    if not item:
+        return None
+    data = json.loads(item.payload_json or "{}")
+    red_flags = json.loads(item.red_flags_json or "[]")
+    allowed = item.risk_status == "screening_complete" or item.professional_clearance
+    return {
+        "id": item.id,
+        "data": data,
+        "risk_status": item.risk_status,
+        "red_flags": red_flags,
+        "professional_clearance": item.professional_clearance,
+        "clearance_provider": item.clearance_provider,
+        "clearance_date": item.clearance_date,
+        "training_allowed": allowed,
+        "completed_at": item.completed_at.isoformat() if item.completed_at else None,
+        "updated_at": item.updated_at.isoformat() if item.updated_at else None,
+    }
+
+
+@app.get("/api/health-assessment/latest")
+def latest_health_assessment(db: Session = Depends(session)):
+    item = db.scalars(select(HealthAssessment).order_by(HealthAssessment.id.desc())).first()
+    return assessment_payload(item)
+
+
+@app.post("/api/health-assessment")
+def save_health_assessment(data: HealthAssessmentIn, db: Session = Depends(session)):
+    if not data.consent_truthful or not data.consent_screening:
+        raise HTTPException(422, "É necessário confirmar as declarações da triagem.")
+    try:
+        date.fromisoformat(data.birth_date)
+    except ValueError:
+        raise HTTPException(422, "Data de nascimento inválida.")
+
+    flags = health_red_flags(data)
+    status = "attention_required" if flags else "screening_complete"
+    item = HealthAssessment(
+        payload_json=json.dumps(data.model_dump(), ensure_ascii=False),
+        risk_status=status,
+        red_flags_json=json.dumps(flags, ensure_ascii=False),
+        professional_clearance=False,
+        completed_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return assessment_payload(item)
+
+
+@app.post("/api/health-assessment/{assessment_id}/clearance")
+def register_professional_clearance(
+    assessment_id: int,
+    data: ProfessionalClearanceIn,
+    db: Session = Depends(session),
+):
+    item = db.get(HealthAssessment, assessment_id)
+    if not item:
+        raise HTTPException(404, "Anamnese não encontrada")
+    try:
+        date.fromisoformat(data.clearance_date)
+    except ValueError:
+        raise HTTPException(422, "Data da liberação inválida.")
+    item.professional_clearance = True
+    item.clearance_provider = data.provider_name.strip()
+    item.clearance_date = data.clearance_date
+    item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(item)
+    return assessment_payload(item)
 
 
 @app.get("/api/integrations/strava")
