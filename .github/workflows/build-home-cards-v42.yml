@@ -1,0 +1,92 @@
+name: Build aligned RITMOX card assets v42
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/build-home-cards-v42.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install Playwright runtime
+        run: npm install --no-save playwright-core
+      - name: Build four aligned single-image cards
+        shell: bash
+        run: |
+          mkdir -p static/assets/home
+          node <<'NODE'
+          const fs=require('fs');
+          const { chromium }=require('playwright-core');
+          const muscle=fs.readFileSync('static/assets/validated/muscle-approved.png').toString('base64');
+          const run=fs.readFileSync('static/assets/validated/run.webp').toString('base64');
+          const muscleUri='data:image/png;base64,'+muscle;
+          const runUri='data:image/webp;base64,'+run;
+
+          const defs={
+            strength:{
+              bg:'https://images.unsplash.com/photo-1776710669819-8ce325bce775?auto=format&fit=crop&fm=jpg&q=82&w=1600',
+              mobileGradient:'linear-gradient(90deg,rgba(20,7,20,.98),rgba(64,8,42,.72),rgba(13,14,25,.45))',
+              desktopGradient:'linear-gradient(90deg,rgba(19,6,18,.93) 0%,rgba(64,10,39,.56) 44%,rgba(8,12,22,.18) 100%)',
+              border:'rgba(255,45,122,.28)', icon:muscleUri
+            },
+            run:{
+              bg:'https://images.unsplash.com/photo-1634085398114-5091e0d9ed9e?auto=format&fit=crop&fm=jpg&q=82&w=1600',
+              mobileGradient:'linear-gradient(90deg,rgba(5,15,25,.98),rgba(4,49,62,.70),rgba(7,16,29,.42))',
+              desktopGradient:'linear-gradient(90deg,rgba(4,16,26,.94) 0%,rgba(6,41,51,.54) 44%,rgba(7,17,30,.18) 100%)',
+              border:'rgba(0,229,255,.25)', icon:runUri
+            }
+          };
+
+          (async()=>{
+            const browser=await chromium.launch({
+              executablePath:'/usr/bin/google-chrome',
+              headless:true,
+              args:['--no-sandbox','--disable-dev-shm-usage']
+            });
+            try{
+              for(const [kind,d] of Object.entries(defs)){
+                for(const mode of ['mobile','desktop']){
+                  const w=mode==='mobile'?358:584;
+                  const h=mode==='mobile'?104:178;
+                  const radius=mode==='mobile'?18:16;
+                  const iconSize=mode==='mobile'?44:38;
+                  const left=mode==='mobile'?26:18;
+                  const gradient=mode==='mobile'?d.mobileGradient:d.desktopGradient;
+                  const page=await browser.newPage({viewport:{width:w,height:h},deviceScaleFactor:2});
+                  await page.setContent(`<!doctype html><html><head><style>
+                    *{box-sizing:border-box} html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#07101f}
+                    .card{
+                      position:absolute;inset:0;border-radius:${radius}px;overflow:hidden;
+                      border:1px solid ${d.border};
+                      background:${gradient},url("${d.bg}") center/cover no-repeat;
+                    }
+                    .icon{
+                      position:absolute;left:${left}px;top:50%;width:${iconSize}px;height:${iconSize}px;
+                      transform:translateY(-50%);display:block;object-fit:contain;object-position:center;
+                    }
+                  </style></head><body><div class="card"><img class="icon" src="${d.icon}"></div></body></html>`,{waitUntil:'networkidle'});
+                  await page.waitForFunction(()=>document.querySelector('.icon')?.complete);
+                  await page.locator('.card').screenshot({path:`static/assets/home/home-${kind}-${mode}-v42.png`});
+                  await page.close();
+                }
+              }
+            } finally { await browser.close(); }
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+      - name: Commit assets
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add static/assets/home/*-v42.png
+          git commit -m "assets: rebuild aligned home cards v42"
+          git push
