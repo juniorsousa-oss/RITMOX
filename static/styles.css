@@ -1100,3 +1100,53 @@ body.modal-open{overflow:hidden}
     display:block;
   }
 }
+
+/* === CLEAN DESKTOP ICON NORMALIZATION === */
+@media (min-width:701px){
+  .side-nav .nav-item img.profile-nav-asset{
+    width:30px!important;
+    height:30px!important;
+    flex:0 0 30px!important;
+    object-fit:contain!important;
+    object-position:center!important;
+    border-radius:8px!important;
+    transform:none!important;
+  }
+
+  .hero-card-head .desktop-hero-asset{
+    width:46px!important;
+    height:46px!important;
+    min-width:46px!important;
+    min-height:46px!important;
+    border-radius:12px!important;
+    overflow:hidden!important;
+    background:transparent!important;
+  }
+  .hero-card-head .desktop-hero-asset .hero-asset-image{
+    width:46px!important;
+    height:46px!important;
+    display:block!important;
+    object-fit:contain!important;
+    object-position:center!important;
+    border-radius:12px!important;
+    transform:none!important;
+  }
+
+  .stat-icon.desktop-stat-asset{
+    width:36px!important;
+    height:36px!important;
+    min-width:36px!important;
+    min-height:36px!important;
+    border-radius:10px!important;
+    overflow:hidden!important;
+    background:transparent!important;
+  }
+  .stat-icon.desktop-stat-asset img{
+    width:36px!important;
+    height:36px!important;
+    display:block!important;
+    object-fit:contain!important;
+    object-position:center!important;
+    border-radius:10px!important;
+  }
+}
