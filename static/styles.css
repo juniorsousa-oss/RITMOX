@@ -1294,3 +1294,82 @@ input[type="checkbox"]{
     min-width:0!important;
   }
 }
+
+/* === v30: iOS-safe anamnesis checkbox structure === */
+.dynamic-question{
+  display:grid!important;
+  gap:7px!important;
+}
+.dynamic-question > .question-label{
+  display:block!important;
+  cursor:default!important;
+}
+.dynamic-multiselect{
+  display:grid!important;
+  gap:9px!important;
+}
+.dynamic-multiselect .dynamic-checkbox-option{
+  display:flex!important;
+  align-items:center!important;
+  gap:12px!important;
+  min-height:52px!important;
+  padding:12px 14px!important;
+  border:1px solid #2d3b53!important;
+  border-radius:11px!important;
+  background:#08111f!important;
+  cursor:pointer!important;
+  pointer-events:auto!important;
+  touch-action:manipulation!important;
+  -webkit-tap-highlight-color:transparent!important;
+}
+.dynamic-multiselect .dynamic-checkbox-option input[type="checkbox"]{
+  -webkit-appearance:none!important;
+  appearance:none!important;
+  width:22px!important;
+  height:22px!important;
+  min-width:22px!important;
+  min-height:22px!important;
+  margin:0!important;
+  padding:0!important;
+  border:2px solid #9ca5b5!important;
+  border-radius:7px!important;
+  background:#050a13!important;
+  display:grid!important;
+  place-content:center!important;
+  pointer-events:auto!important;
+  cursor:pointer!important;
+  position:relative!important;
+  z-index:2!important;
+}
+.dynamic-multiselect .dynamic-checkbox-option input[type="checkbox"]::before{
+  content:""!important;
+  width:10px!important;
+  height:6px!important;
+  border-left:3px solid #fff!important;
+  border-bottom:3px solid #fff!important;
+  transform:rotate(-45deg) scale(0)!important;
+  transform-origin:center!important;
+  transition:transform .08s ease!important;
+}
+.dynamic-multiselect .dynamic-checkbox-option input[type="checkbox"]:checked{
+  background:var(--pink)!important;
+  border-color:var(--pink)!important;
+}
+.dynamic-multiselect .dynamic-checkbox-option input[type="checkbox"]:checked::before{
+  transform:rotate(-45deg) scale(1)!important;
+}
+.dynamic-multiselect .dynamic-checkbox-option span{
+  flex:1 1 auto!important;
+  min-width:0!important;
+  pointer-events:none!important;
+}
+
+/* Keep settings/consent checkboxes native; only anamnesis multiselect uses the custom touch-safe box above. */
+.settings-check input[type="checkbox"],
+.consent-section input[type="checkbox"],
+.health-check-grid input[type="checkbox"]{
+  -webkit-appearance:checkbox!important;
+  appearance:checkbox!important;
+  pointer-events:auto!important;
+  touch-action:manipulation!important;
+}
