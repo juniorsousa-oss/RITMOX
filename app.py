@@ -4,7 +4,7 @@ import os
 import json
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Generator
+from typing import Any, Generator
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
@@ -131,6 +131,25 @@ class PlannedBlock(Base):
     intensity: Mapped[str] = mapped_column(String(40), default="")
     plan: Mapped[WorkoutPlan] = relationship(back_populates="blocks")
 
+
+
+class AnamnesisQuestion(Base):
+    __tablename__ = "anamnesis_questions"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    section: Mapped[str] = mapped_column(String(120), default="Geral")
+    label: Mapped[str] = mapped_column(String(500))
+    question_type: Mapped[str] = mapped_column(String(40), default="yes_no")
+    help_text: Mapped[str] = mapped_column(String(500), default="")
+    placeholder: Mapped[str] = mapped_column(String(300), default="")
+    options_json: Mapped[str] = mapped_column(Text, default="[]")
+    required: Mapped[bool] = mapped_column(Boolean, default=False)
+    risk_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    risk_values_json: Mapped[str] = mapped_column(Text, default="[]")
+    risk_message: Mapped[str] = mapped_column(String(500), default="")
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 class HealthAssessment(Base):
@@ -612,6 +631,160 @@ def delete_training_plan(plan_id: int, db: Session = Depends(session)):
 
 
 
+
+class AnamnesisQuestionIn(BaseModel):
+    section: str = Field(default="Geral", min_length=1, max_length=120)
+    label: str = Field(min_length=2, max_length=500)
+    question_type: str = Field(default="yes_no", min_length=2, max_length=40)
+    help_text: str = Field(default="", max_length=500)
+    placeholder: str = Field(default="", max_length=300)
+    options: list[str] = Field(default_factory=list)
+    required: bool = False
+    risk_enabled: bool = False
+    risk_values: list[str] = Field(default_factory=list)
+    risk_message: str = Field(default="", max_length=500)
+    active: bool = True
+    position: int = Field(default=0, ge=0, le=10000)
+
+
+class DynamicHealthAssessmentIn(BaseModel):
+    answers: dict[str, Any] = Field(default_factory=dict)
+    consent_truthful: bool = False
+    consent_screening: bool = False
+
+
+def question_payload(q: AnamnesisQuestion) -> dict:
+    return {
+        "id": q.id,
+        "section": q.section,
+        "label": q.label,
+        "question_type": q.question_type,
+        "help_text": q.help_text,
+        "placeholder": q.placeholder,
+        "options": json.loads(q.options_json or "[]"),
+        "required": q.required,
+        "risk_enabled": q.risk_enabled,
+        "risk_values": json.loads(q.risk_values_json or "[]"),
+        "risk_message": q.risk_message,
+        "active": q.active,
+        "position": q.position,
+    }
+
+
+def normalized_answer(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, bool):
+        return ["sim" if value else "nao"]
+    if isinstance(value, list):
+        return [str(v).strip().lower() for v in value if str(v).strip()]
+    return [str(value).strip().lower()] if str(value).strip() else []
+
+
+def answer_triggers_risk(q: AnamnesisQuestion, value: Any) -> bool:
+    if not q.risk_enabled:
+        return False
+    answers = normalized_answer(value)
+    if not answers:
+        return False
+    configured = [str(v).strip().lower() for v in json.loads(q.risk_values_json or "[]") if str(v).strip()]
+    if q.question_type == "yes_no" and not configured:
+        configured = ["sim"]
+    return bool(set(answers) & set(configured))
+
+
+@app.get("/api/settings/anamnesis/questions")
+def list_anamnesis_questions(db: Session = Depends(session)):
+    items = db.scalars(
+        select(AnamnesisQuestion).order_by(AnamnesisQuestion.position, AnamnesisQuestion.id)
+    ).all()
+    return [question_payload(q) for q in items]
+
+
+@app.get("/api/anamnesis/form")
+def anamnesis_form(db: Session = Depends(session)):
+    items = db.scalars(
+        select(AnamnesisQuestion)
+        .where(AnamnesisQuestion.active == True)
+        .order_by(AnamnesisQuestion.position, AnamnesisQuestion.id)
+    ).all()
+    return {
+        "configured": bool(items),
+        "questions": [question_payload(q) for q in items],
+    }
+
+
+@app.post("/api/settings/anamnesis/questions")
+def create_anamnesis_question(data: AnamnesisQuestionIn, db: Session = Depends(session)):
+    allowed = {"yes_no", "text", "textarea", "number", "date", "select", "multiselect"}
+    if data.question_type not in allowed:
+        raise HTTPException(422, "Tipo de pergunta inválido.")
+    if data.question_type in {"select", "multiselect"} and not data.options:
+        raise HTTPException(422, "Informe pelo menos uma opção para perguntas de seleção.")
+    if data.position == 0:
+        last = db.scalars(select(AnamnesisQuestion).order_by(AnamnesisQuestion.position.desc())).first()
+        position = (last.position + 10) if last else 10
+    else:
+        position = data.position
+    item = AnamnesisQuestion(
+        section=data.section.strip(),
+        label=data.label.strip(),
+        question_type=data.question_type,
+        help_text=data.help_text.strip(),
+        placeholder=data.placeholder.strip(),
+        options_json=json.dumps([x.strip() for x in data.options if x.strip()], ensure_ascii=False),
+        required=data.required,
+        risk_enabled=data.risk_enabled,
+        risk_values_json=json.dumps([x.strip() for x in data.risk_values if x.strip()], ensure_ascii=False),
+        risk_message=data.risk_message.strip(),
+        active=data.active,
+        position=position,
+        updated_at=datetime.now(timezone.utc),
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return question_payload(item)
+
+
+@app.put("/api/settings/anamnesis/questions/{question_id}")
+def update_anamnesis_question(question_id: int, data: AnamnesisQuestionIn, db: Session = Depends(session)):
+    item = db.get(AnamnesisQuestion, question_id)
+    if not item:
+        raise HTTPException(404, "Pergunta não encontrada.")
+    allowed = {"yes_no", "text", "textarea", "number", "date", "select", "multiselect"}
+    if data.question_type not in allowed:
+        raise HTTPException(422, "Tipo de pergunta inválido.")
+    if data.question_type in {"select", "multiselect"} and not data.options:
+        raise HTTPException(422, "Informe pelo menos uma opção para perguntas de seleção.")
+    item.section = data.section.strip()
+    item.label = data.label.strip()
+    item.question_type = data.question_type
+    item.help_text = data.help_text.strip()
+    item.placeholder = data.placeholder.strip()
+    item.options_json = json.dumps([x.strip() for x in data.options if x.strip()], ensure_ascii=False)
+    item.required = data.required
+    item.risk_enabled = data.risk_enabled
+    item.risk_values_json = json.dumps([x.strip() for x in data.risk_values if x.strip()], ensure_ascii=False)
+    item.risk_message = data.risk_message.strip()
+    item.active = data.active
+    item.position = data.position
+    item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(item)
+    return question_payload(item)
+
+
+@app.delete("/api/settings/anamnesis/questions/{question_id}")
+def delete_anamnesis_question(question_id: int, db: Session = Depends(session)):
+    item = db.get(AnamnesisQuestion, question_id)
+    if not item:
+        raise HTTPException(404, "Pergunta não encontrada.")
+    db.delete(item)
+    db.commit()
+    return {"ok": True}
+
+
 class HealthAssessmentIn(BaseModel):
     full_name: str = Field(min_length=2, max_length=160)
     birth_date: str = Field(min_length=10, max_length=10)
@@ -755,18 +928,41 @@ def latest_health_assessment(db: Session = Depends(session)):
 
 
 @app.post("/api/health-assessment")
-def save_health_assessment(data: HealthAssessmentIn, db: Session = Depends(session)):
+def save_health_assessment(data: DynamicHealthAssessmentIn, db: Session = Depends(session)):
     if not data.consent_truthful or not data.consent_screening:
         raise HTTPException(422, "É necessário confirmar as declarações da triagem.")
-    try:
-        date.fromisoformat(data.birth_date)
-    except ValueError:
-        raise HTTPException(422, "Data de nascimento inválida.")
 
-    flags = health_red_flags(data)
+    questions = db.scalars(
+        select(AnamnesisQuestion)
+        .where(AnamnesisQuestion.active == True)
+        .order_by(AnamnesisQuestion.position, AnamnesisQuestion.id)
+    ).all()
+    if not questions:
+        raise HTTPException(409, "A anamnese ainda não foi parametrizada em Configurações.")
+
+    missing: list[str] = []
+    flags: list[str] = []
+    for q in questions:
+        key = str(q.id)
+        value = data.answers.get(key)
+        empty = value is None or value == "" or value == []
+        if q.required and empty:
+            missing.append(q.label)
+        if answer_triggers_risk(q, value):
+            flags.append(q.risk_message.strip() or q.label)
+
+    if missing:
+        raise HTTPException(422, "Responda as perguntas obrigatórias: " + "; ".join(missing[:5]))
+
     status = "attention_required" if flags else "screening_complete"
+    payload = {
+        "answers": data.answers,
+        "consent_truthful": data.consent_truthful,
+        "consent_screening": data.consent_screening,
+        "questions_snapshot": [question_payload(q) for q in questions],
+    }
     item = HealthAssessment(
-        payload_json=json.dumps(data.model_dump(), ensure_ascii=False),
+        payload_json=json.dumps(payload, ensure_ascii=False),
         risk_status=status,
         red_flags_json=json.dumps(flags, ensure_ascii=False),
         professional_clearance=False,
@@ -777,7 +973,6 @@ def save_health_assessment(data: HealthAssessmentIn, db: Session = Depends(sessi
     db.commit()
     db.refresh(item)
     return assessment_payload(item, db)
-
 
 
 @app.get("/api/clearance-requests/latest")
