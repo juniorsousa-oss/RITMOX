@@ -908,3 +908,56 @@ dialog label{display:grid;gap:7px;color:#bac5d6;font-size:12px;margin-top:14px}d
   z-index:9999!important;
   max-height:90vh!important;
 }
+
+/* === RELIABLE APP MODALS + PROFESSIONAL REQUEST === */
+body.modal-open{overflow:hidden}
+.app-modal-overlay{
+  position:fixed;inset:0;z-index:9999;
+  display:none;align-items:flex-start;justify-content:center;
+  padding:4vh 12px 24px;
+  background:rgba(2,6,13,.82);
+  backdrop-filter:blur(14px);
+  overflow-y:auto;
+}
+.app-modal-overlay.is-open{display:flex!important}
+.app-modal-surface{
+  width:min(820px,100%);
+  max-height:none;
+  border:1px solid #33425d;
+  border-radius:20px;
+  background:#101a2c;
+  box-shadow:0 30px 90px rgba(0,0,0,.55),0 0 40px rgba(255,45,122,.08);
+  overflow:visible;
+}
+.health-assessment-dialog,
+.clearance-dialog{
+  width:auto!important;max-height:none!important;overflow-y:auto!important;
+  border:0!important;background:transparent!important;padding:0!important;
+}
+.health-assessment-dialog .app-modal-surface{width:min(820px,100%)}
+.clearance-dialog .app-modal-surface{width:min(500px,100%)}
+.clearance-dialog textarea{
+  width:100%;border:1px solid #2d3b53;border-radius:10px;background:#08111f;color:white;
+  padding:10px;resize:vertical;outline:none
+}
+.clearance-dialog textarea:focus{border-color:#8b5cf6}
+.health-request-status{
+  padding:10px 12px;border-radius:10px;font-size:10px;font-weight:700
+}
+.health-request-status.pending{
+  color:#ffd48a;border:1px solid rgba(255,190,80,.28);background:rgba(255,180,60,.08)
+}
+.health-request-status.approved{
+  color:#8ff0bc;border:1px solid rgba(35,229,139,.28);background:rgba(35,229,139,.08)
+}
+.health-request-status.rejected{
+  color:#ffaaa4;border:1px solid rgba(255,91,76,.28);background:rgba(255,91,76,.08)
+}
+#registerClearanceBtn.is-pending,
+#registerClearanceBtn:disabled{opacity:.68;cursor:not-allowed}
+@media (max-width:700px){
+  .app-modal-overlay{padding:10px 5px 22px;align-items:flex-start}
+  .app-modal-surface{border-radius:18px}
+  .health-assessment-dialog .app-modal-surface,
+  .clearance-dialog .app-modal-surface{width:100%}
+}
