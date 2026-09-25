@@ -1150,3 +1150,49 @@ body.modal-open{overflow:hidden}
     border-radius:10px!important;
   }
 }
+
+/* === APPROVED DESKTOP ASSET RESTORE === */
+@media (min-width:701px){
+  .hero-card-head .approved-desktop-asset{
+    width:50px!important;
+    height:50px!important;
+    min-width:50px!important;
+    min-height:50px!important;
+    border-radius:12px!important;
+    overflow:visible!important;
+    background:transparent!important;
+    padding:0!important;
+  }
+  .hero-card-head .approved-desktop-asset img{
+    width:50px!important;
+    height:50px!important;
+    max-width:none!important;
+    max-height:none!important;
+    display:block!important;
+    object-fit:contain!important;
+    object-position:center!important;
+    border-radius:12px!important;
+    transform:none!important;
+    filter:none!important;
+  }
+  .stat-icon.approved-desktop-asset{
+    width:38px!important;
+    height:38px!important;
+    min-width:38px!important;
+    min-height:38px!important;
+    padding:0!important;
+    overflow:visible!important;
+    background:transparent!important;
+    border-radius:10px!important;
+  }
+  .stat-icon.approved-desktop-asset img{
+    width:38px!important;
+    height:38px!important;
+    display:block!important;
+    object-fit:contain!important;
+    object-position:center!important;
+    border-radius:10px!important;
+    transform:none!important;
+    filter:none!important;
+  }
+}
