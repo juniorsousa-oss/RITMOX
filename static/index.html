@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#08101f">
   <title>RITMOX — Treino em movimento</title>
-  <link rel="stylesheet" href="/static/styles.css?v=20260925-08">
+  <link rel="stylesheet" href="/static/styles.css?v=20260925-09">
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true">
@@ -170,62 +170,48 @@
       </section>
 
       <section class="page" id="page-workouts">
-
-        <div class="mobile-only mobile-workout-screen">
-          <div class="m-screen-head">
-            <button class="m-back" data-page="home">‹</button>
-            <strong>Treino de hoje</strong>
-            <button class="m-more">•••</button>
-          </div>
-
-          <div class="m-mode-switch">
-            <button class="active">Musculação</button>
-            <button data-page="run">Corrida</button>
-          </div>
-
-          <div class="m-plan-heading">
-            <h2 id="mWorkoutTitle">Nenhum treino cadastrado</h2>
-            <p id="mWorkoutMeta">Crie seu primeiro treino de musculação.</p>
-          </div>
-
-          <div class="m-workout-progress"><span id="mWorkoutProgress"></span></div>
-
-          <article class="m-focus-exercise" id="mExerciseFocus">
-            <div class="m-empty-exercise">
-              <div class="m-empty-plus">+</div>
-              <strong>Comece seu primeiro treino</strong>
-              <p>Adicione exercícios, séries, repetições e cargas.</p>
-              <button id="mCreateWorkoutBtn" class="m-primary-action">Criar treino</button>
+        <div class="training-calendar">
+          <div class="calendar-toolbar">
+            <div>
+              <span class="eyebrow pink-text">PLANEJAMENTO</span>
+              <h2>Calendário de treinos</h2>
+              <p>Visualize a semana, abra um dia e gerencie os treinos planejados.</p>
             </div>
-          </article>
+            <div class="calendar-toolbar-actions">
+              <button class="calendar-nav-btn" id="prevWeekBtn" aria-label="Semana anterior">‹</button>
+              <button class="calendar-today-btn" id="todayWeekBtn">Hoje</button>
+              <button class="calendar-nav-btn" id="nextWeekBtn" aria-label="Próxima semana">›</button>
+              <button class="calendar-add-btn" id="addPlanTopBtn"><span>＋</span> Novo treino</button>
+            </div>
+          </div>
 
-          <article class="m-next-exercise" id="mNextExercise">
-            <small>PRÓXIMO EXERCÍCIO</small>
-            <div><span class="m-next-thumb">—</span><p><strong>Nenhum exercício</strong><small>Seu próximo exercício aparecerá aqui</small></p><span>›</span></div>
-          </article>
-        </div>
+          <div class="week-range" id="weekRange">—</div>
+          <div class="week-calendar" id="weekCalendar" aria-label="Calendário semanal de treinos"></div>
 
-        <div class="page-grid workout-layout desktop-workout">
-          <article class="panel workout-panel">
-            <div class="panel-heading">
-              <div>
-                <span class="eyebrow pink-text">MUSCULAÇÃO</span>
-                <h2 id="workoutTitle">Nenhum treino cadastrado</h2>
-                <p id="workoutSubtitle">Crie seu primeiro treino de musculação.</p>
+          <div class="day-workspace">
+            <section class="panel day-panel">
+              <div class="day-panel-head">
+                <div>
+                  <span class="eyebrow" id="selectedDayEyebrow">DIA SELECIONADO</span>
+                  <h3 id="selectedDayTitle">Selecione um dia</h3>
+                  <p id="selectedDaySubtitle">Os treinos planejados aparecerão aqui.</p>
+                </div>
+                <button class="calendar-add-btn compact" id="addPlanDayBtn"><span>＋</span> Incluir treino</button>
               </div>
-              <div class="workout-clock"><span>Tempo</span><strong id="workoutTimer">00:00</strong></div>
-            </div>
-            <div class="progress-line"><span id="workoutProgress"></span></div>
-            <div id="exerciseList" class="exercise-list"></div>
-          </article>
+              <div class="day-plan-list" id="dayPlanList"></div>
+            </section>
 
-          <aside class="panel workout-side">
-            <span class="eyebrow">TREINO GUIADO</span>
-            <h3>Seu treino, série por série.</h3>
-            <p>Registre o que foi concluído. O progresso fica salvo automaticamente.</p>
-            <button id="startWorkoutBtn" class="primary-btn pink-btn">Iniciar treino</button>
-            <button id="addModalityBtn" class="ghost-btn"><svg><use href="#i-plus"/></svg> Nova modalidade</button>
-          </aside>
+            <aside class="panel calendar-guide">
+              <span class="eyebrow purple-text">SEMANA</span>
+              <h3 id="weekPlanCount">Nenhum treino planejado</h3>
+              <p>Os dias com treino recebem destaque. Toque ou clique em qualquer dia para abrir os detalhes.</p>
+              <div class="calendar-legend">
+                <span><i class="legend-chip strength"></i> Musculação</span>
+                <span><i class="legend-chip running"></i> Corrida</span>
+                <span><i class="legend-chip other"></i> Outra modalidade</span>
+              </div>
+            </aside>
+          </div>
         </div>
       </section>
 
@@ -348,6 +334,52 @@
     <button class="bottom-item" data-page="profile"><span class="nav-glyph"><img src="/static/assets/validated/profile.webp" alt=""></span><span>Perfil</span></button>
   </nav>
 
+  <dialog id="planDialog" class="plan-dialog">
+    <form id="planForm">
+      <button type="button" class="dialog-close" id="closePlanDialog" aria-label="Fechar">×</button>
+      <span class="eyebrow pink-text" id="planDialogEyebrow">NOVO TREINO</span>
+      <h3 id="planDialogTitle">Planejar treino</h3>
+
+      <div class="plan-form-grid">
+        <label>Data
+          <input type="date" id="planDate" required>
+        </label>
+        <label>Modalidade
+          <select id="planModality">
+            <option value="musculacao">Musculação</option>
+            <option value="corrida">Corrida</option>
+            <option value="funcional">Funcional</option>
+            <option value="ciclismo">Ciclismo</option>
+            <option value="outro">Outra</option>
+          </select>
+        </label>
+        <label class="span-2">Nome do treino
+          <input type="text" id="planTitle" maxlength="160" required placeholder="Ex.: Inferiores — Força e Hipertrofia">
+        </label>
+        <label>Duração estimada
+          <div class="input-suffix"><input type="number" id="planDuration" min="5" max="600" value="45" required><span>min</span></div>
+        </label>
+        <label class="span-2">Observações
+          <textarea id="planNotes" maxlength="500" rows="2" placeholder="Orientações, foco do treino ou observações do aluno"></textarea>
+        </label>
+      </div>
+
+      <div class="exercise-editor-head">
+        <div><span class="eyebrow">EXERCÍCIOS</span><strong>Estrutura do treino</strong></div>
+        <button type="button" class="ghost-btn compact-btn" id="addExerciseRowBtn">＋ Adicionar exercício</button>
+      </div>
+      <div class="exercise-editor" id="plannedExerciseRows"></div>
+
+      <div class="plan-dialog-actions">
+        <button type="button" class="danger-ghost-btn" id="deletePlanBtn" hidden>Excluir treino</button>
+        <div>
+          <button type="button" class="ghost-btn" id="cancelPlanBtn">Cancelar</button>
+          <button type="submit" class="primary-btn pink-btn" id="savePlanBtn">Salvar treino</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="modalityDialog">
     <form method="dialog" id="modalityForm">
       <button class="dialog-close" value="cancel">×</button>
@@ -361,6 +393,6 @@
   </dialog>
 
   <div id="toast" class="toast"></div>
-  <script src="/static/app.js?v=20260925-08"></script>
+  <script src="/static/app.js?v=20260925-09"></script>
 </body>
 </html>
