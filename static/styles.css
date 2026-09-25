@@ -1062,314 +1062,260 @@ body.modal-open{overflow:hidden}
 }
 
 
-/* === RITMOX CANONICAL ICON + CONTROL SYSTEM v28 === */
+
+/* === RITMOX CANONICAL UI SYSTEM v31 === */
 :root{
-  --rtx-icon-nav: 42px;
-  --rtx-icon-feature: 58px;
-  --rtx-icon-kpi: 42px;
-  --rtx-icon-desktop-nav: 32px;
-  --rtx-icon-desktop-feature: 50px;
-  --rtx-icon-desktop-kpi: 38px;
+  --rtx-mobile-nav-icon:42px;
+  --rtx-mobile-feature-icon:58px;
+  --rtx-mobile-kpi-icon:42px;
+  --rtx-desktop-nav-icon:32px;
+  --rtx-desktop-feature-icon:50px;
+  --rtx-desktop-kpi-icon:38px;
 }
 
-/* One fixed square, alignment rule and image rule for every navigation icon. */
+/* Navigation: one geometry for every module icon. */
 .bottom-nav .nav-glyph{
-  width:var(--rtx-icon-nav)!important;
-  height:var(--rtx-icon-nav)!important;
-  min-width:var(--rtx-icon-nav)!important;
-  min-height:var(--rtx-icon-nav)!important;
+  width:var(--rtx-mobile-nav-icon)!important;
+  height:var(--rtx-mobile-nav-icon)!important;
+  min-width:var(--rtx-mobile-nav-icon)!important;
+  min-height:var(--rtx-mobile-nav-icon)!important;
   display:grid!important;
   place-items:center!important;
-  padding:0!important;
   margin:0 auto 5px!important;
+  padding:0!important;
   overflow:visible!important;
 }
 .bottom-nav .nav-glyph img{
   width:100%!important;
   height:100%!important;
-  max-width:none!important;
-  max-height:none!important;
   display:block!important;
   object-fit:contain!important;
   object-position:center!important;
   transform:none!important;
 }
 
-/* Source artworks for Treinos/Corrida contain more internal breathing room.
-   Compensate inside the same 42x42 layout box so their visible footprint equals the other approved icons. */
-.bottom-nav [data-page="workouts"] .nav-glyph img,
-.bottom-nav [data-page="run"] .nav-glyph img{
-  transform:scale(1.12)!important;
-}
-
-/* Home feature icons: identical boxes, identical geometry. */
-.m-feature-icon{
-  width:var(--rtx-icon-feature)!important;
-  height:var(--rtx-icon-feature)!important;
-  min-width:var(--rtx-icon-feature)!important;
-  min-height:var(--rtx-icon-feature)!important;
-  display:grid!important;
-  place-items:center!important;
-  padding:0!important;
-  border-radius:14px!important;
-  overflow:visible!important;
-  background:transparent!important;
-}
-.m-feature-icon img{
-  width:100%!important;
-  height:100%!important;
-  max-width:none!important;
-  max-height:none!important;
-  object-fit:contain!important;
-  object-position:center!important;
-  display:block!important;
-  border-radius:14px!important;
-  transform:none!important;
-}
-
-/* KPI icons: same size/spacing regardless of modality. */
-.m-kpi-icon{
-  width:var(--rtx-icon-kpi)!important;
-  height:var(--rtx-icon-kpi)!important;
-  min-width:var(--rtx-icon-kpi)!important;
-  min-height:var(--rtx-icon-kpi)!important;
-  display:grid!important;
-  place-items:center!important;
-  padding:0!important;
-  overflow:visible!important;
-  background:transparent!important;
-}
-.m-kpi-icon img{
-  width:100%!important;
-  height:100%!important;
-  max-width:none!important;
-  max-height:none!important;
-  object-fit:contain!important;
-  object-position:center!important;
-  display:block!important;
-  transform:none!important;
-}
-
-/* Desktop follows the same sizing contract. */
-@media (min-width:701px){
-  .side-nav .nav-item img{
-    width:var(--rtx-icon-desktop-nav)!important;
-    height:var(--rtx-icon-desktop-nav)!important;
-    min-width:var(--rtx-icon-desktop-nav)!important;
-    min-height:var(--rtx-icon-desktop-nav)!important;
-    flex:0 0 var(--rtx-icon-desktop-nav)!important;
+/* Home feature cards: strict dimension -> alignment -> spacing order. */
+@media (max-width:700px){
+  .m-feature-card{
+    grid-template-columns:var(--rtx-mobile-feature-icon) minmax(0,1fr) 20px!important;
+    column-gap:18px!important;
+    align-items:center!important;
+    padding:14px 16px!important;
+  }
+  .m-feature-icon{
+    width:var(--rtx-mobile-feature-icon)!important;
+    height:var(--rtx-mobile-feature-icon)!important;
+    min-width:var(--rtx-mobile-feature-icon)!important;
+    min-height:var(--rtx-mobile-feature-icon)!important;
+    position:relative!important;
+    display:block!important;
+    overflow:hidden!important;
+    border-radius:14px!important;
+    background:#08111f!important;
+    box-sizing:border-box!important;
+  }
+  .m-feature-icon img{
+    position:absolute!important;
+    left:50%!important;
+    top:50%!important;
+    width:76px!important;
+    height:76px!important;
+    max-width:none!important;
+    max-height:none!important;
     object-fit:contain!important;
     object-position:center!important;
-    transform:none!important;
+    transform:translate(-50%,-50%)!important;
+    z-index:1!important;
   }
-  .hero-card-head .image-icon,
-  .hero-card-head .desktop-hero-asset{
-    width:var(--rtx-icon-desktop-feature)!important;
-    height:var(--rtx-icon-desktop-feature)!important;
-    min-width:var(--rtx-icon-desktop-feature)!important;
-    min-height:var(--rtx-icon-desktop-feature)!important;
+  .m-feature-strength .m-feature-icon::after,
+  .m-feature-run .m-feature-icon::after{
+    content:""!important;
+    position:absolute!important;
+    inset:0!important;
+    border-radius:14px!important;
+    pointer-events:none!important;
+    z-index:2!important;
+    box-sizing:border-box!important;
+  }
+  .m-feature-strength .m-feature-icon::after{
+    border:1.5px solid #ff2d9a!important;
+    box-shadow:inset 0 0 10px rgba(255,45,154,.20),0 0 12px rgba(255,45,154,.10)!important;
+  }
+  .m-feature-run .m-feature-icon::after{
+    border:1.5px solid #00d8ff!important;
+    box-shadow:inset 0 0 10px rgba(0,216,255,.18),0 0 12px rgba(0,216,255,.10)!important;
+  }
+  .m-feature-copy{
+    min-width:0!important;
+    margin:0!important;
+    padding:0!important;
+    position:relative!important;
+    z-index:3!important;
+  }
+  .m-feature-copy small,
+  .m-feature-copy strong,
+  .m-feature-copy>span{
+    margin-left:0!important;
+  }
+
+  .m-kpi-icon{
+    width:var(--rtx-mobile-kpi-icon)!important;
+    height:var(--rtx-mobile-kpi-icon)!important;
+    min-width:var(--rtx-mobile-kpi-icon)!important;
+    min-height:var(--rtx-mobile-kpi-icon)!important;
     display:grid!important;
     place-items:center!important;
     padding:0!important;
     overflow:visible!important;
     background:transparent!important;
   }
-  .hero-card-head .image-icon img,
-  .hero-card-head .desktop-hero-asset img{
+  .m-kpi-icon img{
     width:100%!important;
     height:100%!important;
-    max-width:none!important;
-    max-height:none!important;
+    display:block!important;
     object-fit:contain!important;
     object-position:center!important;
     transform:none!important;
   }
+}
+
+/* Desktop uses the same contract with desktop dimensions. */
+@media (min-width:701px){
+  .side-nav .nav-item img{
+    width:var(--rtx-desktop-nav-icon)!important;
+    height:var(--rtx-desktop-nav-icon)!important;
+    min-width:var(--rtx-desktop-nav-icon)!important;
+    min-height:var(--rtx-desktop-nav-icon)!important;
+    flex:0 0 var(--rtx-desktop-nav-icon)!important;
+    object-fit:contain!important;
+    object-position:center!important;
+    transform:none!important;
+  }
+  .hero-card-head{
+    gap:16px!important;
+    align-items:center!important;
+  }
+  .hero-card-head .hero-icon{
+    width:var(--rtx-desktop-feature-icon)!important;
+    height:var(--rtx-desktop-feature-icon)!important;
+    min-width:var(--rtx-desktop-feature-icon)!important;
+    min-height:var(--rtx-desktop-feature-icon)!important;
+    overflow:hidden!important;
+    position:relative!important;
+    border-radius:12px!important;
+    background:#08111f!important;
+  }
+  .hero-card-head .hero-icon img{
+    position:absolute!important;
+    left:50%!important;
+    top:50%!important;
+    width:66px!important;
+    height:66px!important;
+    max-width:none!important;
+    max-height:none!important;
+    object-fit:contain!important;
+    transform:translate(-50%,-50%)!important;
+  }
+  .strength-card .hero-icon::after,
+  .run-card .hero-icon::after{
+    content:""!important;
+    position:absolute!important;
+    inset:0!important;
+    border-radius:12px!important;
+    pointer-events:none!important;
+    z-index:2!important;
+    box-sizing:border-box!important;
+  }
+  .strength-card .hero-icon::after{border:1.5px solid #ff2d9a!important;}
+  .run-card .hero-icon::after{border:1.5px solid #00d8ff!important;}
+
   .stat-card .stat-icon{
-    width:var(--rtx-icon-desktop-kpi)!important;
-    height:var(--rtx-icon-desktop-kpi)!important;
-    min-width:var(--rtx-icon-desktop-kpi)!important;
-    min-height:var(--rtx-icon-desktop-kpi)!important;
+    width:var(--rtx-desktop-kpi-icon)!important;
+    height:var(--rtx-desktop-kpi-icon)!important;
+    min-width:var(--rtx-desktop-kpi-icon)!important;
+    min-height:var(--rtx-desktop-kpi-icon)!important;
     padding:0!important;
-    display:grid!important;
-    place-items:center!important;
     overflow:visible!important;
     background:transparent!important;
   }
   .stat-card .stat-icon img{
     width:100%!important;
     height:100%!important;
+    display:block!important;
     object-fit:contain!important;
     object-position:center!important;
-    display:block!important;
     transform:none!important;
   }
 }
 
-/* Checkboxes: native interactive control restored and made touch-safe. */
-input[type="checkbox"]{
-  -webkit-appearance:checkbox!important;
-  appearance:checkbox!important;
-  width:18px!important;
-  height:18px!important;
-  min-width:18px!important;
-  min-height:18px!important;
-  padding:0!important;
-  margin:0!important;
-  opacity:1!important;
-  visibility:visible!important;
-  pointer-events:auto!important;
-  cursor:pointer!important;
-  touch-action:manipulation!important;
-  position:relative!important;
-  z-index:3!important;
-  accent-color:var(--pink)!important;
-}
-.settings-check,
-.dynamic-multiselect label,
-.consent-section label,
-.health-check-grid label{
-  cursor:pointer!important;
-  pointer-events:auto!important;
-  user-select:none;
-  -webkit-user-select:none;
-  touch-action:manipulation;
-}
-
-/* === v29: native checkbox reliability + approved icon spacing === */
-.dynamic-multiselect label,
-.settings-check,
-.consent-section label,
-.health-check-grid label{
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-}
-.dynamic-multiselect label{
-  display:flex!important;
-  align-items:center!important;
-  gap:12px!important;
-}
-.dynamic-multiselect label input[type="checkbox"]{
-  flex:0 0 20px!important;
-}
-input[type="checkbox"]{
-  -webkit-appearance:checkbox!important;
-  appearance:checkbox!important;
-  width:20px!important;
-  height:20px!important;
-  min-width:20px!important;
-  min-height:20px!important;
-  margin:0!important;
-  pointer-events:auto!important;
-  touch-action:manipulation!important;
-  cursor:pointer!important;
-  accent-color:var(--pink)!important;
-}
-
-/* Feature-card geometry: icon and copy cannot overlap. */
-@media (max-width:700px){
-  .m-feature-card{
-    grid-template-columns:58px minmax(0,1fr) auto!important;
-    column-gap:16px!important;
-    padding-left:16px!important;
-    padding-right:16px!important;
-  }
-  .m-feature-strength .m-feature-icon img,
-  .m-feature-run .m-feature-icon img{
-    width:58px!important;
-    height:58px!important;
-    object-fit:contain!important;
-    transform:none!important;
-  }
-  .m-feature-copy{
-    min-width:0!important;
-    padding-left:0!important;
-  }
-}
-@media (min-width:701px){
-  .hero-card-head{
-    gap:16px!important;
-  }
-  .hero-card-head .hero-copy,
-  .hero-card-head > div:not(.hero-icon){
-    min-width:0!important;
-  }
-}
-
-/* === v30: iOS-safe anamnesis checkbox structure === */
+/* Anamnesis multi-select: reliable button interaction on Safari/iOS. */
 .dynamic-question{
   display:grid!important;
   gap:7px!important;
 }
-.dynamic-question > .question-label{
+.dynamic-question>.question-label{
   display:block!important;
-  cursor:default!important;
 }
 .dynamic-multiselect{
   display:grid!important;
   gap:9px!important;
 }
-.dynamic-multiselect .dynamic-checkbox-option{
+.dynamic-checkbox-option{
+  appearance:none!important;
+  -webkit-appearance:none!important;
+  width:100%!important;
+  min-height:56px!important;
   display:flex!important;
   align-items:center!important;
   gap:12px!important;
-  min-height:52px!important;
   padding:12px 14px!important;
   border:1px solid #2d3b53!important;
   border-radius:11px!important;
   background:#08111f!important;
+  color:#aeb9ca!important;
+  font:inherit!important;
+  text-align:left!important;
   cursor:pointer!important;
-  pointer-events:auto!important;
   touch-action:manipulation!important;
   -webkit-tap-highlight-color:transparent!important;
 }
-.dynamic-multiselect .dynamic-checkbox-option input[type="checkbox"]{
-  -webkit-appearance:none!important;
-  appearance:none!important;
+.dynamic-checkbox-option:active{
+  transform:scale(.995)!important;
+}
+.dynamic-checkbox-box{
   width:22px!important;
   height:22px!important;
   min-width:22px!important;
   min-height:22px!important;
-  margin:0!important;
-  padding:0!important;
   border:2px solid #9ca5b5!important;
   border-radius:7px!important;
   background:#050a13!important;
   display:grid!important;
-  place-content:center!important;
-  pointer-events:auto!important;
-  cursor:pointer!important;
-  position:relative!important;
-  z-index:2!important;
+  place-items:center!important;
+  box-sizing:border-box!important;
 }
-.dynamic-multiselect .dynamic-checkbox-option input[type="checkbox"]::before{
+.dynamic-checkbox-box::after{
   content:""!important;
-  width:10px!important;
-  height:6px!important;
+  width:9px!important;
+  height:5px!important;
   border-left:3px solid #fff!important;
   border-bottom:3px solid #fff!important;
   transform:rotate(-45deg) scale(0)!important;
-  transform-origin:center!important;
   transition:transform .08s ease!important;
 }
-.dynamic-multiselect .dynamic-checkbox-option input[type="checkbox"]:checked{
+.dynamic-checkbox-option[aria-checked="true"]{
+  border-color:rgba(255,45,122,.48)!important;
+  background:linear-gradient(90deg,rgba(255,45,122,.06),#08111f 34%)!important;
+}
+.dynamic-checkbox-option[aria-checked="true"] .dynamic-checkbox-box{
   background:var(--pink)!important;
   border-color:var(--pink)!important;
 }
-.dynamic-multiselect .dynamic-checkbox-option input[type="checkbox"]:checked::before{
+.dynamic-checkbox-option[aria-checked="true"] .dynamic-checkbox-box::after{
   transform:rotate(-45deg) scale(1)!important;
 }
-.dynamic-multiselect .dynamic-checkbox-option span{
+.dynamic-checkbox-text{
   flex:1 1 auto!important;
   min-width:0!important;
   pointer-events:none!important;
-}
-
-/* Keep settings/consent checkboxes native; only anamnesis multiselect uses the custom touch-safe box above. */
-.settings-check input[type="checkbox"],
-.consent-section input[type="checkbox"],
-.health-check-grid input[type="checkbox"]{
-  -webkit-appearance:checkbox!important;
-  appearance:checkbox!important;
-  pointer-events:auto!important;
-  touch-action:manipulation!important;
 }

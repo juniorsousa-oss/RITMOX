@@ -499,7 +499,11 @@ function renderDynamicAnamnesis(){
     if(!root) return;
     if(q.question_type==="multiselect"){
       const selected=new Set(Array.isArray(value)?value:[]);
-      root.querySelectorAll('input[type="checkbox"]').forEach(el=>el.checked=selected.has(el.value));
+      root.querySelectorAll("[data-anamnesis-option]").forEach(btn=>{
+        const checked=selected.has(btn.dataset.value);
+        btn.setAttribute("aria-checked",checked?"true":"false");
+        btn.classList.toggle("is-checked",checked);
+      });
     }else{
       const input=root.querySelector("[data-answer]");
       if(!input) return;
@@ -541,13 +545,10 @@ function renderAnamnesisQuestion(q){
     </select>`;
   }else if(q.question_type==="multiselect"){
     control=`<div class="dynamic-multiselect" role="group" aria-labelledby="anamnesis-label-${q.id}">
-      ${(q.options||[]).map((opt,index)=>{
-        const inputId=`anamnesis-q-${q.id}-${index}`;
-        return `<label class="dynamic-checkbox-option" for="${inputId}">
-          <input id="${inputId}" type="checkbox" value="${escapeHTML(opt)}">
-          <span>${escapeHTML(opt)}</span>
-        </label>`;
-      }).join("")}
+      ${(q.options||[]).map(opt=>`<button type="button" class="dynamic-checkbox-option" data-anamnesis-option data-value="${escapeHTML(opt)}" role="checkbox" aria-checked="false">
+        <span class="dynamic-checkbox-box" aria-hidden="true"></span>
+        <span class="dynamic-checkbox-text">${escapeHTML(opt)}</span>
+      </button>`).join("")}
     </div>`;
   }else{
     control=`<input id="${controlId}" data-answer type="text" ${q.required?"required":""} placeholder="${escapeHTML(q.placeholder||"")}">`;
@@ -567,7 +568,7 @@ function collectDynamicAnswers(){
     const root=$(`[data-question="${q.id}"]`,$("#dynamicAnamnesisQuestions"));
     if(!root) return;
     if(q.question_type==="multiselect"){
-      answers[String(q.id)]=$$('input[type="checkbox"]:checked',root).map(el=>el.value);
+      answers[String(q.id)]=$('[data-anamnesis-option][aria-checked="true"]',root).map(btn=>btn.dataset.value);
     }else{
       const input=$("[data-answer]",root);
       if(!input) return;
@@ -1459,3 +1460,13 @@ window.addEventListener("resize",()=>{
   const hash=location.hash.replace("#","");
   navigate(pageMeta[hash]?hash:"home");
 })();
+
+function handleAnamnesisCheckboxClick(ev){
+  const option=ev.target.closest("[data-anamnesis-option]");
+  if(!option) return;
+  ev.preventDefault();
+  const checked=option.getAttribute("aria-checked")==="true";
+  option.setAttribute("aria-checked",checked?"false":"true");
+  option.classList.toggle("is-checked",!checked);
+}
+document.addEventListener("click",handleAnamnesisCheckboxClick);
