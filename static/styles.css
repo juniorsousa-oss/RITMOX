@@ -897,3 +897,14 @@ dialog label{display:grid;gap:7px;color:#bac5d6;font-size:12px;margin-top:14px}d
   .health-check-grid{grid-template-columns:1fr}
   .health-dialog-actions{display:grid;grid-template-columns:1fr 1fr}
 }
+
+/* visibility + dialog reliability */
+[hidden]{display:none!important}
+.dialog-fallback-open{
+  display:block!important;
+  position:fixed!important;
+  inset:5vh auto auto 50%!important;
+  transform:translateX(-50%)!important;
+  z-index:9999!important;
+  max-height:90vh!important;
+}
