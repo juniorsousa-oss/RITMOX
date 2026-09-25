@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#08101f">
   <title>RITMOX — Treino em movimento</title>
-  <link rel="stylesheet" href="/static/styles.css?v=20260925-04">
+  <link rel="stylesheet" href="/static/styles.css?v=20260925-05">
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true">
@@ -112,23 +112,29 @@
 
         <div class="hero-grid desktop-home-block">
           <article class="hero-card strength-card" data-open="workouts">
-            <div class="hero-icon"><svg><use href="#i-dumbbell"/></svg></div>
-            <div class="hero-copy">
-              <small>Treino de hoje</small>
+            <div class="hero-card-head">
+              <div class="hero-icon"><svg><use href="#i-dumbbell"/></svg></div>
               <h2>Musculação</h2>
+              <span class="hero-chevron">›</span>
+            </div>
+            <div class="hero-card-body">
+              <strong>Treino de hoje</strong>
               <p id="homeWorkoutTitle">Nenhum treino programado</p>
-              <div class="hero-meta"><span>0 exercícios</span><span>0 min</span></div>
+              <div class="hero-meta"><span>◌ 0 exercícios</span><span>◷ 0 min</span></div>
             </div>
             <button class="hero-action pink">Iniciar treino</button>
           </article>
 
           <article class="hero-card run-card" data-open="run">
-            <div class="hero-icon"><svg><use href="#i-run"/></svg></div>
-            <div class="hero-copy">
-              <small>Corrida</small>
+            <div class="hero-card-head">
+              <div class="hero-icon"><svg><use href="#i-run"/></svg></div>
               <h2>Corrida</h2>
+              <span class="hero-chevron">›</span>
+            </div>
+            <div class="hero-card-body">
+              <strong>Treino de hoje</strong>
               <p>Nenhuma corrida registrada</p>
-              <div class="hero-meta"><span>0,0 km</span><span>0 min</span></div>
+              <div class="hero-meta"><span>◌ 0,0 km</span><span>◷ 0 min</span></div>
             </div>
             <button class="hero-action cyan">Iniciar corrida</button>
           </article>
@@ -153,13 +159,15 @@
               <canvas id="progressChart" height="230"></canvas>
             </article>
             <article class="panel summary-panel">
-              <div class="ring" id="goalRing"><span>0%</span></div>
-              <h4>Resumo da semana</h4>
-              <ul>
-                <li><i class="dot pink"></i><span>0 treinos</span></li>
-                <li><i class="dot cyan"></i><span>0 corridas</span></li>
-                <li><i class="dot orange"></i><span>Meta de atividade</span></li>
-              </ul>
+              <div class="summary-title-row"><h4>Resumo da semana</h4><span>›</span></div>
+              <div class="summary-content">
+                <div class="ring" id="goalRing"><span>0%</span></div>
+                <ul>
+                  <li><i class="dot orange"></i><span>0/0 treinos</span></li>
+                  <li><i class="dot cyan"></i><span>0/0 corridas</span></li>
+                  <li><i class="dot purple"></i><span>Meta da atividade</span></li>
+                </ul>
+              </div>
             </article>
           </div>
         </section>
@@ -357,6 +365,6 @@
   </dialog>
 
   <div id="toast" class="toast"></div>
-  <script src="/static/app.js?v=20260925-04"></script>
+  <script src="/static/app.js?v=20260925-05"></script>
 </body>
 </html>
