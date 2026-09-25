@@ -1,0 +1,142 @@
+name: RITMOX live smoke tests
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      APP_URL: https://ritmox.onrender.com
+      EXPECTED_BUILD: "20260925-32"
+    steps:
+      - name: Wait for Render build
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in {1..60}; do
+            body="$(curl -fsS --max-time 20 "$APP_URL/api/version" || true)"
+            echo "attempt=$attempt body=$body"
+            if echo "$body" | grep -q "$EXPECTED_BUILD"; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Render did not publish $EXPECTED_BUILD within the test window."
+          exit 1
+
+      - name: Install browser test runtime
+        run: npm install --no-save playwright-core
+
+      - name: Run six icon regression tests
+        shell: bash
+        run: |
+          node <<'NODE'
+          const { chromium } = require('playwright-core');
+
+          const APP = process.env.APP_URL;
+          const results = [];
+
+          function record(name, ok, details) {
+            results.push({ name, ok, details });
+            console.log(`${ok ? 'PASS' : 'FAIL'} :: ${name} :: ${details}`);
+          }
+
+          async function box(page, selector) {
+            await page.locator(selector).waitFor({ state: 'visible', timeout: 30000 });
+            return await page.locator(selector).boundingBox();
+          }
+
+          (async () => {
+            const browser = await chromium.launch({
+              executablePath: '/usr/bin/google-chrome',
+              headless: true,
+              args: ['--no-sandbox', '--disable-dev-shm-usage']
+            });
+
+            try {
+              const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+              await mobile.goto(APP, { waitUntil: 'networkidle', timeout: 120000 });
+
+              const mMuscleImg = await box(mobile, '.m-feature-strength .m-feature-icon img');
+              const mMuscleBox = await box(mobile, '.m-feature-strength .m-feature-icon');
+              const mMuscleCopy = await box(mobile, '.m-feature-strength .m-feature-copy');
+              record(
+                '1 mobile musculação: escala interna',
+                mMuscleImg.width <= 44.5 && mMuscleImg.height <= 44.5 && mMuscleImg.width >= 43,
+                JSON.stringify({ image: mMuscleImg, container: mMuscleBox })
+              );
+
+              const mRunImg = await box(mobile, '.m-feature-run .m-feature-icon img');
+              const mRunBox = await box(mobile, '.m-feature-run .m-feature-icon');
+              const mRunCopy = await box(mobile, '.m-feature-run .m-feature-copy');
+              record(
+                '2 mobile corrida: escala interna',
+                mRunImg.width <= 44.5 && mRunImg.height <= 44.5 && mRunImg.width >= 43,
+                JSON.stringify({ image: mRunImg, container: mRunBox })
+              );
+
+              const muscleGap = mMuscleCopy.x - (mMuscleBox.x + mMuscleBox.width);
+              record(
+                '3 mobile musculação: texto sem sobreposição',
+                muscleGap >= 15,
+                `gap=${muscleGap.toFixed(2)}px`
+              );
+
+              const runGap = mRunCopy.x - (mRunBox.x + mRunBox.width);
+              record(
+                '4 mobile corrida: texto sem sobreposição',
+                runGap >= 15,
+                `gap=${runGap.toFixed(2)}px`
+              );
+
+              await mobile.screenshot({ path: 'ritmox-mobile.png', fullPage: true });
+
+              const desktop = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
+              await desktop.goto(APP, { waitUntil: 'networkidle', timeout: 120000 });
+
+              const dMuscleImg = await box(desktop, '.strength-card .hero-icon img');
+              const dMuscleBox = await box(desktop, '.strength-card .hero-icon');
+              record(
+                '5 desktop musculação: escala interna',
+                dMuscleImg.width <= 38.5 && dMuscleImg.height <= 38.5 && dMuscleImg.width >= 37,
+                JSON.stringify({ image: dMuscleImg, container: dMuscleBox })
+              );
+
+              const dRunImg = await box(desktop, '.run-card .hero-icon img');
+              const dRunBox = await box(desktop, '.run-card .hero-icon');
+              record(
+                '6 desktop corrida: escala interna',
+                dRunImg.width <= 38.5 && dRunImg.height <= 38.5 && dRunImg.width >= 37,
+                JSON.stringify({ image: dRunImg, container: dRunBox })
+              );
+
+              await desktop.screenshot({ path: 'ritmox-desktop.png', fullPage: true });
+
+              const failed = results.filter(r => !r.ok);
+              console.log('\nRESULTS=' + JSON.stringify(results));
+              if (failed.length) process.exit(1);
+            } finally {
+              await browser.close();
+            }
+          })().catch(err => {
+            console.error(err);
+            process.exit(1);
+          });
+          NODE
+
+      - name: Upload rendered screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ritmox-live-screenshots
+          path: |
+            ritmox-mobile.png
+            ritmox-desktop.png
+          if-no-files-found: ignore
