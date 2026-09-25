@@ -153,8 +153,8 @@ function renderWorkout(w){
       </div>
     </article>`;
   }).join("");
-  $$("[data-complete]").forEach(b=>b.onclick=()=>completeSet(Number(b.dataset.complete)));
-  $$("[data-undo]").forEach(b=>b.onclick=()=>undoSet(Number(b.dataset.undo)));
+  $$$("[data-complete]").forEach(b=>b.onclick=()=>completeSet(Number(b.dataset.complete)));
+  $$$("[data-undo]").forEach(b=>b.onclick=()=>undoSet(Number(b.dataset.undo)));
 
   const current=w.exercises.find(e=>e.sets_done<e.sets_total) || w.exercises[0];
   const currentIndex=Math.max(0,w.exercises.findIndex(e=>e.id===current?.id));
@@ -460,35 +460,25 @@ function fillHealthForm(assessment){
   $("#haConsentScreening").checked=!!d.consent_screening;
 
   const medical=new Set(d.medical_conditions||[]);
-  $$("#medicalConditions input").forEach(el=>el.checked=medical.has(el.value));
+  $$$("#medicalConditions input").forEach(el=>el.checked=medical.has(el.value));
   const family=new Set(d.family_history||[]);
-  $$("#familyHistory input").forEach(el=>el.checked=family.has(el.value));
+  $$$("#familyHistory input").forEach(el=>el.checked=family.has(el.value));
 }
 
 function openDialogSafe(dialog){
   if(!dialog) return;
-  try{
-    if(typeof dialog.showModal==="function"){
-      if(!dialog.open) dialog.showModal();
-    }else{
-      dialog.setAttribute("open","");
-      dialog.classList.add("dialog-fallback-open");
-    }
-  }catch{
-    dialog.setAttribute("open","");
-    dialog.classList.add("dialog-fallback-open");
-  }
+  dialog.hidden=false;
+  dialog.classList.add("is-open");
+  document.body.classList.add("modal-open");
+  const first=dialog.querySelector("input,select,textarea,button");
+  setTimeout(()=>first?.focus(),30);
 }
 
 function closeDialogSafe(dialog){
   if(!dialog) return;
-  try{
-    if(typeof dialog.close==="function" && dialog.open) dialog.close();
-    else dialog.removeAttribute("open");
-  }catch{
-    dialog.removeAttribute("open");
-  }
-  dialog.classList.remove("dialog-fallback-open");
+  dialog.classList.remove("is-open");
+  dialog.hidden=true;
+  if(!$(".app-modal-overlay.is-open")) document.body.classList.remove("modal-open");
 }
 
 function openHealthAssessment(){
@@ -554,25 +544,14 @@ async function submitHealthAssessment(ev){
     return;
   }
   try{
-    let result=await api("/api/health-assessment",{method:"POST",body:JSON.stringify(payload)});
+    const result=await api("/api/health-assessment",{method:"POST",body:JSON.stringify(payload)});
     state.health.assessment=result;
     state.health.loaded=true;
-
-    if(state.health.pendingClearance){
-      result=await api(`/api/health-assessment/${result.id}/clearance`,{
-        method:"POST",
-        body:JSON.stringify(state.health.pendingClearance)
-      });
-      state.health.assessment=result;
-      state.health.pendingClearance=null;
-    }
-
     closeHealthAssessment();
     renderHealthGate();
+
     if(result.training_allowed){
-      toast(result.professional_clearance
-        ? "Anamnese concluída e liberação profissional vinculada."
-        : "Anamnese concluída sem alertas que bloqueiem o planejamento.");
+      toast("Anamnese concluída. Planejamento liberado.");
       await loadTrainingCalendar(false);
     }else{
       toast("A triagem identificou pontos que exigem avaliação profissional.");
@@ -595,24 +574,38 @@ async function loadHealthGate(){
   }
 }
 
+function requestStatusText(request){
+  if(!request) return "";
+  if(request.status==="pending") return "Solicitação enviada · aguardando análise do profissional";
+  if(request.status==="approved") return "Liberação aprovada pelo profissional";
+  if(request.status==="rejected") return "Solicitação não aprovada · revise a orientação profissional";
+  return "";
+}
+
 function renderHealthGate(){
   const gate=$("#healthGate");
   const calendar=$("#trainingCalendar");
   const assessment=state.health.assessment;
   if(!gate || !calendar) return;
 
-  $("#startHealthAssessmentBtn").hidden=true;
-  $("#registerClearanceBtn").hidden=true;
-  $("#healthGateFlags").innerHTML="";
+  const startBtn=$("#startHealthAssessmentBtn");
+  const requestBtn=$("#registerClearanceBtn");
+  const flags=$("#healthGateFlags");
+  startBtn.hidden=true;
+  requestBtn.hidden=true;
+  requestBtn.disabled=false;
+  requestBtn.classList.remove("is-pending");
+  flags.innerHTML="";
 
   if(!assessment){
     gate.hidden=false;
     calendar.hidden=true;
     $("#healthGateTitle").textContent="Antes do primeiro treino, complete a anamnese";
     $("#healthGateText").textContent="O planejamento fica bloqueado até o aluno responder à triagem pré-participação.";
-    $("#startHealthAssessmentBtn").hidden=false;
-    $("#registerClearanceBtn").hidden=false;
-    $("#registerClearanceBtn").textContent="Registrar liberação profissional";
+    startBtn.textContent="Preencher anamnese";
+    startBtn.hidden=false;
+    requestBtn.textContent="Solicitar liberação ao profissional";
+    requestBtn.hidden=false;
     return;
   }
 
@@ -620,7 +613,7 @@ function renderHealthGate(){
     gate.hidden=true;
     calendar.hidden=false;
     const text=assessment.professional_clearance
-      ? `Anamnese concluída · liberação profissional registrada em ${parseISODate(assessment.clearance_date).toLocaleDateString("pt-BR")}`
+      ? `Anamnese concluída · liberação aprovada por ${assessment.clearance_provider||"profissional responsável"}`
       : "Anamnese concluída · sem alertas de bloqueio declarados";
     $("#healthStatusText").textContent=text;
     return;
@@ -630,15 +623,47 @@ function renderHealthGate(){
   calendar.hidden=true;
   $("#healthGateTitle").textContent="Avaliação profissional necessária";
   $("#healthGateText").textContent="A anamnese indicou sinais ou condições que exigem avaliação antes de programar atividades físicas.";
-  $("#healthGateFlags").innerHTML=(assessment.red_flags||[]).map(flag=>`<div class="health-flag">${escapeHTML(flag)}</div>`).join("");
-  $("#startHealthAssessmentBtn").textContent="Revisar anamnese";
-  $("#startHealthAssessmentBtn").hidden=false;
-  $("#registerClearanceBtn").hidden=false;
+  flags.innerHTML=(assessment.red_flags||[]).map(flag=>`<div class="health-flag">${escapeHTML(flag)}</div>`).join("");
+
+  startBtn.textContent="Revisar anamnese";
+  startBtn.hidden=false;
+
+  const request=assessment.clearance_request;
+  requestBtn.hidden=false;
+  if(request?.status==="pending"){
+    requestBtn.textContent="Solicitação enviada · aguardando profissional";
+    requestBtn.disabled=true;
+    requestBtn.classList.add("is-pending");
+  }else if(request?.status==="rejected"){
+    requestBtn.textContent="Solicitar nova avaliação profissional";
+  }else{
+    requestBtn.textContent="Solicitar liberação ao profissional";
+  }
+
+  if(request){
+    flags.insertAdjacentHTML("beforeend",`<div class="health-request-status ${request.status}">${escapeHTML(requestStatusText(request))}</div>`);
+  }
 }
 
 function openClearanceDialog(){
-  $("#clearanceProvider").value=state.health.pendingClearance?.provider_name||"";
-  $("#clearanceDate").value=state.health.pendingClearance?.clearance_date||localISO(new Date());
+  const assessment=state.health.assessment;
+  if(!assessment){
+    toast("Conclua a anamnese antes de solicitar a liberação profissional.");
+    openHealthAssessment();
+    return;
+  }
+  if(assessment.training_allowed){
+    toast("O planejamento já está liberado.");
+    return;
+  }
+  if(assessment.risk_status!=="attention_required"){
+    toast("A triagem atual não exige liberação profissional.");
+    return;
+  }
+  const current=assessment.clearance_request;
+  $("#clearanceProvider").value=current?.professional_name||"";
+  $("#clearanceEmail").value=current?.professional_email||"";
+  $("#clearanceMessage").value=current?.message||"";
   openDialogSafe($("#clearanceDialog"));
 }
 
@@ -648,32 +673,23 @@ function closeClearanceDialog(){
 
 async function submitClearance(ev){
   ev.preventDefault();
-  const provider=$("#clearanceProvider").value.trim();
-  const clearance_date=$("#clearanceDate").value;
-  if(!provider||!clearance_date){
-    toast("Informe o profissional e a data da liberação.");
-    return;
-  }
-
-  if(!state.health.assessment){
-    state.health.pendingClearance={provider_name:provider,clearance_date};
-    closeClearanceDialog();
-    toast("Liberação informada. Agora conclua a anamnese obrigatória.");
-    openHealthAssessment();
+  const professional_name=$("#clearanceProvider").value.trim();
+  const professional_email=$("#clearanceEmail").value.trim();
+  const message=$("#clearanceMessage").value.trim();
+  if(!professional_name||!professional_email){
+    toast("Informe o profissional responsável e o e-mail.");
     return;
   }
 
   try{
-    const result=await api(`/api/health-assessment/${state.health.assessment.id}/clearance`,{
+    await api("/api/clearance-requests",{
       method:"POST",
-      body:JSON.stringify({provider_name:provider,clearance_date})
+      body:JSON.stringify({professional_name,professional_email,message})
     });
-    state.health.assessment=result;
-    state.health.pendingClearance=null;
+    state.health.assessment=await api("/api/health-assessment/latest");
     closeClearanceDialog();
     renderHealthGate();
-    await loadTrainingCalendar(false);
-    toast("Liberação profissional registrada.");
+    toast("Solicitação enviada ao profissional. O aluno não pode aprová-la.");
   }catch(e){toast(e.message)}
 }
 
