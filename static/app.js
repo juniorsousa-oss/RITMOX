@@ -8,6 +8,13 @@ const state = {
   dashboard: null,
   timerStartedAt: null,
   timerHandle: null,
+  calendar: {
+    weekStart: null,
+    selectedDate: null,
+    plans: [],
+    editingId: null,
+    loaded: false,
+  },
 };
 
 function toast(message){
@@ -33,7 +40,7 @@ async function api(path, options={}){
 
 const pageMeta = {
   home:["Bom dia, Júnior!","Disciplina hoje. Resultados sempre."],
-  workouts:["Treino de hoje","Musculação • evolução de força"],
+  workouts:["Calendário de treinos","Planejamento semanal e organização dos treinos."],
   run:["Corrida","Métricas reais. Evolução constante."],
   evolution:["Minha evolução","Consistência vira resultado."],
   community:["Comunidade","Evolua com quem também está em movimento."],
@@ -52,6 +59,7 @@ function navigate(page){
   history.replaceState(null,"","#"+page);
   if(page==="home") setTimeout(drawProgressChart,50);
   if(page==="run") setTimeout(drawRunChart,50);
+  if(page==="workouts") setTimeout(()=>loadTrainingCalendar(false),20);
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
@@ -81,6 +89,7 @@ function renderDashboard(d){
 
 function renderWorkout(w){
   state.workout=w;
+  if(!$("#workoutTitle")) return;
   if(!w){
     $("#workoutTitle").textContent="Nenhum treino cadastrado";
     $("#workoutSubtitle").textContent="Crie seu primeiro treino de musculação.";
@@ -316,18 +325,15 @@ function startLocalTimer(){
   },1000);
 }
 
-$("#startWorkoutBtn").onclick=async()=>{
-  if(!state.workout){
-    toast("O cadastro do primeiro treino será a próxima tela que vamos construir.");
-    return;
-  }
+if($("#startWorkoutBtn")) $("#startWorkoutBtn").onclick=async()=>{
+  if(!state.workout) return;
   try{
     const w=await api(`/api/workouts/${state.workout.id}/start`,{method:"POST"});
     renderWorkout(w); startLocalTimer(); toast("Treino iniciado.");
   }catch(e){toast(e.message)}
 };
 
-$("#addModalityBtn").onclick=()=>$("#modalityDialog").showModal();
+if($("#addModalityBtn")) $("#addModalityBtn").onclick=()=>$("#modalityDialog").showModal();
 $("#saveModalityBtn").onclick=async(ev)=>{
   ev.preventDefault();
   const name=$("#modalityName").value.trim();
@@ -383,7 +389,6 @@ $$(".hero-action").forEach(btn=>btn.addEventListener("click",(ev)=>{
   ev.stopPropagation();
   const card=btn.closest("[data-open]");
   navigate(card.dataset.open);
-  if(card.dataset.open==="workouts") $("#startWorkoutBtn").click();
 }));
 
 $("#globalSearch").addEventListener("input",ev=>{
@@ -393,13 +398,314 @@ $("#globalSearch").addEventListener("input",ev=>{
   else if(["treino","musculação","musculacao","agachamento","exercício","exercicio"].some(x=>q.includes(x))) navigate("workouts");
 });
 
+
+function localISO(d){
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,"0");
+  const day=String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+
+function parseISODate(value){
+  const [y,m,d]=value.split("-").map(Number);
+  return new Date(y,m-1,d);
+}
+
+function startOfWeek(input){
+  const d=new Date(input.getFullYear(),input.getMonth(),input.getDate());
+  const weekday=(d.getDay()+6)%7;
+  d.setDate(d.getDate()-weekday);
+  return d;
+}
+
+function addDays(input,days){
+  const d=new Date(input.getFullYear(),input.getMonth(),input.getDate());
+  d.setDate(d.getDate()+days);
+  return d;
+}
+
+function formatWeekRange(start){
+  const end=addDays(start,6);
+  const opts={day:"2-digit",month:"short"};
+  const left=start.toLocaleDateString("pt-BR",opts).replace(".","");
+  const right=end.toLocaleDateString("pt-BR",{...opts,year:"numeric"}).replace(".","");
+  return `${left} — ${right}`;
+}
+
+function modalityClass(modality){
+  if(modality==="musculacao") return "strength";
+  if(modality==="corrida") return "running";
+  return "other";
+}
+
+function modalityLabel(modality){
+  const map={musculacao:"Musculação",corrida:"Corrida",funcional:"Funcional",ciclismo:"Ciclismo",outro:"Outra"};
+  return map[modality]||modality;
+}
+
+function modalityIcon(modality){
+  if(modality==="musculacao") return "/static/assets/validated/muscle.webp";
+  if(modality==="corrida") return "/static/assets/validated/run-card.webp";
+  return "/static/assets/validated/evolution.webp";
+}
+
+function escapeHTML(value){
+  return String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[ch]));
+}
+
+async function loadTrainingCalendar(preserveSelection=true){
+  if(!$("#weekCalendar")) return;
+  const today=new Date();
+  if(!state.calendar.weekStart) state.calendar.weekStart=startOfWeek(today);
+  const start=state.calendar.weekStart;
+  const end=addDays(start,6);
+  try{
+    const plans=await api(`/api/training-plans?start_date=${localISO(start)}&end_date=${localISO(end)}`);
+    state.calendar.plans=plans;
+    if(!preserveSelection || !state.calendar.selectedDate){
+      const todayISO=localISO(today);
+      const startISO=localISO(start), endISO=localISO(end);
+      state.calendar.selectedDate=(todayISO>=startISO&&todayISO<=endISO)?todayISO:startISO;
+    }
+    state.calendar.loaded=true;
+    renderTrainingCalendar();
+    syncTodayPlanToHome();
+  }catch(e){
+    toast(e.message);
+  }
+}
+
+function renderTrainingCalendar(){
+  const calendar=$("#weekCalendar");
+  if(!calendar) return;
+  const start=state.calendar.weekStart;
+  $("#weekRange").textContent=formatWeekRange(start);
+
+  const weekdayNames=["SEG","TER","QUA","QUI","SEX","SÁB","DOM"];
+  const todayISO=localISO(new Date());
+  calendar.innerHTML=Array.from({length:7},(_,i)=>{
+    const d=addDays(start,i);
+    const iso=localISO(d);
+    const plans=state.calendar.plans.filter(p=>p.planned_date===iso);
+    const chips=plans.slice(0,2).map(p=>`
+      <span class="day-chip ${modalityClass(p.modality)}"><i></i><span>${escapeHTML(p.title)}</span></span>`
+    ).join("");
+    const more=plans.length>2?`<span class="more-chip">+${plans.length-2} treino(s)</span>`:"";
+    return `<button type="button" class="calendar-day ${iso===state.calendar.selectedDate?"selected":""} ${iso===todayISO?"today":""}" data-calendar-date="${iso}">
+      <span class="calendar-day-head">
+        <span class="calendar-weekday">${weekdayNames[i]}</span>
+        <span class="calendar-count">${plans.length?plans.length+" treino"+(plans.length>1?"s":""):""}</span>
+      </span>
+      <strong class="calendar-date-num">${d.getDate()}</strong>
+      <span class="calendar-day-plans">${chips}${more}</span>
+    </button>`;
+  }).join("");
+
+  const total=state.calendar.plans.length;
+  $("#weekPlanCount").textContent=total ? `${total} treino${total>1?"s":""} planejado${total>1?"s":""}` : "Nenhum treino planejado";
+  renderSelectedDay();
+}
+
+function renderSelectedDay(){
+  const selected=state.calendar.selectedDate;
+  if(!selected) return;
+  const d=parseISODate(selected);
+  const plans=state.calendar.plans.filter(p=>p.planned_date===selected);
+  const full=d.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"});
+  $("#selectedDayEyebrow").textContent=selected===localISO(new Date())?"HOJE":"DIA SELECIONADO";
+  $("#selectedDayTitle").textContent=full.charAt(0).toUpperCase()+full.slice(1);
+  $("#selectedDaySubtitle").textContent=plans.length ? `${plans.length} treino${plans.length>1?"s":""} planejado${plans.length>1?"s":""} para este dia.` : "Nenhum treino planejado para este dia.";
+
+  const list=$("#dayPlanList");
+  if(!plans.length){
+    list.innerHTML=`<div class="day-empty"><div><strong>Dia livre</strong><span>Inclua um treino para começar o planejamento.</span></div></div>`;
+    return;
+  }
+  list.innerHTML=plans.map(p=>`
+    <article class="day-plan-card">
+      <div class="day-plan-icon"><img src="${modalityIcon(p.modality)}" alt=""></div>
+      <div class="day-plan-info">
+        <h4>${escapeHTML(p.title)}</h4>
+        <p>${escapeHTML(modalityLabel(p.modality))}</p>
+        <div class="day-plan-meta">
+          <span>◷ ${p.duration_min} min</span>
+          <span>◌ ${p.exercise_count} exercício${p.exercise_count===1?"":"s"}</span>
+          ${p.notes?`<span>✦ ${escapeHTML(p.notes)}</span>`:""}
+        </div>
+      </div>
+      <div class="day-plan-actions">
+        <button type="button" class="icon-action" data-edit-plan="${p.id}" aria-label="Editar ${escapeHTML(p.title)}">✎</button>
+      </div>
+    </article>
+  `).join("");
+}
+
+function openPlanDialog(plan=null,dateValue=null){
+  const dialog=$("#planDialog");
+  if(!dialog) return;
+  state.calendar.editingId=plan?.id||null;
+  $("#planDialogEyebrow").textContent=plan?"EDITAR TREINO":"NOVO TREINO";
+  $("#planDialogTitle").textContent=plan?"Editar treino planejado":"Planejar treino";
+  $("#planDate").value=plan?.planned_date||dateValue||state.calendar.selectedDate||localISO(new Date());
+  $("#planModality").value=plan?.modality||"musculacao";
+  $("#planTitle").value=plan?.title||"";
+  $("#planDuration").value=plan?.duration_min||45;
+  $("#planNotes").value=plan?.notes||"";
+  $("#deletePlanBtn").hidden=!plan;
+  $("#plannedExerciseRows").innerHTML="";
+  (plan?.exercises||[]).forEach(e=>addExerciseRow(e));
+  renderExerciseEditorEmpty();
+  dialog.showModal();
+  setTimeout(()=>$("#planTitle")?.focus(),30);
+}
+
+function closePlanDialog(){
+  const dialog=$("#planDialog");
+  if(dialog?.open) dialog.close();
+  state.calendar.editingId=null;
+}
+
+function addExerciseRow(data={}){
+  const host=$("#plannedExerciseRows");
+  if(!host) return;
+  const row=document.createElement("div");
+  row.className="planned-exercise-row";
+  row.innerHTML=`
+    <label>Exercício<input data-field="name" maxlength="160" value="${escapeHTML(data.name||"")}" placeholder="Ex.: Agachamento livre"></label>
+    <label>Grupo muscular<input data-field="muscle" maxlength="120" value="${escapeHTML(data.muscle||"")}" placeholder="Quadríceps / Glúteos"></label>
+    <label>Séries<input data-field="sets_total" type="number" min="1" max="20" value="${Number(data.sets_total||4)}"></label>
+    <label>Repetições<input data-field="reps" maxlength="30" value="${escapeHTML(data.reps||"8-10")}"></label>
+    <label>Carga kg<input data-field="load_kg" type="number" min="0" max="2000" step="0.5" value="${Number(data.load_kg||0)}"></label>
+    <button type="button" class="remove-exercise-btn" aria-label="Remover exercício">×</button>`;
+  row.querySelector(".remove-exercise-btn").addEventListener("click",()=>{
+    row.remove(); renderExerciseEditorEmpty();
+  });
+  host.appendChild(row);
+  renderExerciseEditorEmpty();
+}
+
+function renderExerciseEditorEmpty(){
+  const host=$("#plannedExerciseRows");
+  if(!host) return;
+  const empty=host.querySelector(".exercise-editor-empty");
+  if(empty) empty.remove();
+  if(!host.querySelector(".planned-exercise-row")){
+    const el=document.createElement("div");
+    el.className="exercise-editor-empty";
+    el.textContent="Nenhum exercício adicionado. Você pode salvar o treino agora e detalhar depois.";
+    host.appendChild(el);
+  }
+}
+
+function collectPlanForm(){
+  const rows=$(".planned-exercise-row",$("#plannedExerciseRows"));
+  const exercises=rows.map(row=>({
+    name:row.querySelector('[data-field="name"]').value.trim(),
+    muscle:row.querySelector('[data-field="muscle"]').value.trim(),
+    sets_total:Number(row.querySelector('[data-field="sets_total"]').value||1),
+    reps:row.querySelector('[data-field="reps"]').value.trim()||"1",
+    load_kg:Number(row.querySelector('[data-field="load_kg"]').value||0),
+  })).filter(e=>e.name);
+  return {
+    planned_date:$("#planDate").value,
+    title:$("#planTitle").value.trim(),
+    modality:$("#planModality").value,
+    duration_min:Number($("#planDuration").value||45),
+    notes:$("#planNotes").value.trim(),
+    exercises,
+  };
+}
+
+async function savePlan(ev){
+  ev.preventDefault();
+  const payload=collectPlanForm();
+  if(!payload.planned_date || payload.title.length<2){
+    toast("Informe a data e o nome do treino.");
+    return;
+  }
+  try{
+    const id=state.calendar.editingId;
+    await api(id?`/api/training-plans/${id}`:"/api/training-plans",{
+      method:id?"PUT":"POST",
+      body:JSON.stringify(payload),
+    });
+    state.calendar.selectedDate=payload.planned_date;
+    state.calendar.weekStart=startOfWeek(parseISODate(payload.planned_date));
+    closePlanDialog();
+    await loadTrainingCalendar(true);
+    toast(id?"Treino atualizado.":"Treino incluído no calendário.");
+  }catch(e){toast(e.message)}
+}
+
+async function deleteCurrentPlan(){
+  const id=state.calendar.editingId;
+  if(!id) return;
+  if(!confirm("Excluir este treino planejado?")) return;
+  try{
+    await api(`/api/training-plans/${id}`,{method:"DELETE"});
+    closePlanDialog();
+    await loadTrainingCalendar(true);
+    toast("Treino excluído do calendário.");
+  }catch(e){toast(e.message)}
+}
+
+function syncTodayPlanToHome(){
+  const today=localISO(new Date());
+  const todayPlans=state.calendar.plans.filter(p=>p.planned_date===today);
+  const strength=todayPlans.find(p=>p.modality==="musculacao");
+  const run=todayPlans.find(p=>p.modality==="corrida");
+  if(strength){
+    if($("#homeWorkoutTitle")) $("#homeWorkoutTitle").textContent=strength.title;
+    if($("#mHomeWorkoutTitle")) $("#mHomeWorkoutTitle").textContent=strength.title;
+  }
+  if(run && $("#mHomeRunTitle")) $("#mHomeRunTitle").textContent=run.title;
+}
+
+document.addEventListener("click",async ev=>{
+  const day=ev.target.closest("[data-calendar-date]");
+  if(day){
+    state.calendar.selectedDate=day.dataset.calendarDate;
+    renderTrainingCalendar();
+    return;
+  }
+  const edit=ev.target.closest("[data-edit-plan]");
+  if(edit){
+    const id=Number(edit.dataset.editPlan);
+    const plan=state.calendar.plans.find(p=>p.id===id) || await api(`/api/training-plans/${id}`);
+    openPlanDialog(plan);
+  }
+});
+
+if($("#prevWeekBtn")) $("#prevWeekBtn").onclick=()=>{
+  state.calendar.weekStart=addDays(state.calendar.weekStart||startOfWeek(new Date()),-7);
+  state.calendar.selectedDate=localISO(state.calendar.weekStart);
+  loadTrainingCalendar(true);
+};
+if($("#nextWeekBtn")) $("#nextWeekBtn").onclick=()=>{
+  state.calendar.weekStart=addDays(state.calendar.weekStart||startOfWeek(new Date()),7);
+  state.calendar.selectedDate=localISO(state.calendar.weekStart);
+  loadTrainingCalendar(true);
+};
+if($("#todayWeekBtn")) $("#todayWeekBtn").onclick=()=>{
+  state.calendar.weekStart=startOfWeek(new Date());
+  state.calendar.selectedDate=localISO(new Date());
+  loadTrainingCalendar(true);
+};
+if($("#addPlanTopBtn")) $("#addPlanTopBtn").onclick=()=>openPlanDialog(null,state.calendar.selectedDate);
+if($("#addPlanDayBtn")) $("#addPlanDayBtn").onclick=()=>openPlanDialog(null,state.calendar.selectedDate);
+if($("#addExerciseRowBtn")) $("#addExerciseRowBtn").onclick=()=>addExerciseRow();
+if($("#closePlanDialog")) $("#closePlanDialog").onclick=closePlanDialog;
+if($("#cancelPlanBtn")) $("#cancelPlanBtn").onclick=closePlanDialog;
+if($("#deletePlanBtn")) $("#deletePlanBtn").onclick=deleteCurrentPlan;
+if($("#planForm")) $("#planForm").addEventListener("submit",savePlan);
+
 window.addEventListener("resize",()=>{
   clearTimeout(window._resize);
   window._resize=setTimeout(()=>{drawProgressChart();drawRunChart()},120);
 });
 
 (async function init(){
-  await Promise.all([loadDashboard(),loadWorkout(),loadRun()]);
+  await Promise.all([loadDashboard(),loadRun()]);
   const hash=location.hash.replace("#","");
   navigate(pageMeta[hash]?hash:"home");
 })();
