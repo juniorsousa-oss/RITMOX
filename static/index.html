@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#08101f">
   <title>RITMOX — Treino em movimento</title>
-  <link rel="stylesheet" href="/static/styles.css?v=20260925-14">
+  <link rel="stylesheet" href="/static/styles.css?v=20260925-15">
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true">
@@ -179,7 +179,7 @@
             <div id="healthGateFlags" class="health-gate-flags"></div>
             <div class="health-gate-actions">
               <button type="button" class="primary-btn pink-btn" id="startHealthAssessmentBtn" data-health-action="assessment" hidden>Preencher anamnese</button>
-              <button type="button" class="ghost-btn" id="registerClearanceBtn" data-health-action="clearance" hidden>Registrar liberação profissional</button>
+              <button type="button" class="ghost-btn" id="registerClearanceBtn" data-health-action="clearance" hidden>Solicitar liberação ao profissional</button>
             </div>
             <small class="health-note">A triagem não substitui avaliação médica. Respostas com sinais de alerta bloqueiam a prescrição até avaliação profissional.</small>
           </article>
@@ -354,7 +354,7 @@
     <button class="bottom-item" data-page="profile"><span class="nav-glyph"><img src="/static/assets/validated/profile.webp" alt=""></span><span>Perfil</span></button>
   </nav>
 
-  <dialog id="healthAssessmentDialog" class="health-assessment-dialog">
+  <div id="healthAssessmentDialog" class="app-modal-overlay health-assessment-dialog" hidden><div class="app-modal-surface">
     <form id="healthAssessmentForm">
       <button type="button" class="dialog-close" id="closeHealthAssessmentBtn" aria-label="Fechar">×</button>
       <span class="eyebrow pink-text">ANAMNESE DO ALUNO</span>
@@ -448,23 +448,29 @@
         <button type="button" class="ghost-btn" id="cancelHealthAssessmentBtn">Cancelar</button>
         <button type="submit" class="primary-btn pink-btn">Concluir anamnese</button>
       </div>
-    </form>
-  </dialog>
+    </form></div></div>
 
-  <dialog id="clearanceDialog" class="clearance-dialog">
+  <div id="clearanceDialog" class="app-modal-overlay clearance-dialog" hidden><div class="app-modal-surface">
     <form id="clearanceForm">
       <button type="button" class="dialog-close" id="closeClearanceBtn" aria-label="Fechar">×</button>
-      <span class="eyebrow purple-text">LIBERAÇÃO PROFISSIONAL</span>
-      <h3>Registrar avaliação</h3>
-      <p>Use esta opção somente quando o aluno tiver sido avaliado por profissional habilitado após os alertas da triagem.</p>
-      <label>Profissional / responsável<input id="clearanceProvider" required maxlength="160" placeholder="Nome do profissional"></label>
-      <label>Data da liberação<input id="clearanceDate" type="date" required></label>
+      <span class="eyebrow purple-text">SOLICITAÇÃO AO PROFISSIONAL</span>
+      <h3>Solicitar liberação</h3>
+      <p>O aluno não pode aprovar a própria liberação. Esta solicitação será criada como pendência para análise do profissional responsável.</p>
+      <label>Profissional responsável
+        <input id="clearanceProvider" required maxlength="160" placeholder="Nome do profissional">
+      </label>
+      <label>E-mail do profissional
+        <input id="clearanceEmail" type="email" required maxlength="220" placeholder="profissional@exemplo.com">
+      </label>
+      <label>Mensagem
+        <textarea id="clearanceMessage" maxlength="800" rows="3" placeholder="Contexto adicional para a avaliação, se necessário"></textarea>
+      </label>
       <div class="dialog-actions">
         <button type="button" class="ghost-btn" id="cancelClearanceBtn">Cancelar</button>
-        <button type="submit" class="primary-btn pink-btn">Registrar liberação</button>
+        <button type="submit" class="primary-btn pink-btn">Enviar solicitação</button>
       </div>
     </form>
-  </dialog>
+  </div></div>
 
   <dialog id="planDialog" class="plan-dialog">
     <form id="planForm">
@@ -529,6 +535,6 @@
   </dialog>
 
   <div id="toast" class="toast"></div>
-  <script src="/static/app.js?v=20260925-14"></script>
+  <script src="/static/app.js?v=20260925-15"></script>
 </body>
 </html>
