@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#08101f">
   <title>RITMOX — Treino em movimento</title>
-  <link rel="stylesheet" href="/static/styles.css?v=20260925-10">
+  <link rel="stylesheet" href="/static/styles.css?v=20260925-11">
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true">
@@ -170,7 +170,27 @@
       </section>
 
       <section class="page" id="page-workouts">
-        <div class="training-calendar">
+        <div class="health-gate" id="healthGate">
+          <article class="panel health-gate-card">
+            <div class="health-gate-icon">+</div>
+            <span class="eyebrow pink-text">ANAMNESE OBRIGATÓRIA</span>
+            <h2 id="healthGateTitle">Verificando sua triagem de saúde...</h2>
+            <p id="healthGateText">Antes de planejar treinos, o RITMOX verifica se a anamnese do aluno foi concluída.</p>
+            <div id="healthGateFlags" class="health-gate-flags"></div>
+            <div class="health-gate-actions">
+              <button class="primary-btn pink-btn" id="startHealthAssessmentBtn" hidden>Preencher anamnese</button>
+              <button class="ghost-btn" id="registerClearanceBtn" hidden>Registrar liberação profissional</button>
+            </div>
+            <small class="health-note">A triagem não substitui avaliação médica. Respostas com sinais de alerta bloqueiam a prescrição até avaliação profissional.</small>
+          </article>
+        </div>
+
+        <div class="training-calendar" id="trainingCalendar" hidden>
+          <div class="health-status-strip" id="healthStatusStrip">
+            <span class="health-status-dot"></span>
+            <span id="healthStatusText">Anamnese concluída</span>
+            <button type="button" id="reviewHealthAssessmentBtn">Revisar</button>
+          </div>
           <div class="calendar-toolbar">
             <div>
               <span class="eyebrow pink-text">PLANEJAMENTO</span>
@@ -334,6 +354,118 @@
     <button class="bottom-item" data-page="profile"><span class="nav-glyph"><img src="/static/assets/validated/profile.webp" alt=""></span><span>Perfil</span></button>
   </nav>
 
+  <dialog id="healthAssessmentDialog" class="health-assessment-dialog">
+    <form id="healthAssessmentForm">
+      <button type="button" class="dialog-close" id="closeHealthAssessmentBtn" aria-label="Fechar">×</button>
+      <span class="eyebrow pink-text">ANAMNESE DO ALUNO</span>
+      <h3>Triagem pré-participação</h3>
+      <p class="health-dialog-intro">Preencha com informações atuais. O objetivo é identificar sinais que exigem avaliação profissional antes da prescrição de exercícios.</p>
+
+      <fieldset class="health-section">
+        <legend>1. Identificação e contexto</legend>
+        <div class="health-grid">
+          <label class="span-2">Nome completo<input id="haFullName" required maxlength="160" placeholder="Nome do aluno"></label>
+          <label>Data de nascimento<input id="haBirthDate" type="date" required></label>
+          <label>Sexo / identificação<select id="haSex"><option value="">Prefiro não informar</option><option>Masculino</option><option>Feminino</option><option>Outro</option></select></label>
+          <label>Profissão<input id="haOccupation" maxlength="120" placeholder="Ex.: Administrativo"></label>
+          <label>Nível atual de atividade<select id="haActivityLevel"><option value="">Selecione</option><option value="sedentario">Sedentário</option><option value="iniciante">Iniciante</option><option value="regular">Regular</option><option value="avancado">Avançado</option></select></label>
+          <label class="span-2">Objetivo principal<textarea id="haGoal" maxlength="300" rows="2" placeholder="Ex.: melhorar condicionamento, ganhar força, correr 10 km"></textarea></label>
+          <label>Contato de emergência<input id="haEmergencyContact" maxlength="160"></label>
+          <label>Telefone de emergência<input id="haEmergencyPhone" maxlength="40"></label>
+        </div>
+      </fieldset>
+
+      <fieldset class="health-section">
+        <legend>2. Histórico de saúde</legend>
+        <p class="health-section-help">Marque apenas condições já conhecidas ou diagnosticadas.</p>
+        <div class="health-check-grid" id="medicalConditions">
+          <label><input type="checkbox" value="cardiopatia"> Doença cardíaca</label>
+          <label><input type="checkbox" value="hipertensao"> Hipertensão</label>
+          <label><input type="checkbox" value="hipertensao_nao_controlada"> Hipertensão não controlada</label>
+          <label><input type="checkbox" value="avc"> AVC prévio</label>
+          <label><input type="checkbox" value="diabetes"> Diabetes</label>
+          <label><input type="checkbox" value="diabetes_com_complicacoes"> Diabetes com complicações</label>
+          <label><input type="checkbox" value="doenca_renal"> Doença renal</label>
+          <label><input type="checkbox" value="doenca_pulmonar_relevante"> Doença pulmonar relevante</label>
+          <label><input type="checkbox" value="epilepsia"> Epilepsia / convulsões</label>
+          <label><input type="checkbox" value="osteoporose"> Osteoporose</label>
+          <label><input type="checkbox" value="outra"> Outra condição relevante</label>
+        </div>
+        <div class="health-grid top-gap">
+          <label class="span-2">Cirurgias, lesões e limitações<textarea id="haSurgeries" maxlength="1200" rows="3" placeholder="Inclua lesões atuais, cirurgias anteriores e limitações de movimento"></textarea></label>
+          <label class="span-2">Medicamentos em uso<textarea id="haMedications" maxlength="1200" rows="2" placeholder="Nome e finalidade, se souber"></textarea></label>
+          <label class="span-2">Alergias<textarea id="haAllergies" maxlength="800" rows="2"></textarea></label>
+        </div>
+      </fieldset>
+
+      <fieldset class="health-section">
+        <legend>3. Sintomas e sinais de alerta</legend>
+        <div class="health-check-grid alert-grid">
+          <label><input id="haChestPain" type="checkbox"> Dor ou desconforto no peito</label>
+          <label><input id="haSyncope" type="checkbox"> Desmaio ou tontura importante</label>
+          <label><input id="haBreathlessness" type="checkbox"> Falta de ar em repouso ou esforço leve</label>
+          <label><input id="haPalpitations" type="checkbox"> Palpitações relevantes</label>
+          <label><input id="haFatigue" type="checkbox"> Fadiga inexplicada</label>
+          <label><input id="haEdema" type="checkbox"> Inchaço persistente em membros</label>
+          <label><input id="haMusculoskeletal" type="checkbox"> Dor/limitação musculoesquelética importante</label>
+          <label><input id="haPregnancy" type="checkbox"> Gestação ou pós-parto recente</label>
+        </div>
+      </fieldset>
+
+      <fieldset class="health-section">
+        <legend>4. Histórico familiar e hábitos</legend>
+        <div class="health-check-grid" id="familyHistory">
+          <label><input type="checkbox" value="cardiopatia_precoce"> Doença cardíaca precoce na família</label>
+          <label><input type="checkbox" value="morte_subita"> Morte súbita na família</label>
+          <label><input type="checkbox" value="hipertensao"> Hipertensão familiar</label>
+          <label><input type="checkbox" value="diabetes"> Diabetes familiar</label>
+        </div>
+        <div class="health-grid top-gap">
+          <label>Tabagismo<select id="haSmoking"><option value="">Selecione</option><option value="nao">Não fuma</option><option value="ex">Ex-fumante</option><option value="sim">Fuma atualmente</option></select></label>
+          <label>Álcool<select id="haAlcohol"><option value="">Selecione</option><option value="nao">Não consome</option><option value="ocasional">Ocasional</option><option value="frequente">Frequente</option></select></label>
+          <label>Sono médio por noite<input id="haSleep" type="number" min="0" max="24" step="0.5" placeholder="7.5"></label>
+          <label>Nível de estresse<select id="haStress"><option value="">Selecione</option><option value="baixo">Baixo</option><option value="moderado">Moderado</option><option value="alto">Alto</option></select></label>
+        </div>
+      </fieldset>
+
+      <fieldset class="health-section">
+        <legend>5. Medidas recentes, se disponíveis</legend>
+        <div class="health-grid three">
+          <label>Pressão sistólica<input id="haSystolic" type="number" min="50" max="300" placeholder="120"></label>
+          <label>Pressão diastólica<input id="haDiastolic" type="number" min="30" max="200" placeholder="80"></label>
+          <label>FC de repouso<input id="haRestingHr" type="number" min="20" max="250" placeholder="65"></label>
+          <label class="span-3">Observações adicionais<textarea id="haNotes" maxlength="1500" rows="3"></textarea></label>
+        </div>
+      </fieldset>
+
+      <fieldset class="health-section consent-section">
+        <legend>6. Declarações</legend>
+        <label><input id="haConsentTruthful" type="checkbox" required> Confirmo que as informações acima são verdadeiras e atuais.</label>
+        <label><input id="haConsentScreening" type="checkbox" required> Entendo que esta é uma triagem de segurança e não substitui consulta, diagnóstico ou liberação médica.</label>
+      </fieldset>
+
+      <div class="health-dialog-actions">
+        <button type="button" class="ghost-btn" id="cancelHealthAssessmentBtn">Cancelar</button>
+        <button type="submit" class="primary-btn pink-btn">Concluir anamnese</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="clearanceDialog" class="clearance-dialog">
+    <form id="clearanceForm">
+      <button type="button" class="dialog-close" id="closeClearanceBtn" aria-label="Fechar">×</button>
+      <span class="eyebrow purple-text">LIBERAÇÃO PROFISSIONAL</span>
+      <h3>Registrar avaliação</h3>
+      <p>Use esta opção somente quando o aluno tiver sido avaliado por profissional habilitado após os alertas da triagem.</p>
+      <label>Profissional / responsável<input id="clearanceProvider" required maxlength="160" placeholder="Nome do profissional"></label>
+      <label>Data da liberação<input id="clearanceDate" type="date" required></label>
+      <div class="dialog-actions">
+        <button type="button" class="ghost-btn" id="cancelClearanceBtn">Cancelar</button>
+        <button type="submit" class="primary-btn pink-btn">Registrar liberação</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="planDialog" class="plan-dialog">
     <form id="planForm">
       <button type="button" class="dialog-close" id="closePlanDialog" aria-label="Fechar">×</button>
@@ -397,6 +529,6 @@
   </dialog>
 
   <div id="toast" class="toast"></div>
-  <script src="/static/app.js?v=20260925-10"></script>
+  <script src="/static/app.js?v=20260925-11"></script>
 </body>
 </html>
