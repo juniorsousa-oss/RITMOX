@@ -182,8 +182,11 @@ jobs:
               await page.goto(APP,{waitUntil:'networkidle',timeout:120000});
               await page.locator('.bottom-nav [data-page="profile"]').click();
               await page.locator('#profileAnamnesisCard').waitFor({state:'visible',timeout:30000});
+              await page.waitForFunction(()=>{
+                const el=document.querySelector('#profileAnamnesisSubtitle');
+                return el && el.textContent && !el.textContent.includes('Carregando');
+              },null,{timeout:30000});
               const subtitle=await page.locator('#profileAnamnesisSubtitle').textContent();
-              if(!subtitle||subtitle.includes('Carregando')) throw new Error('profile anamnesis did not load');
               console.log('PASS profile anamnesis UI:',subtitle);
               await page.screenshot({path:'ritmox-profile-anamnesis.png',fullPage:true});
             }finally{await browser.close();}
