@@ -2030,7 +2030,7 @@ function renderSelectedDay(){
           </div>
         </div>
         <div class="day-plan-actions">
-          ${p.modality==="musculacao"&&p.exercise_count>0?`<button type="button" class="day-plan-start" data-start-plan-workout="${p.id}">Iniciar treino</button>`:""}
+          ${p.execution?.completed?`<button type="button" class="day-plan-start completed" data-view-workout="${p.execution.workout_id}">Ver resumo</button>`:(p.modality==="musculacao"&&p.exercise_count>0?`<button type="button" class="day-plan-start" data-start-plan-workout="${p.id}">${p.execution?.started?"Continuar treino":"Iniciar treino"}</button>`:"")}
           <button type="button" class="day-plan-open" data-edit-plan="${p.id}">Editar</button>
         </div>
       </article>`;
@@ -2104,6 +2104,11 @@ function adjustRestTimer(delta){
   state.workoutExecution.restEndsAt=Math.max(Date.now(),state.workoutExecution.restEndsAt+delta*1000);
   updateRestTimer();
 }
+function renderWorkoutFinishSummary(w){
+  const box=$("#workoutFinishSummary");if(!box)return;if(!w||!w.completed){box.innerHTML="";return}
+  const st=ritmoxWorkoutStats(w);
+  box.innerHTML="<div><small>Duração</small><strong>"+st.duration+" min</strong></div><div><small>Exercícios</small><strong>"+st.exercises+"</strong></div><div><small>Séries</small><strong>"+st.sets+"</strong></div><div><small>Repetições</small><strong>"+st.reps+"</strong></div><div><small>Volume</small><strong>"+Math.round(st.volume).toLocaleString("pt-BR")+" kg</strong></div><div><small>Descanso médio</small><strong>"+st.avgRest+"s</strong></div>";
+}
 function renderWorkoutExecution(){
   const w=state.workout;
   if(!w||!$("#workoutExecutionDialog")) return;
@@ -2146,6 +2151,7 @@ function renderWorkoutExecution(){
 
   $("#workoutExecInputs").hidden=w.completed;
   $("#workoutCompleteState").hidden=!w.completed;
+  renderWorkoutFinishSummary(w);
   if(!w.completed){
     const resting=!!state.workoutExecution.restEndsAt;
     const seriesNumber=Math.min(current.sets_done+1,current.sets_total);
@@ -2162,6 +2168,9 @@ function renderWorkoutExecution(){
   $("#workoutNextExercise").innerHTML=next
     ? '<small>PRÓXIMO EXERCÍCIO</small><strong>'+escapeHTML(next.name)+'</strong><span>'+next.sets_total+' séries · '+escapeHTML(next.reps)+' reps</span>'
     : '<small>PRÓXIMO EXERCÍCIO</small><strong>'+(w.completed?"Treino concluído":"Último exercício")+'</strong><span>'+(w.completed?"Histórico salvo.":"Finalize as séries atuais.")+'</span>';
+}
+async function openCompletedWorkout(workoutId){
+  try{const w=await api("/api/workouts/"+workoutId);state.workout=w;clearRestTimer();state.workoutExecution.activeExerciseId=(w.exercises&&w.exercises[0]?w.exercises[0].id:null);renderWorkoutExecution();const dialog=$("#workoutExecutionDialog");if(dialog&&!dialog.open)dialog.showModal()}catch(e){toast(e.message)}
 }
 async function openPlannedWorkout(planId){
   try{
@@ -2572,6 +2581,8 @@ document.addEventListener("click",async ev=>{
     renderTrainingCalendar();
     return;
   }
+  const viewWorkout=ev.target.closest("[data-view-workout]");
+  if(viewWorkout){ev.preventDefault();await openCompletedWorkout(Number(viewWorkout.dataset.viewWorkout));return}
   const startPlanWorkout=ev.target.closest("[data-start-plan-workout]");
   if(startPlanWorkout){
     ev.preventDefault();
@@ -2615,6 +2626,7 @@ $$("[data-planner-modality]").forEach(btn=>btn.onclick=()=>{
 });
 if($("#closeWorkoutExecutionBtn")) $("#closeWorkoutExecutionBtn").onclick=closeWorkoutExecution;
 if($("#finishWorkoutCloseBtn")) $("#finishWorkoutCloseBtn").onclick=closeWorkoutExecution;
+if($("#exportWorkoutStoryBtn")) $("#exportWorkoutStoryBtn").onclick=()=>exportWorkoutStory(state.workout);
 if($("#completeWorkoutSetBtn")) $("#completeWorkoutSetBtn").onclick=completeWorkoutExecutionSet;
 if($("#undoWorkoutSetBtn")) $("#undoWorkoutSetBtn").onclick=undoWorkoutExecutionSet;
 if($("#restTimerSkipBtn")) $("#restTimerSkipBtn").onclick=()=>finishRestTimer(true);
