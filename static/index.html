@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
   <link rel="shortcut icon" type="image/png" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
   <link rel="apple-touch-icon" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
-  <link rel="stylesheet" href="/static/styles.css?v=20260926-62">
+  <link rel="stylesheet" href="/static/styles.css?v=20260926-63">
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true">
@@ -92,6 +92,9 @@
             </span>
             <span class="m-feature-arrow">›</span>
           </button>
+          <button type="button" class="m-home-start-workout" id="mHomeStartWorkoutBtn" hidden>
+            <span aria-hidden="true">▶</span><strong>Iniciar treino de hoje</strong>
+          </button>
 
           <button class="m-feature-card m-feature-run home-image-card" data-page="run" aria-label="Abrir corrida">
             <img class="home-card-art" src="/static/assets/home/home-run-approved-exact-v48.webp?v=20260925-49" alt="">
@@ -134,7 +137,7 @@
               <p id="homeWorkoutTitle">Nenhum treino programado</p>
               <div class="hero-meta"><span>◌ 0 exercícios</span><span>◷ 0 min</span></div>
             </div>
-            <button class="hero-action pink">Iniciar treino</button>
+            <button class="hero-action pink" id="homeStartWorkoutBtn" hidden>Iniciar treino</button>
           </article>
 
           <article class="hero-card run-card home-image-card desktop-home-image-card" data-open="run">
@@ -205,15 +208,15 @@
         <div class="training-calendar training-planner-v57" id="trainingCalendar" hidden>
           <div class="calendar-toolbar">
             <div>
-              <span class="eyebrow pink-text">PLANEJAMENTO</span>
-              <h2>Calendário de treinos</h2>
-              <p>Planeje corrida, musculação e outras modalidades com métodos baseados em evidências.</p>
+              <span class="eyebrow pink-text" id="plannerEyebrow">PLANEJAMENTO</span>
+              <h2 id="plannerTitle">Calendário de treinos</h2>
+              <p id="plannerSubtitle">Planeje corrida, musculação e outras modalidades com métodos baseados em evidências.</p>
             </div>
             <div class="calendar-toolbar-actions">
               <button class="calendar-nav-btn" id="prevWeekBtn" aria-label="Semana anterior">‹</button>
               <button class="calendar-today-btn" id="todayWeekBtn">Hoje</button>
               <button class="calendar-nav-btn" id="nextWeekBtn" aria-label="Próxima semana">›</button>
-              <button class="calendar-add-btn" id="addPlanTopBtn"><span>＋</span> Novo plano</button>
+              <button class="calendar-add-btn" id="addPlanTopBtn"><span>＋</span> Novo ciclo</button>
             </div>
           </div>
 
@@ -225,7 +228,31 @@
             <button type="button" data-planner-modality="mobilidade"><span class="planner-tab-icon teal">◌</span>Mobilidade</button>
           </nav>
 
-          <section class="panel planner-methods-panel">
+          <section class="panel active-cycle-panel" id="activeCyclePanel" hidden>
+            <div class="active-cycle-head">
+              <div>
+                <span class="eyebrow pink-text">ACOMPANHAMENTO DO CICLO</span>
+                <h3 id="activeCycleTitle">Ciclo ativo</h3>
+                <p id="activeCycleGoal">Seu planejamento atual.</p>
+              </div>
+              <span class="active-cycle-badge">ATIVO</span>
+            </div>
+            <div class="active-cycle-stats">
+              <div><small>Período</small><strong id="activeCyclePeriod">—</strong></div>
+              <div><small>Sessões concluídas</small><strong id="activeCycleSessions">0 / 0</strong></div>
+              <div><small>Frequência</small><strong id="activeCycleFrequency">—</strong></div>
+            </div>
+            <div class="active-cycle-progress">
+              <div><span>Progresso do ciclo</span><strong id="activeCycleProgressText">0%</strong></div>
+              <div class="active-cycle-track"><i id="activeCycleProgressBar"></i></div>
+            </div>
+            <div class="active-cycle-actions">
+              <button type="button" class="ghost-btn" id="changeTrainingCycleBtn">Alterar ciclo</button>
+              <button type="button" class="danger-ghost-btn" id="deleteTrainingCycleBtn">Encerrar ciclo</button>
+            </div>
+          </section>
+
+          <section class="panel planner-methods-panel" id="plannerMethodsPanel">
             <div class="planner-section-head">
               <span class="planner-section-icon">▥</span>
               <div>
@@ -257,7 +284,7 @@
             </div>
           </section>
 
-          <section class="panel planner-structured-panel">
+          <section class="panel planner-structured-panel" id="plannerStructuredPanel">
             <div class="planner-section-head">
               <span class="planner-section-icon">▥</span>
               <div>
@@ -884,6 +911,6 @@
   </dialog>
 
   <div id="toast" class="toast"></div>
-  <script src="/static/app.js?v=20260926-62"></script>
+  <script src="/static/app.js?v=20260926-63"></script>
 </body>
 </html>

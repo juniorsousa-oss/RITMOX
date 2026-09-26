@@ -18,6 +18,7 @@ const state = {
   timerStartedAt: null,
   timerHandle: null,
   workoutExecution: {restHandle:null,restEndsAt:null},
+  homeToday: {strength:null,run:null},
   calendar: {
     weekStart: null,
     selectedDate: null,
@@ -27,6 +28,7 @@ const state = {
     methods: [],
     methodKey: "hypertrophy",
     activeProgram: null,
+    metaLoaded: false,
     modalityFilter: "geral",
   },
   health: {
@@ -425,11 +427,20 @@ $$("[data-open]").forEach(card=>card.addEventListener("click",(ev)=>{
   if(ev.target.closest("button")) ev.preventDefault();
   navigate(card.dataset.open);
 }));
-$$(".hero-action").forEach(btn=>btn.addEventListener("click",(ev)=>{
+$(".hero-action").forEach(btn=>btn.addEventListener("click",async(ev)=>{
   ev.stopPropagation();
+  if(btn.id==="homeStartWorkoutBtn" && btn.dataset.planId){
+    ev.preventDefault();
+    await openPlannedWorkout(Number(btn.dataset.planId));
+    return;
+  }
   const card=btn.closest("[data-open]");
   navigate(card.dataset.open);
 }));
+if($("#mHomeStartWorkoutBtn")) $("#mHomeStartWorkoutBtn").onclick=async()=>{
+  const id=Number($("#mHomeStartWorkoutBtn").dataset.planId||0);
+  if(id) await openPlannedWorkout(id);
+};
 
 $("#globalSearch").addEventListener("input",ev=>{
   const q=ev.target.value.trim().toLowerCase();
@@ -1779,6 +1790,40 @@ function renderPlannerMethodCards(){
   if($("#structuredPlanEvidence")) $("#structuredPlanEvidence").textContent="Referência: "+method.evidence;
   renderProgramPreview();
 }
+function formatCycleDate(value){
+  if(!value) return "—";
+  const d=parseISODate(value);
+  return d.toLocaleDateString("pt-BR",{day:"2-digit",month:"short"});
+}
+function renderTrainingCycleState(){
+  const program=state.calendar.activeProgram;
+  const active=!!program;
+  const methods=$("#plannerMethodsPanel");
+  const structured=$("#plannerStructuredPanel");
+  const cycle=$("#activeCyclePanel");
+  if(methods) methods.hidden=active;
+  if(structured) structured.hidden=active;
+  if(cycle) cycle.hidden=!active;
+
+  if($("#plannerEyebrow")) $("#plannerEyebrow").textContent=active?"ACOMPANHAMENTO":"PLANEJAMENTO";
+  if($("#plannerTitle")) $("#plannerTitle").textContent=active?"Seu ciclo de treinamento":"Calendário de treinos";
+  if($("#plannerSubtitle")) $("#plannerSubtitle").textContent=active
+    ?"Acompanhe o ciclo em andamento, execute os treinos e ajuste somente quando necessário."
+    :"Planeje corrida, musculação e outras modalidades com métodos baseados em evidências.";
+
+  const add=$("#addPlanTopBtn");
+  if(add) add.innerHTML=active?"<span>＋</span> Treino avulso":"<span>＋</span> Novo ciclo";
+
+  if(!active) return;
+  if($("#activeCycleTitle")) $("#activeCycleTitle").textContent=program.title||"Ciclo ativo";
+  if($("#activeCycleGoal")) $("#activeCycleGoal").textContent=program.goal||program.method?.goal||"Acompanhamento em andamento";
+  if($("#activeCyclePeriod")) $("#activeCyclePeriod").textContent=formatCycleDate(program.start_date)+" — "+formatCycleDate(program.end_date);
+  if($("#activeCycleSessions")) $("#activeCycleSessions").textContent=(program.completed_sessions||0)+" / "+(program.total_sessions||0);
+  if($("#activeCycleFrequency")) $("#activeCycleFrequency").textContent=program.frequency||"—";
+  const progress=Math.max(0,Math.min(100,Number(program.progress_percent||0)));
+  if($("#activeCycleProgressText")) $("#activeCycleProgressText").textContent=progress+"%";
+  if($("#activeCycleProgressBar")) $("#activeCycleProgressBar").style.width=progress+"%";
+}
 async function loadTrainingPlannerMeta(){
   try{
     const [methodsResult,currentResult]=await Promise.all([
@@ -1787,11 +1832,13 @@ async function loadTrainingPlannerMeta(){
     ]);
     state.calendar.methods=methodsResult||[];
     state.calendar.activeProgram=currentResult?.program||null;
-    if(state.calendar.activeProgram?.method_key && (state.calendar.modalityFilter||"geral")==="geral"){
+    if(!state.calendar.metaLoaded && state.calendar.activeProgram?.method_key && (state.calendar.modalityFilter||"geral")==="geral"){
       state.calendar.methodKey=state.calendar.activeProgram.method_key;
     }
+    state.calendar.metaLoaded=true;
     ensurePlannerMethodForFilter();
     renderPlannerMethodCards();
+    renderTrainingCycleState();
   }catch(e){
     toast(e.message);
   }
@@ -1816,7 +1863,7 @@ function renderProgramPreview(){
     </div>
     <em>${escapeHTML(method.evidence)}</em>`;
 }
-function openTrainingProgramDialog(){
+function openTrainingProgramDialog(changeExisting=false){
   if(!state.health.assessment?.training_allowed){
     toast("Conclua a anamnese e a triagem de segurança antes de planejar treinos.");
     loadHealthGate();
@@ -1824,7 +1871,10 @@ function openTrainingProgramDialog(){
   }
   const dialog=$("#trainingProgramDialog");
   if(!dialog) return;
-  const start=state.calendar.weekStart||startOfWeek(new Date());
+  const start=changeExisting ? startOfWeek(new Date()) : (state.calendar.weekStart||startOfWeek(new Date()));
+  if(changeExisting && state.calendar.activeProgram?.method_key){
+    state.calendar.methodKey=state.calendar.activeProgram.method_key;
+  }
   $("#programStartDate").value=localISO(start);
   $("#programWeeks").value=String(state.calendar.activeProgram?.weeks||4);
   renderPlannerMethodCards();
@@ -1836,11 +1886,28 @@ function closeTrainingProgramDialog(){
 }
 function openPlannerPrimaryAction(){
   const filter=state.calendar.modalityFilter||"geral";
+  if(state.calendar.activeProgram){
+    const manualModality=["corrida","musculacao","ciclismo","mobilidade"].includes(filter)?filter:"musculacao";
+    openPlanDialog(null,state.calendar.selectedDate||localISO(new Date()),manualModality);
+    return;
+  }
   if(plannerMethodsForFilter(filter).length){
-    openTrainingProgramDialog();
+    openTrainingProgramDialog(false);
     return;
   }
   openPlanDialog(null,state.calendar.selectedDate||localISO(new Date()),filter);
+}
+async function deleteTrainingCycle(){
+  if(!state.calendar.activeProgram) return;
+  if(!confirm("Encerrar o ciclo atual? Os treinos futuros gerados pelo ciclo serão removidos. O histórico já executado será preservado.")) return;
+  try{
+    const result=await api("/api/training-program/current?from_date="+localISO(new Date()),{method:"DELETE"});
+    state.calendar.activeProgram=null;
+    state.calendar.metaLoaded=false;
+    renderTrainingCycleState();
+    await loadTrainingCalendar(true);
+    toast("Ciclo encerrado. "+(result.removed_sessions||0)+" sessões futuras removidas.");
+  }catch(e){toast(e.message)}
 }
 async function applyTrainingProgram(ev=null){
   ev?.preventDefault?.();
@@ -1857,6 +1924,7 @@ async function applyTrainingProgram(ev=null){
       }),
     });
     state.calendar.activeProgram=result.program||null;
+    state.calendar.metaLoaded=false;
     state.calendar.weekStart=startOfWeek(parseISODate($("#programStartDate").value));
     state.calendar.selectedDate=localISO(state.calendar.weekStart);
     closeTrainingProgramDialog();
@@ -2080,6 +2148,7 @@ function closeWorkoutExecution(){
   if(dialog?.open) dialog.close();
   loadDashboard();
   loadTrainingCalendar(true);
+  loadHomeTodayTraining();
 }
 async function completeWorkoutExecutionSet(){
   const current=currentWorkoutExercise();
@@ -2398,16 +2467,45 @@ async function deleteCurrentPlan(){
   }catch(e){toast(e.message)}
 }
 
-function syncTodayPlanToHome(){
-  const today=localISO(new Date());
-  const todayPlans=state.calendar.plans.filter(p=>p.planned_date===today);
-  const strength=todayPlans.find(p=>p.modality==="musculacao");
-  const run=todayPlans.find(p=>p.modality==="corrida");
-  if(strength){
-    if($("#homeWorkoutTitle")) $("#homeWorkoutTitle").textContent=strength.title;
-    if($("#mHomeWorkoutTitle")) $("#mHomeWorkoutTitle").textContent=strength.title;
+function renderHomeTodayTraining(){
+  const strength=state.homeToday.strength;
+  const run=state.homeToday.run;
+  const strengthTitle=strength?.title||"Nenhum treino programado";
+  if($("#homeWorkoutTitle")) $("#homeWorkoutTitle").textContent=strengthTitle;
+  if($("#mHomeWorkoutTitle")) $("#mHomeWorkoutTitle").textContent=strengthTitle;
+  if($("#mHomeRunTitle")) $("#mHomeRunTitle").textContent=run?.title||"Nenhuma corrida registrada";
+
+  const execution=strength?.execution;
+  const canStart=!!strength && Number(strength.exercise_count||0)>0 && !execution?.completed;
+  const label=execution?.started?"Continuar treino":"Iniciar treino";
+
+  const mobile=$("#mHomeStartWorkoutBtn");
+  if(mobile){
+    mobile.hidden=!canStart;
+    mobile.disabled=!canStart;
+    mobile.dataset.planId=canStart?String(strength.id):"";
+    const strong=mobile.querySelector("strong");
+    if(strong) strong.textContent=execution?.started?"Continuar treino de hoje":"Iniciar treino de hoje";
   }
-  if(run && $("#mHomeRunTitle")) $("#mHomeRunTitle").textContent=run.title;
+
+  const desktop=$("#homeStartWorkoutBtn");
+  if(desktop){
+    desktop.hidden=!canStart;
+    desktop.disabled=!canStart;
+    desktop.dataset.planId=canStart?String(strength.id):"";
+    desktop.textContent=label;
+  }
+}
+async function loadHomeTodayTraining(){
+  try{
+    const result=await api("/api/home/today-training?day="+localISO(new Date()));
+    state.homeToday.strength=result?.strength||null;
+    state.homeToday.run=result?.run||null;
+    renderHomeTodayTraining();
+  }catch(e){toast(e.message)}
+}
+function syncTodayPlanToHome(){
+  loadHomeTodayTraining();
 }
 
 document.addEventListener("click",async ev=>{
@@ -2462,7 +2560,9 @@ if($("#todayWeekBtn")) $("#todayWeekBtn").onclick=()=>{
   loadTrainingCalendar(true);
 };
 if($("#addPlanTopBtn")) $("#addPlanTopBtn").onclick=openPlannerPrimaryAction;
-$$("[data-method-key]").forEach(btn=>btn.onclick=()=>selectTrainingMethod(btn.dataset.methodKey));
+if($("#changeTrainingCycleBtn")) $("#changeTrainingCycleBtn").onclick=()=>openTrainingProgramDialog(true);
+if($("#deleteTrainingCycleBtn")) $("#deleteTrainingCycleBtn").onclick=deleteTrainingCycle;
+$("[data-method-key]").forEach(btn=>btn.onclick=()=>selectTrainingMethod(btn.dataset.methodKey));
 $$("[data-program-method]").forEach(btn=>btn.onclick=()=>selectTrainingMethod(btn.dataset.programMethod));
 $$("[data-planner-modality]").forEach(btn=>btn.onclick=()=>{
   state.calendar.modalityFilter=btn.dataset.plannerModality;
@@ -2570,6 +2670,7 @@ window.addEventListener("resize",()=>{
   if(workoutNavSource && desktopWorkoutIcon) desktopWorkoutIcon.src=workoutNavSource;
 
   await Promise.all([loadDashboard(),loadRun(),loadUserProfile()]);
+  await loadHomeTodayTraining();
   const hash=location.hash.replace("#","");
   navigate(pageMeta[hash]?hash:"home");
 })();

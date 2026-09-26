@@ -23,7 +23,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, rela
 
 ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
-BUILD_VERSION = "20260926-62"
+BUILD_VERSION = "20260926-63"
 
 raw_database_url = os.getenv("DATABASE_URL", "").strip()
 require_persistent_db = os.getenv("REQUIRE_PERSISTENT_DB", "").strip().lower() in {"1", "true", "yes", "on"}
@@ -574,6 +574,38 @@ def dashboard(db: Session = Depends(session)):
     }
 
 
+@app.get("/api/home/today-training")
+def home_today_training(day: str, db: Session = Depends(session)):
+    validate_plan_date(day)
+    plans = db.scalars(
+        select(WorkoutPlan)
+        .where(WorkoutPlan.planned_date == day)
+        .order_by(WorkoutPlan.id)
+    ).all()
+
+    def payload_with_execution(plan: WorkoutPlan | None) -> dict[str, Any] | None:
+        if not plan:
+            return None
+        payload = plan_payload(plan)
+        execution = db.scalars(
+            select(Workout).where(Workout.plan_id == plan.id).order_by(Workout.id.desc())
+        ).first()
+        payload["execution"] = {
+            "workout_id": execution.id,
+            "started": execution.started,
+            "completed": execution.completed,
+        } if execution else None
+        return payload
+
+    strength = next((p for p in plans if p.modality == "musculacao"), None)
+    run = next((p for p in plans if p.modality == "corrida"), None)
+    return {
+        "day": day,
+        "strength": payload_with_execution(strength),
+        "run": payload_with_execution(run),
+    }
+
+
 @app.get("/api/workouts/current")
 def current_workout(db: Session = Depends(session)):
     w = db.scalars(
@@ -914,6 +946,46 @@ def active_training_program(db: Session) -> dict[str, Any] | None:
     return data
 
 
+def training_program_status(db: Session) -> dict[str, Any] | None:
+    program = active_training_program(db)
+    if not program:
+        return None
+    try:
+        start = date.fromisoformat(str(program.get("start_date", "")))
+        weeks = max(1, int(program.get("weeks", 1)))
+    except (TypeError, ValueError):
+        return program
+
+    end = start + timedelta(days=weeks * 7 - 1)
+    method_key = str(program.get("method_key", ""))
+    generated = db.scalars(
+        select(WorkoutPlan).where(
+            WorkoutPlan.planned_date >= start.isoformat(),
+            WorkoutPlan.planned_date <= end.isoformat(),
+            WorkoutPlan.notes.like(f"RITMOX_METHOD:{method_key}%"),
+        )
+    ).all()
+    plan_ids = [p.id for p in generated]
+    completed_plan_ids: set[int] = set()
+    started_plan_ids: set[int] = set()
+    if plan_ids:
+        executions = db.scalars(select(Workout).where(Workout.plan_id.in_(plan_ids))).all()
+        completed_plan_ids = {w.plan_id for w in executions if w.plan_id is not None and w.completed}
+        started_plan_ids = {w.plan_id for w in executions if w.plan_id is not None and w.started and not w.completed}
+
+    total = len(generated)
+    completed = len(completed_plan_ids)
+    return {
+        **program,
+        "end_date": end.isoformat(),
+        "total_sessions": total,
+        "completed_sessions": completed,
+        "started_sessions": len(started_plan_ids),
+        "remaining_sessions": max(0, total - completed),
+        "progress_percent": round((completed / total) * 100) if total else 0,
+    }
+
+
 def save_active_training_program(db: Session, data: dict[str, Any]) -> None:
     row = db.scalar(select(AppSetting).where(AppSetting.key == "active_training_program"))
     value = json.dumps(data, ensure_ascii=False)
@@ -1079,7 +1151,50 @@ def list_training_methods():
 
 @app.get("/api/training-program/current")
 def current_training_program(db: Session = Depends(session)):
-    return {"program": active_training_program(db)}
+    return {"program": training_program_status(db)}
+
+
+@app.delete("/api/training-program/current")
+def delete_training_program(
+    from_date: str | None = None,
+    db: Session = Depends(session),
+):
+    program = active_training_program(db)
+    if not program:
+        return {"ok": True, "removed_sessions": 0}
+
+    cutoff = from_date or date.today().isoformat()
+    validate_plan_date(cutoff)
+    method_key = str(program.get("method_key", ""))
+    end_date = None
+    try:
+        start = date.fromisoformat(str(program.get("start_date", "")))
+        weeks = max(1, int(program.get("weeks", 1)))
+        end_date = (start + timedelta(days=weeks * 7 - 1)).isoformat()
+    except (TypeError, ValueError):
+        pass
+
+    query = select(WorkoutPlan).where(
+        WorkoutPlan.planned_date >= cutoff,
+        WorkoutPlan.notes.like(f"RITMOX_METHOD:{method_key}%"),
+    )
+    if end_date:
+        query = query.where(WorkoutPlan.planned_date <= end_date)
+    generated = db.scalars(query).all()
+    linked_plan_ids = {
+        w.plan_id
+        for w in db.scalars(select(Workout).where(Workout.plan_id.is_not(None))).all()
+        if w.plan_id is not None
+    }
+    removable = [p for p in generated if p.id not in linked_plan_ids]
+    for plan in removable:
+        db.delete(plan)
+
+    row = db.scalar(select(AppSetting).where(AppSetting.key == "active_training_program"))
+    if row:
+        db.delete(row)
+    db.commit()
+    return {"ok": True, "removed_sessions": len(removable)}
 
 
 @app.post("/api/training-program/apply")

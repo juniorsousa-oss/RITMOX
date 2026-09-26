@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 20
     env:
       APP_URL: https://ritmox.onrender.com
-      EXPECTED_BUILD: "20260926-62"
+      EXPECTED_BUILD: "20260926-63"
     steps:
       - uses: actions/checkout@v4
 
@@ -362,6 +362,12 @@ jobs:
                   renderTrainingCalendar();
                 });
                 await p.locator('#weekCalendar').waitFor({state:'visible',timeout:10000});
+                await p.evaluate(()=>{
+                  state.calendar.activeProgram=null;
+                  state.calendar.metaLoaded=true;
+                  renderTrainingCycleState();
+                  renderPlannerMethodCards();
+                });
                 if(await p.locator('#healthStatusStrip').count()!==0) throw new Error('persistent anamnesis banner returned');
                 if(await p.locator('#addPlanDayBtn').count()!==0) throw new Error('duplicate day add button returned');
                 if(await p.locator('#page-workouts .calendar-add-btn').count()!==1) throw new Error('planner must have one primary add CTA');
@@ -476,6 +482,7 @@ jobs:
                   await page.locator('[data-planner-modality="geral"]').click();
                   if(await page.locator('[data-method-key]:visible').count()!==4) throw new Error('geral methods did not restore');
                   await page.locator('[data-method-key="strength"]').click();
+                  await page.waitForFunction(()=>state.calendar.methodKey==='strength');
 
                   let applyRequests=0;
                   let appliedMethod='';
@@ -516,6 +523,38 @@ jobs:
                 await page.close();
               }
             }finally{await browser.close();}
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+
+      - name: Validate active cycle tracking mode
+        shell: bash
+        run: |
+          node <<'NODE'
+          const { chromium }=require('playwright-core');
+          const APP=process.env.APP_URL;
+          (async()=>{
+            const browser=await chromium.launch({executablePath:'/usr/bin/google-chrome',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+            const page=await browser.newPage({viewport:{width:390,height:844}});
+            const errors=[]; page.on('pageerror',e=>errors.push(String(e)));
+            await page.goto(APP+'/?cycleMode=v63',{waitUntil:'networkidle',timeout:120000});
+            await page.locator('.bottom-nav [data-page="workouts"]').click();
+            await page.locator('#trainingCalendar').waitFor({state:'visible',timeout:30000});
+            await page.evaluate(()=>{
+              state.calendar.activeProgram={
+                method_key:'hypertrophy',title:'Hipertrofia',goal:'Hipertrofia',
+                frequency:'4x musculação + 2x cardio leve',
+                start_date:'2026-09-21',end_date:'2026-12-13',
+                total_sessions:72,completed_sessions:9,progress_percent:13
+              };
+              renderTrainingCycleState();
+            });
+            if(!await page.locator('#activeCyclePanel').isVisible()) throw new Error('active cycle tracking panel missing');
+            if(await page.locator('#plannerMethodsPanel').isVisible()) throw new Error('method selector visible during active cycle');
+            if(await page.locator('#plannerStructuredPanel').isVisible()) throw new Error('structured selector visible during active cycle');
+            if(!(await page.locator('#addPlanTopBtn').textContent()).includes('Treino avulso')) throw new Error('active-cycle CTA mismatch');
+            if(errors.length) throw new Error(errors.join(' | '));
+            console.log('PASS active cycle mode');
+            await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
 
