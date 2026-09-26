@@ -252,15 +252,15 @@ jobs:
                 });
                 await p.locator('#weekCalendar').waitFor({state:'visible',timeout:10000});
                 const addBox=await p.locator('#addPlanDayBtn').boundingBox();
-                if(Math.abs(addBox.width-52)>1||Math.abs(addBox.height-52)>1) throw new Error('day add button misaligned '+JSON.stringify(addBox));
+                if(Math.abs(addBox.width-48)>1||Math.abs(addBox.height-48)>1) throw new Error('day add button misaligned '+JSON.stringify(addBox));
                 const cards=await p.locator('.calendar-day').count();
                 if(cards!==7) throw new Error('calendar days '+cards);
                 const firstBox=await p.locator('.calendar-day').first().boundingBox();
-                if(Math.abs(firstBox.width-66)>1) throw new Error('calendar card width '+firstBox.width);
+                if(Math.abs(firstBox.width-71)>1) throw new Error('calendar card width '+firstBox.width);
                 if(await p.locator('.day-empty-icon').count()!==1) throw new Error('day empty icon missing');
 
                 console.log('PASS approved profile/calendar '+i+'/6');
-                if(i===6) await p.screenshot({path:'ritmox-v51-profile-calendar.png',fullPage:true});
+                if(i===6) await p.screenshot({path:'ritmox-v52-profile-calendar.png',fullPage:true});
                 await p.close();
               }
             }finally{await browser.close();}
@@ -341,10 +341,10 @@ jobs:
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
 
-      - name: Upload v50 screenshot
+      - name: Upload v52 screenshot
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ritmox-v52-live-validation
-          path: ritmox-v51-profile-calendar.png
+          path: ritmox-v52-profile-calendar.png
           if-no-files-found: ignore
