@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 20
     env:
       APP_URL: https://ritmox.onrender.com
-      EXPECTED_BUILD: "20260925-43"
+      EXPECTED_BUILD: "20260925-44"
     steps:
       - uses: actions/checkout@v4
 
@@ -198,6 +198,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ritmox-v43-live-validation
+          name: ritmox-v44-live-validation
           path: ritmox-v42-home.png
           if-no-files-found: ignore

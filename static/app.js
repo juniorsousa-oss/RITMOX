@@ -1717,6 +1717,7 @@ if($("#reviewHealthAssessmentBtn")) $("#reviewHealthAssessmentBtn").onclick=open
 if($("#closeHealthAssessmentBtn")) $("#closeHealthAssessmentBtn").onclick=closeHealthAssessment;
 if($("#cancelHealthAssessmentBtn")) $("#cancelHealthAssessmentBtn").onclick=closeHealthAssessment;
 if($("#healthAssessmentForm")) $("#healthAssessmentForm").addEventListener("submit",submitHealthAssessment);
+if($("#submitHealthAssessmentBtn")) $("#submitHealthAssessmentBtn").onclick=submitHealthAssessment;
 if($("#registerClearanceBtn")) $("#registerClearanceBtn").onclick=openClearanceDialog;
 if($("#closeClearanceBtn")) $("#closeClearanceBtn").onclick=closeClearanceDialog;
 if($("#cancelClearanceBtn")) $("#cancelClearanceBtn").onclick=closeClearanceDialog;
