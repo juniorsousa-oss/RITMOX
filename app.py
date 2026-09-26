@@ -23,7 +23,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, rela
 
 ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
-BUILD_VERSION = "20260926-66"
+BUILD_VERSION = "20260926-67"
 
 raw_database_url = os.getenv("DATABASE_URL", "").strip()
 require_persistent_db = os.getenv("REQUIRE_PERSISTENT_DB", "").strip().lower() in {"1", "true", "yes", "on"}
@@ -1040,6 +1040,19 @@ def plan_payload(plan: WorkoutPlan) -> dict:
     }
 
 
+def plan_execution_payload(plan_id: int, db: Session) -> dict[str, Any] | None:
+    workout = db.scalars(select(Workout).where(Workout.plan_id == plan_id).order_by(Workout.id.desc())).first()
+    if not workout:
+        return None
+    return {
+        "workout_id": workout.id,
+        "started": workout.started,
+        "completed": workout.completed,
+        "started_at": workout.started_at.isoformat() if workout.started_at else None,
+        "completed_at": workout.completed_at.isoformat() if workout.completed_at else None,
+    }
+
+
 def validate_plan_date(value: str) -> None:
     try:
         date.fromisoformat(value)
@@ -1072,7 +1085,12 @@ def list_training_plans(
         .where(WorkoutPlan.planned_date >= start_date, WorkoutPlan.planned_date <= end_date)
         .order_by(WorkoutPlan.planned_date, WorkoutPlan.id)
     ).all()
-    return [plan_payload(p) for p in plans]
+    result = []
+    for p in plans:
+        payload = plan_payload(p)
+        payload["execution"] = plan_execution_payload(p.id, db)
+        result.append(payload)
+    return result
 
 
 @app.get("/api/training-plans/{plan_id}")
@@ -1080,7 +1098,17 @@ def get_training_plan(plan_id: int, db: Session = Depends(session)):
     plan = db.get(WorkoutPlan, plan_id)
     if not plan:
         raise HTTPException(404, "Treino planejado não encontrado")
-    return plan_payload(plan)
+    payload = plan_payload(plan)
+    payload["execution"] = plan_execution_payload(plan.id, db)
+    return payload
+
+
+@app.get("/api/workouts/{workout_id}")
+def get_workout(workout_id: int, db: Session = Depends(session)):
+    workout = db.get(Workout, workout_id)
+    if not workout:
+        raise HTTPException(404, "Treino realizado não encontrado")
+    return workout_payload(workout)
 
 
 @app.post("/api/training-plans/{plan_id}/start-workout")
