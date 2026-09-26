@@ -800,6 +800,7 @@ async function submitHealthAssessment(ev){
     state.health.loaded=true;
     closeHealthAssessment();
     renderHealthGate();
+    await loadProfileAnamnesis();
     toast("Anamnese salva com assinatura no perfil do aluno.");
     if(result.training_allowed){
       await loadTrainingCalendar(false);
@@ -871,7 +872,7 @@ function applyProfilePhoto(el,photo,name){
 function renderUserProfile(){
   const p=state.profile||{name:"Júnior",email:"",birth_date:"",goals:"",photo_data:""};
   const name=p.name||"Júnior";
-  const first=name.trim().split(/\\s+/)[0]||"Júnior";
+  const first=name.trim().split(/\s+/)[0]||"Júnior";
   if($("#profileNameTitle")) $("#profileNameTitle").textContent=name;
   if($("#profileAvatarFallback")) $("#profileAvatarFallback").textContent=profileInitial(name);
   if($("#profileInfoName")) $("#profileInfoName").textContent=name;
@@ -900,14 +901,14 @@ function renderUserProfile(){
   pageMeta.home[0]=`Bom dia, ${first}!`;
   if(state.page==="home"&&$("#pageTitle")) $("#pageTitle").textContent=pageMeta.home[0];
 }
-function openProfileEditDialog(focusName=false){
+function openProfileEditDialog(){
   const p=state.profile||{name:"Júnior",email:"",birth_date:"",goals:""};
   $("#profileEditName").value=p.name||"Júnior";
   $("#profileEditEmail").value=p.email||"";
   $("#profileEditBirth").value=p.birth_date||"";
   $("#profileEditGoals").value=p.goals||"";
   openDialogSafe($("#profileEditDialog"));
-  setTimeout(()=>focusName?$("#profileEditName")?.focus():$("#profileEditEmail")?.focus(),40);
+  setTimeout(()=>$("#profileEditName")?.focus(),40);
 }
 function closeProfileEditDialog(){
   closeDialogSafe($("#profileEditDialog"));
@@ -936,6 +937,18 @@ async function saveProfileEdit(ev){
     if(btn){btn.disabled=false;btn.textContent=old;}
   }
 }
+function openProfilePhotoPicker(){
+  const input=$("#profilePhotoInput");
+  if(!input){toast("O seletor de foto não está disponível.");return;}
+  input.value="";
+  try{
+    if(typeof input.showPicker==="function"){
+      input.showPicker();
+      return;
+    }
+  }catch(_){}
+  input.click();
+}
 function resizeProfilePhoto(file){
   return new Promise((resolve,reject)=>{
     if(!file||!file.type.startsWith("image/")){reject(new Error("Selecione uma imagem válida."));return;}
@@ -962,6 +975,7 @@ function resizeProfilePhoto(file){
   });
 }
 async function handleProfilePhoto(file){
+  if(!file) return;
   try{
     const photo=await resizeProfilePhoto(file);
     const current=state.profile||await api("/api/profile");
@@ -1019,19 +1033,32 @@ async function loadProfileAnamnesis(){
 function renderProfileAnamnesis(){
   const latest=state.health.profile?.latest||null;
   const status=$("#profileAnamnesisStatus"), subtitle=$("#profileAnamnesisSubtitle"), meta=$("#profileAnamnesisMeta");
-  const view=$("#viewProfileAnamnesisBtn"), sign=$("#signProfileAnamnesisBtn"), pdf=$("#exportProfileAnamnesisBtn");
+  const view=$("#viewProfileAnamnesisBtn"), update=$("#updateProfileAnamnesisBtn"), pdf=$("#exportProfileAnamnesisBtn");
   if(!latest){
-    status.textContent="Não preenchida"; status.className="status-pill"; subtitle.textContent="Nenhuma anamnese foi salva neste perfil.";
-    meta.innerHTML=""; view.hidden=sign.hidden=pdf.hidden=true; return;
+    status.textContent="Não preenchida";
+    status.className="status-pill";
+    subtitle.textContent="Nenhuma anamnese foi salva neste perfil.";
+    meta.innerHTML="";
+    view.hidden=true;
+    pdf.hidden=true;
+    update.hidden=false;
+    update.dataset.mode="create";
+    update.querySelector("span").textContent="Preencher anamnese";
+    return;
   }
-  status.textContent=assessmentStatusLabel(latest);
-  status.className="status-pill "+(latest.risk_status==="attention_required"&&!latest.professional_clearance?"warning":"connected");
-  subtitle.textContent="Última atualização: "+formatDateTimeBR(latest.updated_at||latest.completed_at);
+  const needsAttention=latest.risk_status==="attention_required"&&!latest.professional_clearance;
+  status.textContent=needsAttention?"Requer avaliação":"Preenchida";
+  status.className="status-pill "+(needsAttention?"warning":"connected");
+  subtitle.textContent="Sua anamnese já foi preenchida. Última atualização: "+formatDateTimeBR(latest.updated_at||latest.completed_at);
   meta.innerHTML=
     '<div class="profile-meta-tile"><span class="profile-meta-icon pink"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5h6M9 3h6a2 2 0 0 1 2 2v1h2v15H5V6h2V5a2 2 0 0 1 2-2Z"/><path d="m8.5 13 2.2 2.2 4.8-5"/></svg></span><span><small>TRIAGEM</small><strong>'+escapeHTML(assessmentStatusLabel(latest))+'</strong></span></div>'+
     '<div class="profile-meta-tile"><span class="profile-meta-icon cyan"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h8l4 4v9"/><path d="M15 3v5h5M7 3H5v18h8"/><path d="m15 18 2 2 4-5"/></svg></span><span><small>ASSINATURA</small><strong>'+escapeHTML(signatureStatusLabel(latest))+'</strong></span></div>'+
     '<div class="profile-meta-tile"><span class="profile-meta-icon purple profile-hash">#</span><span><small>REGISTRO</small><strong>#'+latest.id+'</strong></span></div>';
-  view.hidden=false; pdf.hidden=false; sign.hidden=latest.signature_status!=="pending";
+  view.hidden=false;
+  pdf.hidden=false;
+  update.hidden=false;
+  update.dataset.mode=latest.signature_status==="pending"?"sign":"update";
+  update.querySelector("span").textContent=latest.signature_status==="pending"?"Assinar anamnese":"Atualizar anamnese";
 }
 function answerText(value){
   if(value===null||value===undefined||value==="") return "Não informado";
@@ -1055,6 +1082,14 @@ function openProfileAnamnesis(){
 function exportProfileAnamnesis(){
   const a=state.health.profile?.latest; if(!a){toast("Nenhuma anamnese salva no perfil.");return;}
   window.open("/api/health-assessment/"+a.id+"/pdf?ts="+Date.now(),"_blank");
+}
+async function updateProfileAnamnesis(){
+  const latest=state.health.profile?.latest||null;
+  if(latest){
+    state.health.assessment=latest;
+    state.health.loaded=true;
+  }
+  await openHealthAssessment();
 }
 function openSignatureDialog(){
   const a=state.health.profile?.latest; if(!a||a.signature_status!=="pending") return;
@@ -1885,11 +1920,14 @@ if($("#cancelSignatureBtn")) $("#cancelSignatureBtn").onclick=()=>closeDialogSaf
 if($("#signatureForm")) $("#signatureForm").addEventListener("submit",submitSignature);
 
 
-if($("#changeProfilePhotoBtn")) $("#changeProfilePhotoBtn").onclick=()=>$("#profilePhotoInput")?.click();
+if($("#changeProfilePhotoBtn")) $("#changeProfilePhotoBtn").onclick=openProfilePhotoPicker;
 if($("#profilePhotoInput")) $("#profilePhotoInput").addEventListener("change",ev=>handleProfilePhoto(ev.target.files?.[0]));
-if($("#editProfileNameBtn")) $("#editProfileNameBtn").onclick=()=>openProfileEditDialog(true);
-if($("#editProfileDataBtn")) $("#editProfileDataBtn").onclick=()=>openProfileEditDialog(false);
-$$("[data-profile-edit]").forEach(btn=>btn.onclick=()=>openProfileEditDialog(false));
+if($("#editProfileBtn")) $("#editProfileBtn").onclick=openProfileEditDialog;
+if($("#updateProfileAnamnesisBtn")) $("#updateProfileAnamnesisBtn").onclick=()=>{
+  const mode=$("#updateProfileAnamnesisBtn").dataset.mode;
+  if(mode==="sign") openSignatureDialog();
+  else updateProfileAnamnesis();
+};
 if($("#closeProfileEditBtn")) $("#closeProfileEditBtn").onclick=closeProfileEditDialog;
 if($("#cancelProfileEditBtn")) $("#cancelProfileEditBtn").onclick=closeProfileEditDialog;
 if($("#profileEditForm")) $("#profileEditForm").addEventListener("submit",saveProfileEdit);

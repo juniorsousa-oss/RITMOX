@@ -1178,7 +1178,7 @@ body.modal-open{overflow:hidden}
   .profile-anamnesis-head{display:grid}.profile-anamnesis-meta{grid-template-columns:1fr}.profile-anamnesis-actions{display:grid;grid-template-columns:1fr}.profile-answer-row{grid-template-columns:1fr}.profile-anamnesis-dialog-body,.signature-dialog form{padding:18px 12px}
 }
 
-/* === APPROVED WORKOUT + PROFILE LAYOUT v52 === */
+/* === APPROVED WORKOUT + PROFILE LAYOUT v53 === */
 @media(max-width:700px){
   body[data-page="workouts"] .main-content,
   body[data-page="profile"] .main-content{
@@ -1469,7 +1469,7 @@ body.modal-open{overflow:hidden}
   }
 
   /* PROFILE — exact approved hierarchy */
-  .ritmox-profile-v52{
+  .ritmox-profile-v53{
     width:100%!important;
     max-width:none!important;
     margin:0!important;
@@ -1478,7 +1478,7 @@ body.modal-open{overflow:hidden}
     grid-template-columns:1fr!important;
     gap:16px!important;
   }
-  .ritmox-profile-v52>.panel{
+  .ritmox-profile-v53>.panel{
     margin:0!important;
     border:1px solid #2a3953!important;
     border-radius:17px!important;
@@ -1547,9 +1547,9 @@ body.modal-open{overflow:hidden}
     width:106px!important;
     min-height:42px!important;
     padding:0 9px!important;
-    border:1px solid #35455f!important;
+    border:1px solid #b13cff!important;
     border-radius:11px!important;
-    background:#0c1627!important;
+    background:linear-gradient(135deg,rgba(91,45,255,.16),rgba(255,45,122,.10))!important;
     color:#eef2f8!important;
     display:flex!important;
     align-items:center!important;
@@ -1557,15 +1557,25 @@ body.modal-open{overflow:hidden}
     gap:7px!important;
     font-size:9px!important;
     font-weight:800!important;
+    cursor:pointer!important;
+    box-shadow:0 0 0 1px rgba(255,45,122,.08),0 0 18px rgba(177,60,255,.18)!important;
   }
   .profile-photo-btn svg{
     width:17px!important;height:17px!important;
     fill:none!important;stroke:currentColor!important;stroke-width:1.8!important;
   }
+  .profile-photo-input{
+    position:absolute!important;
+    width:1px!important;height:1px!important;
+    padding:0!important;margin:-1px!important;
+    overflow:hidden!important;clip:rect(0,0,0,0)!important;
+    white-space:nowrap!important;border:0!important;
+    opacity:0!important;
+  }
   .profile-quick-actions{
     grid-column:1/-1!important;
     display:grid!important;
-    grid-template-columns:1fr 1fr!important;
+    grid-template-columns:1fr!important;
     gap:9px!important;
     margin:0!important;
   }
@@ -1587,11 +1597,21 @@ body.modal-open{overflow:hidden}
     width:22px!important;height:22px!important;
     fill:none!important;stroke:#ff2d7a!important;stroke-width:1.8!important;
   }
-  .profile-quick-actions button:nth-child(2) svg{stroke:#b34dff!important}
   .profile-quick-actions span{
-    font-size:9px!important;
-    line-height:1.1!important;
-    font-weight:800!important;
+    min-width:0!important;
+    display:grid!important;
+    gap:3px!important;
+  }
+  .profile-quick-actions strong{
+    font-size:10px!important;
+    line-height:1.05!important;
+    font-weight:850!important;
+  }
+  .profile-quick-actions small{
+    color:#8d99ad!important;
+    font-size:8px!important;
+    line-height:1.15!important;
+    font-weight:600!important;
   }
   .profile-quick-actions b{
     font-size:19px!important;
@@ -1708,7 +1728,10 @@ body.modal-open{overflow:hidden}
   .profile-anamnesis-actions svg{
     width:20px!important;height:20px!important;
     fill:none!important;stroke:currentColor!important;stroke-width:1.8!important;
+    stroke-linecap:round!important;stroke-linejoin:round!important;
   }
+  .profile-pdf-btn{grid-column:1/-1!important}
+  .profile-update-anamnesis-btn{white-space:nowrap!important}
 
   .profile-info-card,.profile-admin-card{padding:17px!important}
   .profile-section-title small{
@@ -1751,6 +1774,11 @@ body.modal-open{overflow:hidden}
     text-align:left!important;
   }
   .profile-info-row:last-child{border-bottom:0!important}
+  .profile-info-readonly{
+    grid-template-columns:28px minmax(0,1fr)!important;
+    cursor:default!important;
+    user-select:text!important;
+  }
   .profile-info-row svg{
     width:24px!important;height:24px!important;
     fill:none!important;stroke:#ff2d7a!important;stroke-width:1.8!important;
@@ -1812,14 +1840,14 @@ body.modal-open{overflow:hidden}
 
 /* desktop keeps the approved visual hierarchy with wider spacing */
 @media(min-width:701px){
-  .ritmox-profile-v52{
+  .ritmox-profile-v53{
     max-width:920px!important;
     margin:0 auto!important;
     display:grid!important;
     grid-template-columns:1fr!important;
     gap:18px!important;
   }
-  .ritmox-profile-v52>.panel{
+  .ritmox-profile-v53>.panel{
     border:1px solid #2a3953!important;
     border-radius:18px!important;
     background:linear-gradient(180deg,#101a2d,#0b1525)!important;
@@ -1847,7 +1875,7 @@ body.modal-open{overflow:hidden}
   .profile-quick-actions{
     grid-column:1/-1!important;
     display:grid!important;
-    grid-template-columns:1fr 1fr!important;
+    grid-template-columns:1fr!important;
     gap:10px!important;
   }
   .profile-quick-actions button,.profile-photo-btn{min-height:50px!important}
@@ -1882,6 +1910,10 @@ body.modal-open{overflow:hidden}
     text-align:left!important;
   }
   .profile-info-row:last-child{border-bottom:0!important}
+  .profile-info-readonly{
+    grid-template-columns:32px minmax(0,1fr)!important;
+    cursor:default!important;
+  }
   .profile-info-row svg{
     width:26px!important;height:26px!important;
     fill:none!important;stroke:#ff2d7a!important;stroke-width:1.8!important;
