@@ -78,6 +78,117 @@ function navigate(page){
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
+
+let homeCardRenderTimer=null;
+
+function drawSpacedCanvasText(ctx,text,x,y,spacing){
+  let cursor=x;
+  for(const ch of String(text||"")){
+    ctx.fillText(ch,cursor,y);
+    cursor+=ctx.measureText(ch).width+spacing;
+  }
+}
+
+function loadCanvasImage(src){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.onload=()=>resolve(img);
+    img.onerror=()=>reject(new Error("Falha ao carregar arte do card."));
+    img.src=src;
+  });
+}
+
+async function renderMobileHomeCardImage(card,kind){
+  if(!card || window.innerWidth>700) return;
+  const art=card.querySelector(".home-card-art");
+  if(!art) return;
+
+  if(!art.dataset.baseSrc){
+    art.dataset.baseSrc=art.getAttribute("src")||"";
+  }
+  const baseSrc=art.dataset.baseSrc;
+  if(!baseSrc) return;
+
+  const width=Math.round(card.getBoundingClientRect().width);
+  const height=Math.round(card.getBoundingClientRect().height);
+  if(width<250 || height<80) return;
+
+  const base=await loadCanvasImage(baseSrc);
+  const scale=2;
+  const canvas=document.createElement("canvas");
+  canvas.width=width*scale;
+  canvas.height=height*scale;
+  const ctx=canvas.getContext("2d");
+  ctx.scale(scale,scale);
+  ctx.drawImage(base,0,0,width,height);
+
+  const isStrength=kind==="strength";
+  const label=isStrength?"TREINO DE HOJE":"CORRIDA";
+  const title=isStrength?"Musculação":"Corrida";
+  const subtitle=isStrength
+    ? ($("#mHomeWorkoutTitle")?.textContent?.trim()||"Nenhum treino programado")
+    : ($("#mHomeRunTitle")?.textContent?.trim()||"Nenhuma corrida registrada");
+
+  ctx.textBaseline="alphabetic";
+  ctx.shadowColor="rgba(0,0,0,.38)";
+  ctx.shadowBlur=3;
+
+  ctx.fillStyle="#b8c2d1";
+  ctx.font='500 9px Arial, sans-serif';
+  drawSpacedCanvasText(ctx,label,92,31,1.25);
+
+  ctx.fillStyle="#ffffff";
+  ctx.font='800 19px Arial, sans-serif';
+  ctx.fillText(title,92,54);
+
+  ctx.fillStyle="#e0e5ed";
+  ctx.font='400 11px Arial, sans-serif';
+  const maxSubtitleWidth=Math.max(140,width-132);
+  let shown=subtitle;
+  while(ctx.measureText(shown).width>maxSubtitleWidth && shown.length>4){
+    shown=shown.slice(0,-2);
+  }
+  if(shown!==subtitle) shown=shown.trimEnd()+"…";
+  ctx.fillText(shown,92,74);
+
+  ctx.shadowBlur=2;
+  ctx.fillStyle="#ffffff";
+  ctx.font='400 31px Arial, sans-serif';
+  ctx.fillText("›",width-25,61);
+
+  art.src=canvas.toDataURL("image/png");
+  art.alt=isStrength
+    ? `Musculação. ${subtitle}`
+    : `Corrida. ${subtitle}`;
+  card.classList.add("home-card-baked-live");
+}
+
+async function renderMobileHomeCards(){
+  if(window.innerWidth>700) return;
+  try{
+    if(document.fonts?.ready) await document.fonts.ready;
+    await Promise.all([
+      renderMobileHomeCardImage($(".m-feature-strength"),"strength"),
+      renderMobileHomeCardImage($(".m-feature-run"),"run")
+    ]);
+  }catch(e){
+    console.error("Falha ao consolidar cards da home",e);
+  }
+}
+
+function scheduleMobileHomeCards(){
+  clearTimeout(homeCardRenderTimer);
+  homeCardRenderTimer=setTimeout(()=>renderMobileHomeCards(),30);
+}
+
+function observeHomeCardDynamicText(){
+  ["#mHomeWorkoutTitle","#mHomeRunTitle"].forEach(selector=>{
+    const el=$(selector);
+    if(!el) return;
+    new MutationObserver(()=>scheduleMobileHomeCards()).observe(el,{childList:true,subtree:true,characterData:true});
+  });
+}
+
 function formatLoad(v){
   return Number(v||0).toLocaleString("pt-BR",{maximumFractionDigits:0})+" kg";
 }
@@ -100,6 +211,7 @@ function renderDashboard(d){
     if($("#mHomeRunTitle")) $("#mHomeRunTitle").textContent="Nenhuma corrida registrada";
   }
   drawProgressChart();
+  scheduleMobileHomeCards();
 }
 
 function renderWorkout(w){
@@ -233,6 +345,7 @@ function renderRun(r){
     if($("#mRunElevation")) $("#mRunElevation").textContent="0";
     if($("#mHomeRunTitle")) $("#mHomeRunTitle").textContent="Nenhuma corrida registrada";
     drawRunChart();
+    scheduleMobileHomeCards();
     return;
   }
   $("#runTitle").textContent=r.title;
@@ -255,6 +368,7 @@ function renderRun(r){
   if($("#mRunElevation")) $("#mRunElevation").textContent=r.elevation_m;
   if($("#mHomeRunTitle")) $("#mHomeRunTitle").textContent=r.title;
   drawRunChart();
+  scheduleMobileHomeCards();
 }
 
 async function loadDashboard(){
@@ -1634,6 +1748,7 @@ function syncTodayPlanToHome(){
     if($("#mHomeWorkoutTitle")) $("#mHomeWorkoutTitle").textContent=strength.title;
   }
   if(run && $("#mHomeRunTitle")) $("#mHomeRunTitle").textContent=run.title;
+  scheduleMobileHomeCards();
 }
 
 document.addEventListener("click",async ev=>{
@@ -1716,7 +1831,6 @@ if($("#startHealthAssessmentBtn")) $("#startHealthAssessmentBtn").onclick=openHe
 if($("#reviewHealthAssessmentBtn")) $("#reviewHealthAssessmentBtn").onclick=openHealthAssessment;
 if($("#closeHealthAssessmentBtn")) $("#closeHealthAssessmentBtn").onclick=closeHealthAssessment;
 if($("#cancelHealthAssessmentBtn")) $("#cancelHealthAssessmentBtn").onclick=closeHealthAssessment;
-if($("#healthAssessmentForm")) $("#healthAssessmentForm").addEventListener("submit",submitHealthAssessment);
 if($("#submitHealthAssessmentBtn")) $("#submitHealthAssessmentBtn").onclick=submitHealthAssessment;
 if($("#registerClearanceBtn")) $("#registerClearanceBtn").onclick=openClearanceDialog;
 if($("#closeClearanceBtn")) $("#closeClearanceBtn").onclick=closeClearanceDialog;
@@ -1736,7 +1850,7 @@ if($("#signatureForm")) $("#signatureForm").addEventListener("submit",submitSign
 
 window.addEventListener("resize",()=>{
   clearTimeout(window._resize);
-  window._resize=setTimeout(()=>{drawProgressChart();drawRunChart()},120);
+  window._resize=setTimeout(()=>{drawProgressChart();drawRunChart();scheduleMobileHomeCards()},120);
 });
 
 (async function init(){
@@ -1745,6 +1859,8 @@ window.addEventListener("resize",()=>{
   if(workoutNavSource && desktopWorkoutIcon) desktopWorkoutIcon.src=workoutNavSource;
 
   await Promise.all([loadDashboard(),loadRun()]);
+  observeHomeCardDynamicText();
+  await renderMobileHomeCards();
   const hash=location.hash.replace("#","");
   navigate(pageMeta[hash]?hash:"home");
 })();

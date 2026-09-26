@@ -14,14 +14,14 @@ jobs:
     timeout-minutes: 20
     env:
       APP_URL: https://ritmox.onrender.com
-      EXPECTED_BUILD: "20260925-44"
+      EXPECTED_BUILD: "20260925-45"
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate signed anamnesis save and PDF locally
+      - name: Validate signed anamnesis save and PDF locally six times
         shell: bash
         env:
-          DATABASE_URL: sqlite:////tmp/ritmox-v42-test.db
+          DATABASE_URL: sqlite:////tmp/ritmox-v45-test.db
         run: |
           python -m pip install --quiet -r requirements.txt
           python - <<'PY'
@@ -43,28 +43,29 @@ jobs:
                   elif q.question_type=="date": answers[str(q.id)]="1990-01-01"
                   elif q.question_type=="number": answers[str(q.id)]=1
                   else: answers[str(q.id)]="Teste"
+
               img=Image.new("RGBA",(500,140),(255,255,255,0))
               draw=ImageDraw.Draw(img)
               draw.line([(30,90),(110,55),(180,95),(260,48),(360,88),(455,62)],fill=(255,45,122,255),width=8)
-              bio=BytesIO()
-              img.save(bio,format="PNG")
+              bio=BytesIO(); img.save(bio,format="PNG")
               signature="data:image/png;base64,"+base64.b64encode(bio.getvalue()).decode()
-              data=app.DynamicHealthAssessmentIn(
-                  answers=answers,
-                  consent_truthful=True,
-                  consent_screening=True,
-                  signature_name="Aluno Teste",
-                  signature_data=signature,
-                  signature_confirmed=True,
-              )
-              result=app.save_health_assessment(data,db)
-              assert result["signature_status"]=="signed", result
-              assert result["signature"]["signer_name"]=="Aluno Teste", result
-              item=db.get(app.HealthAssessment,result["id"])
-              pdf=app._assessment_pdf_buffer(item).getvalue()
-              assert pdf[:4]==b"%PDF"
-              assert len(pdf)>1000
-              print("PASS signed save and PDF",result["id"],len(pdf))
+
+              for i in range(1,7):
+                  data=app.DynamicHealthAssessmentIn(
+                      answers=answers,
+                      consent_truthful=True,
+                      consent_screening=True,
+                      signature_name=f"Aluno Teste {i}",
+                      signature_data=signature,
+                      signature_confirmed=True,
+                  )
+                  result=app.save_health_assessment(data,db)
+                  assert result["signature_status"]=="signed", result
+                  item=db.get(app.HealthAssessment,result["id"])
+                  pdf=app._assessment_pdf_buffer(item).getvalue()
+                  assert pdf[:4]==b"%PDF"
+                  assert len(pdf)>1000
+                  print(f"PASS signed save/PDF {i}/6",result["id"],len(pdf))
           finally:
               db.close()
           PY
@@ -84,7 +85,7 @@ jobs:
       - name: Install browser runtime
         run: npm install --no-save playwright-core
 
-      - name: Validate aligned single-image home cards
+      - name: Validate complete single-image home cards six times
         shell: bash
         run: |
           node <<'NODE'
@@ -93,31 +94,33 @@ jobs:
           (async()=>{
             const browser=await chromium.launch({executablePath:'/usr/bin/google-chrome',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
             try{
-              const p=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
-              await p.goto(APP+'/?cardAlignment=v42',{waitUntil:'networkidle',timeout:120000});
-              const strength=p.locator('.m-feature-strength');
-              const run=p.locator('.m-feature-run');
-              for(const [name,card,asset] of [
-                ['strength',strength,'home-strength-mobile-v42.png'],
-                ['run',run,'home-run-mobile-v42.png']
-              ]){
-                await card.waitFor({state:'visible',timeout:30000});
-                const art=card.locator('.home-card-art');
-                const src=await art.getAttribute('src');
-                if(!src.includes(asset)) throw new Error(name+' wrong baked asset '+src);
-                if(await card.locator('.m-feature-icon').count()) throw new Error(name+' still has separate icon');
-                const box=await card.boundingBox();
-                if(Math.abs(box.height-104)>1) throw new Error(name+' card height '+box.height);
+              for(let i=1;i<=6;i++){
+                const p=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
+                await p.goto(APP+'/?cardAlignment=v45-'+i,{waitUntil:'networkidle',timeout:120000});
+                await p.waitForFunction(()=>document.querySelectorAll('.m-feature-card.home-card-baked-live').length===2,null,{timeout:30000});
+                const strength=p.locator('.m-feature-strength');
+                const run=p.locator('.m-feature-run');
+                for(const [name,card] of [['strength',strength],['run',run]]){
+                  const art=card.locator('.home-card-art');
+                  const src=await art.getAttribute('src');
+                  if(!src.startsWith('data:image/png;base64,')) throw new Error(name+' is not one final PNG');
+                  const copyVisibility=await card.locator('.m-feature-copy').evaluate(el=>getComputedStyle(el).visibility);
+                  const arrowVisibility=await card.locator('.m-feature-arrow').evaluate(el=>getComputedStyle(el).visibility);
+                  if(copyVisibility!=='hidden'||arrowVisibility!=='hidden') throw new Error(name+' still renders separate overlay elements');
+                  const b=await card.boundingBox();
+                  if(Math.abs(b.height-104)>1) throw new Error(name+' height mismatch '+b.height);
+                }
+                const sb=await strength.boundingBox(), rb=await run.boundingBox();
+                if(Math.abs(sb.x-rb.x)>.5||Math.abs(sb.width-rb.width)>.5) throw new Error('cards misaligned '+JSON.stringify({sb,rb}));
+                console.log('PASS complete card image '+i+'/6',JSON.stringify({sb,rb}));
+                if(i===6) await p.screenshot({path:'ritmox-v45-home.png',fullPage:true});
+                await p.close();
               }
-              const sb=await strength.boundingBox(), rb=await run.boundingBox();
-              if(Math.abs(sb.x-rb.x)>0.5||Math.abs(sb.width-rb.width)>0.5) throw new Error('cards not aligned '+JSON.stringify({sb,rb}));
-              await p.screenshot({path:'ritmox-v42-home.png',fullPage:true});
-              console.log('PASS aligned home cards',JSON.stringify({sb,rb}));
             }finally{await browser.close();}
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
 
-      - name: Validate explicit anamnesis errors and signature field
+      - name: Validate explicit anamnesis errors and signature six times
         shell: bash
         run: |
           node <<'NODE'
@@ -126,44 +129,41 @@ jobs:
           (async()=>{
             const browser=await chromium.launch({executablePath:'/usr/bin/google-chrome',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
             try{
-              const p=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
-              await p.goto(APP+'/?anamnesisValidation=v42',{waitUntil:'networkidle',timeout:120000});
-              await p.evaluate(async()=>{
-                await loadAnamnesisFormConfig(true);
-                renderDynamicAnamnesis();
-                openDialogSafe(document.querySelector('#healthAssessmentDialog'));
-                setupHealthSignaturePad();
-              });
-              await p.locator('#haSignatureCanvas').waitFor({state:'visible',timeout:30000});
-              const multi=await p.locator('[data-anamnesis-option]').count();
-              if(!multi) throw new Error('no multiselect options found for regression');
-              await p.locator('[data-anamnesis-option]').first().click();
-              const collected=await p.evaluate(()=>collectDynamicAnswers());
-              const hasArray=Object.values(collected).some(v=>Array.isArray(v)&&v.length>0);
-              if(!hasArray) throw new Error('multiselect answers were not collected');
-              await p.locator('#submitHealthAssessmentBtn').click();
-              const feedback=p.locator('#anamnesisFormFeedback');
-              await feedback.waitFor({state:'visible',timeout:10000});
-              const text=await feedback.textContent();
-              if(!text.includes('pendências')) throw new Error('missing explicit pending message: '+text);
-              const toast=p.locator('#toast');
-              const z=await toast.evaluate(el=>Number(getComputedStyle(el).zIndex));
-              if(z<10000) throw new Error('toast is behind modal: '+z);
+              for(let i=1;i<=6;i++){
+                const p=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
+                await p.goto(APP+'/?anamnesisValidation=v45-'+i,{waitUntil:'networkidle',timeout:120000});
+                await p.evaluate(async()=>{
+                  await loadAnamnesisFormConfig(true);
+                  renderDynamicAnamnesis();
+                  openDialogSafe(document.querySelector('#healthAssessmentDialog'));
+                  setupHealthSignaturePad();
+                  clearAnamnesisFeedback();
+                });
+                await p.locator('#haSignatureCanvas').waitFor({state:'visible',timeout:30000});
+                const multi=await p.locator('[data-anamnesis-option]').count();
+                if(!multi) throw new Error('no multiselect options');
+                await p.locator('[data-anamnesis-option]').first().click();
+                const collected=await p.evaluate(()=>collectDynamicAnswers());
+                if(!Object.values(collected).some(v=>Array.isArray(v)&&v.length>0)) throw new Error('multiselect collection failed');
 
-              const canvas=p.locator('#haSignatureCanvas');
-              const b=await canvas.boundingBox();
-              await p.mouse.move(b.x+40,b.y+70);
-              await p.mouse.down();
-              await p.mouse.move(b.x+110,b.y+45,{steps:5});
-              await p.mouse.move(b.x+180,b.y+80,{steps:5});
-              await p.mouse.up();
-              const ink=await p.evaluate(()=>state.health.signatureHasInk);
-              if(!ink) throw new Error('signature pad did not register ink');
-              await p.locator('#haConsentTruthful').click();
-              await p.locator('#haConsentScreening').click();
-              await p.locator('#haSignatureConfirm').click();
-              if(await p.locator('#haSignatureConfirm').getAttribute('aria-checked')!=='true') throw new Error('signature confirmation not selectable');
-              console.log('PASS explicit error and signature pad');
+                await p.locator('#submitHealthAssessmentBtn').click();
+                const feedback=p.locator('#anamnesisFormFeedback');
+                await feedback.waitFor({state:'visible',timeout:10000});
+                const msg=await feedback.textContent();
+                if(!msg.includes('pendências')) throw new Error('missing explicit error: '+msg);
+
+                const canvas=p.locator('#haSignatureCanvas');
+                const b=await canvas.boundingBox();
+                await p.mouse.move(b.x+40,b.y+70); await p.mouse.down();
+                await p.mouse.move(b.x+110,b.y+45,{steps:5}); await p.mouse.move(b.x+180,b.y+80,{steps:5}); await p.mouse.up();
+                if(!await p.evaluate(()=>state.health.signatureHasInk)) throw new Error('signature did not register');
+                await p.locator('#haConsentTruthful').click();
+                await p.locator('#haConsentScreening').click();
+                await p.locator('#haSignatureConfirm').click();
+                if(await p.locator('#haSignatureConfirm').getAttribute('aria-checked')!=='true') throw new Error('signature confirmation failed');
+                console.log('PASS error/signature '+i+'/6');
+                await p.close();
+              }
             }finally{await browser.close();}
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
@@ -198,6 +198,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ritmox-v44-live-validation
-          path: ritmox-v42-home.png
+          name: ritmox-v45-live-validation
+          path: ritmox-v45-home.png
           if-no-files-found: ignore

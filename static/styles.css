@@ -1135,3 +1135,24 @@ body.modal-open{overflow:hidden}
   .signature-pad-actions .ghost-btn{width:100%}
   .profile-anamnesis-head{display:grid}.profile-anamnesis-meta{grid-template-columns:1fr}.profile-anamnesis-actions{display:grid;grid-template-columns:1fr}.profile-answer-row{grid-template-columns:1fr}.profile-anamnesis-dialog-body,.signature-dialog form{padding:18px 12px}
 }
+
+/* v45: mobile Musculação/Corrida are rendered as one complete image per card. */
+@media(max-width:700px){
+  .m-feature-card.home-card-baked-live{
+    padding:0!important;
+    display:block!important;
+  }
+  .m-feature-card.home-card-baked-live .m-feature-copy,
+  .m-feature-card.home-card-baked-live .m-feature-arrow{
+    visibility:hidden!important;
+    opacity:0!important;
+    pointer-events:none!important;
+  }
+  .m-feature-card.home-card-baked-live .home-card-art{
+    position:absolute!important;
+    inset:0!important;
+    width:100%!important;
+    height:100%!important;
+    object-fit:fill!important;
+  }
+}
