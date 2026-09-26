@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 20
     env:
       APP_URL: https://ritmox.onrender.com
-      EXPECTED_BUILD: "20260926-67"
+      EXPECTED_BUILD: "20260926-68"
     steps:
       - uses: actions/checkout@v4
 
@@ -30,6 +30,18 @@ jobs:
           if bad:
               raise SystemExit("Invalid single-node selector .forEach found: "+repr(bad))
           print("PASS selector guard")
+          PY
+
+      - name: Validate route-first startup
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          s=Path("static/app.js").read_text()
+          init=s[s.index("(async function init(){"):s.index("})();",s.index("(async function init(){"))+5]
+          assert init.index("navigate(initialPage)") < init.index("await Promise.all"), "route must render before network awaits"
+          assert "loadHomeTodayTraining()" in init
+          print("PASS route restored before startup network requests")
           PY
 
       - name: Validate completed workout history and story export
