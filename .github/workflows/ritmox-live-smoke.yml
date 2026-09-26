@@ -218,7 +218,8 @@ jobs:
                 await p.locator('#haSignatureCanvas').waitFor({state:'visible',timeout:30000});
                 const multi=await p.locator('[data-anamnesis-option]').count();
                 if(!multi) throw new Error('no multiselect options');
-                await p.locator('[data-anamnesis-option]').first().click();
+                const firstOption=p.locator('[data-anamnesis-option]').first();
+                if(await firstOption.getAttribute('aria-checked')!=='true') await firstOption.click();
                 const collected=await p.evaluate(()=>collectDynamicAnswers());
                 if(!Object.values(collected).some(v=>Array.isArray(v)&&v.length>0)) throw new Error('multiselect collection failed');
 
