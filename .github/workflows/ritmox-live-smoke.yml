@@ -232,6 +232,19 @@ jobs:
                   throw new Error('multiselect collection failed for '+multiQuestionId);
                 }
 
+                // Force one required answer empty so this test validates explicit error feedback
+                // regardless of whether the real saved anamnesis is already complete.
+                const requiredQuestionId=await p.evaluate(()=>{
+                  const q=(state.health.formQuestions||[]).find(item=>item.required&&item.question_type!=='multiselect');
+                  return q?.id||null;
+                });
+                if(!requiredQuestionId) throw new Error('no required question configured');
+                const requiredInput=p.locator('[data-question="'+requiredQuestionId+'"] [data-answer]').first();
+                if(await requiredInput.count()!==1) throw new Error('required answer control not rendered');
+                const tag=await requiredInput.evaluate(el=>el.tagName.toLowerCase());
+                if(tag==='select') await requiredInput.selectOption('');
+                else await requiredInput.fill('');
+
                 await p.locator('#submitHealthAssessmentBtn').click();
                 const feedback=p.locator('#anamnesisFormFeedback');
                 await feedback.waitFor({state:'visible',timeout:10000});
