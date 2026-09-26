@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
   <link rel="shortcut icon" type="image/png" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
   <link rel="apple-touch-icon" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
-  <link rel="stylesheet" href="/static/styles.css?v=20260926-56">
+  <link rel="stylesheet" href="/static/styles.css?v=20260926-57">
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true">
@@ -202,53 +202,92 @@
           </article>
         </div>
 
-        <div class="training-calendar" id="trainingCalendar" hidden>
-          <div class="health-status-strip" id="healthStatusStrip">
-            <span class="health-status-dot"></span>
-            <span id="healthStatusText">Anamnese concluída</span>
-            <button type="button" id="reviewHealthAssessmentBtn" data-health-action="review">Revisar</button>
-          </div>
+        <div class="training-calendar training-planner-v57" id="trainingCalendar" hidden>
           <div class="calendar-toolbar">
             <div>
               <span class="eyebrow pink-text">PLANEJAMENTO</span>
               <h2>Calendário de treinos</h2>
-              <p>Visualize a semana, abra um dia e gerencie os treinos planejados.</p>
+              <p>Planeje corrida, musculação e outras modalidades com métodos baseados em evidências.</p>
             </div>
             <div class="calendar-toolbar-actions">
               <button class="calendar-nav-btn" id="prevWeekBtn" aria-label="Semana anterior">‹</button>
               <button class="calendar-today-btn" id="todayWeekBtn">Hoje</button>
               <button class="calendar-nav-btn" id="nextWeekBtn" aria-label="Próxima semana">›</button>
-              <button class="calendar-add-btn" id="addPlanTopBtn"><span>＋</span> Novo treino</button>
+              <button class="calendar-add-btn" id="addPlanTopBtn"><span>＋</span> Novo plano</button>
             </div>
           </div>
+
+          <nav class="planner-modality-tabs" id="plannerModalityTabs" aria-label="Filtrar modalidades">
+            <button type="button" class="active" data-planner-modality="geral"><span class="planner-tab-icon">▦</span>Geral</button>
+            <button type="button" data-planner-modality="corrida"><span class="planner-tab-icon cyan">➤</span>Corrida</button>
+            <button type="button" data-planner-modality="musculacao"><span class="planner-tab-icon purple">✚</span>Musculação</button>
+            <button type="button" data-planner-modality="ciclismo"><span class="planner-tab-icon pink">◉</span>Ciclismo</button>
+            <button type="button" data-planner-modality="mobilidade"><span class="planner-tab-icon teal">◌</span>Mobilidade</button>
+          </nav>
+
+          <section class="panel planner-methods-panel">
+            <div class="planner-section-head">
+              <span class="planner-section-icon">▥</span>
+              <div>
+                <h3>Métodos validados</h3>
+                <p>Estruturas baseadas em diretrizes e revisões do ACSM e da WHO.</p>
+              </div>
+            </div>
+            <div class="training-method-cards" id="trainingMethodCards">
+              <button type="button" class="training-method-card active" data-method-key="hypertrophy">
+                <span class="method-icon">◎</span><strong>Hipertrofia</strong><em>Força progressiva</em>
+                <small>Maior volume semanal, progressão e recuperação para ganho de massa.</small>
+              </button>
+              <button type="button" class="training-method-card" data-method-key="strength">
+                <span class="method-icon">◆</span><strong>Força</strong><em>Carga alta</em>
+                <small>Baixas repetições, descanso maior e progressão de carga.</small>
+              </button>
+              <button type="button" class="training-method-card" data-method-key="weight_loss">
+                <span class="method-icon">◒</span><strong>Perda de peso</strong><em>Cardio + força</em>
+                <small>Musculação e aeróbio para apoiar gasto energético e preservar massa magra.</small>
+              </button>
+              <button type="button" class="training-method-card" data-method-key="conditioning">
+                <span class="method-icon">▥</span><strong>Condicionamento</strong><em>Base + intervalos</em>
+                <small>Combina base aeróbia, limiar, intervalos e força de suporte.</small>
+              </button>
+            </div>
+          </section>
+
+          <section class="panel planner-structured-panel">
+            <div class="planner-section-head">
+              <span class="planner-section-icon">▥</span>
+              <div>
+                <h3>Plano estruturado</h3>
+                <p>Detalhes do método selecionado e como ele será aplicado.</p>
+              </div>
+            </div>
+            <div class="structured-plan-body">
+              <div class="structured-plan-facts">
+                <div><span>✚</span><small>Modalidade</small><strong id="structuredPlanModality">Musculação + Corrida leve</strong></div>
+                <div><span>◎</span><small>Objetivo</small><strong id="structuredPlanGoal">Hipertrofia</strong></div>
+                <div><span>▣</span><small>Frequência</small><strong id="structuredPlanFrequency">4x musculação + 2x cardio leve</strong></div>
+                <div><span>☷</span><small>Estrutura</small><strong id="structuredPlanStructure">A/B + corrida regenerativa</strong></div>
+              </div>
+              <div class="structured-plan-description">
+                <p id="structuredPlanDescription">Plano com sobrecarga progressiva, volume semanal adequado e recuperação. O calendário recebe automaticamente as sessões do método escolhido.</p>
+                <small id="structuredPlanEvidence">Referência: ACSM 2026</small>
+              </div>
+            </div>
+          </section>
 
           <div class="week-range" id="weekRange">—</div>
           <div class="week-calendar" id="weekCalendar" aria-label="Calendário semanal de treinos"></div>
 
-          <div class="day-workspace">
-            <section class="panel day-panel">
-              <div class="day-panel-head">
-                <div>
-                  <span class="eyebrow" id="selectedDayEyebrow">DIA SELECIONADO</span>
-                  <h3 id="selectedDayTitle">Selecione um dia</h3>
-                  <p id="selectedDaySubtitle">Os treinos planejados aparecerão aqui.</p>
-                </div>
-                <button class="calendar-add-btn compact" id="addPlanDayBtn"><span>＋</span> Incluir treino</button>
+          <section class="panel day-panel">
+            <div class="day-panel-head">
+              <div>
+                <span class="eyebrow" id="selectedDayEyebrow">DIA SELECIONADO</span>
+                <h3 id="selectedDayTitle">Selecione um dia</h3>
+                <p id="selectedDaySubtitle">Os treinos do plano aparecerão aqui.</p>
               </div>
-              <div class="day-plan-list" id="dayPlanList"></div>
-            </section>
-
-            <aside class="panel calendar-guide">
-              <span class="eyebrow purple-text">SEMANA</span>
-              <h3 id="weekPlanCount">Nenhum treino planejado</h3>
-              <p>Os dias com treino recebem destaque. Toque ou clique em qualquer dia para abrir os detalhes.</p>
-              <div class="calendar-legend">
-                <span><i class="legend-chip strength"></i> Musculação</span>
-                <span><i class="legend-chip running"></i> Corrida</span>
-                <span><i class="legend-chip other"></i> Outra modalidade</span>
-              </div>
-            </aside>
-          </div>
+            </div>
+            <div class="day-plan-list" id="dayPlanList"></div>
+          </section>
         </div>
       </section>
 
@@ -690,6 +729,47 @@
     </form>
   </div></div>
 
+  <dialog id="trainingProgramDialog" class="plan-dialog training-program-dialog">
+    <form id="trainingProgramForm">
+      <button type="button" class="dialog-close" id="closeTrainingProgramDialog" aria-label="Fechar">×</button>
+      <span class="eyebrow pink-text">PLANO ESTRUTURADO</span>
+      <h3>Adicionar plano ao calendário</h3>
+      <p class="training-program-intro">Escolha o método, a semana inicial e a duração. O RITMOX cria as sessões no calendário sem apagar treinos manuais.</p>
+
+      <div class="program-method-select" id="programMethodSelect">
+        <button type="button" class="active" data-program-method="hypertrophy"><strong>Hipertrofia</strong><small>Volume progressivo</small></button>
+        <button type="button" data-program-method="strength"><strong>Força</strong><small>Carga alta</small></button>
+        <button type="button" data-program-method="weight_loss"><strong>Perda de peso</strong><small>Cardio + força</small></button>
+        <button type="button" data-program-method="conditioning"><strong>Condicionamento</strong><small>Base + intervalos</small></button>
+      </div>
+
+      <div class="plan-form-grid">
+        <label>Semana inicial
+          <input type="date" id="programStartDate" required>
+        </label>
+        <label>Duração
+          <select id="programWeeks">
+            <option value="2">2 semanas</option>
+            <option value="4" selected>4 semanas</option>
+            <option value="6">6 semanas</option>
+            <option value="8">8 semanas</option>
+            <option value="12">12 semanas</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="program-preview" id="programPreview"></div>
+
+      <div class="plan-dialog-actions">
+        <span class="program-safety-note">O plano respeita o bloqueio da anamnese. Cargas e ritmos devem ser ajustados à capacidade individual.</span>
+        <div>
+          <button type="button" class="ghost-btn" id="cancelTrainingProgramBtn">Cancelar</button>
+          <button type="submit" class="primary-btn pink-btn" id="applyTrainingProgramBtn">Aplicar ao calendário</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="planDialog" class="plan-dialog">
     <form id="planForm">
       <button type="button" class="dialog-close" id="closePlanDialog" aria-label="Fechar">×</button>
@@ -753,6 +833,6 @@
   </dialog>
 
   <div id="toast" class="toast"></div>
-  <script src="/static/app.js?v=20260926-56"></script>
+  <script src="/static/app.js?v=20260926-57"></script>
 </body>
 </html>
