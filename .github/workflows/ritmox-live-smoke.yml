@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 20
     env:
       APP_URL: https://ritmox.onrender.com
-      EXPECTED_BUILD: "20260925-48"
+      EXPECTED_BUILD: "20260925-49"
     steps:
       - uses: actions/checkout@v4
 
@@ -100,11 +100,11 @@ jobs:
             try{
               for(let i=1;i<=6;i++){
                 const p=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
-                await p.goto(APP+'/?approvedExact=v48-'+i,{waitUntil:'networkidle',timeout:120000});
+                await p.goto(APP+'/?approvedExact=v49-'+i,{waitUntil:'networkidle',timeout:120000});
 
                 const checks=[
-                  ['strength',p.locator('.m-feature-strength'),'/static/assets/home/home-strength-approved-exact-v48.webp?v=20260925-48','workouts'],
-                  ['run',p.locator('.m-feature-run'),'/static/assets/home/home-run-approved-exact-v48.webp?v=20260925-48','run']
+                  ['strength',p.locator('.m-feature-strength'),'/static/assets/home/home-strength-approved-exact-v48.webp?v=20260925-49','workouts'],
+                  ['run',p.locator('.m-feature-run'),'/static/assets/home/home-run-approved-exact-v48.webp?v=20260925-49','run']
                 ];
                 for(const [name,card,expected] of checks){
                   await card.waitFor({state:'visible',timeout:30000});
@@ -137,23 +137,23 @@ jobs:
 
                 await p.locator('.m-feature-strength').click();
                 if(!p.url().includes('#workouts')) throw new Error('strength whole-card click failed');
-                await p.goto(APP+'/?approvedExactRun=v48-'+i,{waitUntil:'networkidle',timeout:120000});
+                await p.goto(APP+'/?approvedExactRun=v49-'+i,{waitUntil:'networkidle',timeout:120000});
                 await p.locator('.m-feature-run').click();
                 if(!p.url().includes('#run')) throw new Error('run whole-card click failed');
 
                 console.log('PASS exact approved cards '+i+'/6');
                 if(i===6){
-                  await p.goto(APP+'/?approvedExactShot=v48',{waitUntil:'networkidle',timeout:120000});
-                  await p.screenshot({path:'ritmox-v48-home.png',fullPage:true});
+                  await p.goto(APP+'/?approvedExactShot=v49',{waitUntil:'networkidle',timeout:120000});
+                  await p.screenshot({path:'ritmox-v49-home.png',fullPage:true});
                 }
                 await p.close();
               }
 
               const d=await browser.newPage({viewport:{width:1440,height:900},deviceScaleFactor:1});
-              await d.goto(APP+'/?approvedExactDesktop=v48',{waitUntil:'networkidle',timeout:120000});
+              await d.goto(APP+'/?approvedExactDesktop=v49',{waitUntil:'networkidle',timeout:120000});
               for(const [name,card,expected] of [
-                ['strength',d.locator('.strength-card'),'/static/assets/home/home-strength-approved-exact-v48.webp?v=20260925-48'],
-                ['run',d.locator('.run-card'),'/static/assets/home/home-run-approved-exact-v48.webp?v=20260925-48']
+                ['strength',d.locator('.strength-card'),'/static/assets/home/home-strength-approved-exact-v48.webp?v=20260925-49'],
+                ['run',d.locator('.run-card'),'/static/assets/home/home-run-approved-exact-v48.webp?v=20260925-49']
               ]){
                 await card.waitFor({state:'visible',timeout:30000});
                 if((await card.locator('.home-card-art').getAttribute('src'))!==expected) throw new Error('desktop '+name+' wrong asset');
@@ -245,6 +245,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ritmox-v48-live-validation
-          path: ritmox-v48-home.png
+          name: ritmox-v49-live-validation
+          path: ritmox-v49-home.png
           if-no-files-found: ignore
