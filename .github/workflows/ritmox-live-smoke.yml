@@ -76,15 +76,18 @@ jobs:
         run: |
           set -euo pipefail
           for attempt in {1..70}; do
-            body="$(curl -fsS --max-time 20 "$APP_URL/api/version" || true)"
+            body="$(curl -fsS --max-time 20 "$APP_URL/health" || true)"
             echo "attempt=$attempt body=$body"
-            if echo "$body" | grep -q "$EXPECTED_BUILD"; then exit 0; fi
+            if echo "$body" | grep -q "$EXPECTED_BUILD" && echo "$body" | grep -q '"persistent":true'; then
+              echo "Persistent PostgreSQL confirmed."
+              exit 0
+            fi
             sleep 10
           done
           exit 1
 
       - name: Restore preserved profile and anamnesis configuration once
-        if: contains(github.event.head_commit.message, 'migrate RITMOX to Supabase persistence v56')
+        if: github.ref == 'refs/heads/main' && env.EXPECTED_BUILD == '20260926-56'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
