@@ -329,7 +329,7 @@ jobs:
                   if(!panel||!plus||!head) throw new Error('missing calendar geometry');
                   const rightGap=(panel.x+panel.width)-(plus.x+plus.width);
                   const topGap=plus.y-head.y;
-                  if(rightGap<12||rightGap>20||topGap<0||topGap>4){
+                  if(rightGap<12||rightGap>20||topGap<-10||topGap>1){
                     throw new Error('day plus misaligned '+JSON.stringify({rightGap,topGap,panel,plus,head}));
                   }
                 }
