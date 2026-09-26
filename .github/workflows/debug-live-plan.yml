@@ -8,27 +8,19 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe live planner without writing data
+      - name: Probe valid live plan creation in isolated future date
         shell: bash
         run: |
           set -euo pipefail
           APP="https://ritmox.onrender.com"
           echo "=== HEALTH ==="
-          curl -sS -D - "$APP/health" -o /tmp/health.json || true
-          cat /tmp/health.json || true
+          curl -sS "$APP/health"
           echo
-          echo "=== ASSESSMENT ==="
-          curl -sS -D /tmp/assessment.headers "$APP/api/health-assessment/latest" -o /tmp/assessment.json || true
-          cat /tmp/assessment.headers || true
-          cat /tmp/assessment.json || true
+          echo "=== VALID APPLY 2099 ==="
+          code="$(curl -sS -o /tmp/valid.json -w "%{http_code}" -X POST "$APP/api/training-program/apply"             -H "Content-Type: application/json"             --data '{"method_key":"strength","start_date":"2099-12-28","weeks":1}' || true)"
+          echo "VALID_HTTP=$code"
+          cat /tmp/valid.json || true
           echo
-          echo "=== CURRENT PROGRAM ==="
-          curl -sS -D /tmp/program.headers "$APP/api/training-program/current" -o /tmp/program.json || true
-          cat /tmp/program.headers || true
-          cat /tmp/program.json || true
-          echo
-          echo "=== APPLY GATE PROBE (INVALID METHOD, NO WRITE EXPECTED) ==="
-          code="$(curl -sS -o /tmp/apply.json -w "%{http_code}" -X POST "$APP/api/training-program/apply"             -H "Content-Type: application/json"             --data '{"method_key":"__probe__","start_date":"2099-12-28","weeks":1}' || true)"
-          echo "HTTP=$code"
-          cat /tmp/apply.json || true
+          echo "=== READ BACK ==="
+          curl -sS "$APP/api/training-plans?start_date=2099-12-28&end_date=2100-01-03"
           echo
