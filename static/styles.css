@@ -50,6 +50,45 @@ svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 .search-box input{width:100%;border:0;outline:0;background:transparent;color:white;font-size:13px}
 .icon-btn,.avatar-btn{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:#111a2b;color:#d4d9e5}
 .avatar-btn{background:linear-gradient(135deg,var(--pink),var(--purple));font-weight:900;color:white;border:0}
+
+/* Profile avatar loading state: never flash an initial before /api/profile resolves. */
+.avatar-btn.is-loading,
+.m-avatar.is-loading,
+.profile-photo-wrap.is-loading{
+  background:#0d1625!important;
+  color:transparent!important;
+  box-shadow:none!important;
+}
+.avatar-btn.is-loading,
+.m-avatar.is-loading{
+  position:relative;
+  overflow:hidden;
+}
+.avatar-btn.is-loading::after,
+.m-avatar.is-loading::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(110deg,transparent 20%,rgba(255,255,255,.055) 45%,transparent 70%);
+  transform:translateX(-100%);
+  animation:profileAvatarLoading 1.15s ease-in-out infinite;
+}
+.profile-photo-wrap.is-loading{
+  position:relative;
+}
+.profile-photo-wrap.is-loading::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  background:linear-gradient(110deg,transparent 20%,rgba(255,255,255,.055) 45%,transparent 70%);
+  transform:translateX(-100%);
+  animation:profileAvatarLoading 1.15s ease-in-out infinite;
+}
+@keyframes profileAvatarLoading{
+  to{transform:translateX(100%)}
+}
+
 .page{display:none;animation:fade .26s ease}.page.active{display:block}
 @keyframes fade{from{opacity:.3;transform:translateY(5px)}to{opacity:1;transform:none}}
 .hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
