@@ -1,4 +1,4 @@
-name: Debug live training plan UI apply
+name: Debug live workout execution UI
 
 on:
   push:
@@ -11,7 +11,7 @@ jobs:
       - name: Install browser runtime
         run: npm install --no-save playwright-core
 
-      - name: Reproduce plan application through live UI
+      - name: Validate today's strength execution without writing data
         shell: bash
         run: |
           set -euo pipefail
@@ -19,55 +19,47 @@ jobs:
           const {chromium}=require('playwright-core');
           const APP='https://ritmox.onrender.com';
           (async()=>{
-            const browser=await chromium.launch({
-              executablePath:'/usr/bin/google-chrome',
-              headless:true,
-              args:['--no-sandbox','--disable-dev-shm-usage']
-            });
+            const browser=await chromium.launch({executablePath:'/usr/bin/google-chrome',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
             const page=await browser.newPage({viewport:{width:390,height:844}});
             const errors=[];
             page.on('pageerror',e=>errors.push(String(e)));
-            page.on('console',m=>{ if(m.type()==='error') errors.push('console:'+m.text()); });
+            await page.goto(APP+'/?workoutExecutionProbe=62',{waitUntil:'networkidle',timeout:120000});
+            const version=await (await page.request.get(APP+'/api/version')).json();
+            if(version.build!=='20260926-62') throw new Error('wrong live build '+JSON.stringify(version));
 
-            await page.goto(APP+'/?debugPlanApply=2',{waitUntil:'networkidle',timeout:120000});
+            await page.route('**/api/training-plans/13/start-workout',async route=>{
+              await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
+                id:999,plan_id:13,modality:'musculacao',title:'Pernas B | hipertrofia + estabilidade',
+                subtitle:'Treino de validação',duration_min:75,started:true,completed:false,started_at:new Date().toISOString(),completed_at:null,
+                exercises:[
+                  {id:901,name:'Levantamento terra romeno',muscle:'Posteriores / glúteos',sets_total:3,reps:'6-10',load_kg:0,rest_sec:120,media_url:'',sets_done:0,set_logs:[]},
+                  {id:902,name:'Leg press',muscle:'Quadríceps / glúteos',sets_total:3,reps:'10-12',load_kg:0,rest_sec:120,media_url:'',sets_done:0,set_logs:[]},
+                  {id:903,name:'Afundo / Búlgaro',muscle:'Quadríceps / glúteos / estabilidade',sets_total:3,reps:'8-10 cada perna',load_kg:0,rest_sec:90,media_url:'',sets_done:0,set_logs:[]},
+                  {id:904,name:'Flexora',muscle:'Posteriores',sets_total:3,reps:'10-12',load_kg:0,rest_sec:75,media_url:'',sets_done:0,set_logs:[]},
+                  {id:905,name:'Extensora',muscle:'Quadríceps',sets_total:2,reps:'12-15',load_kg:0,rest_sec:60,media_url:'',sets_done:0,set_logs:[]},
+                  {id:906,name:'Panturrilha sentado',muscle:'Panturrilhas',sets_total:4,reps:'10-15',load_kg:0,rest_sec:60,media_url:'',sets_done:0,set_logs:[]},
+                  {id:907,name:'Core',muscle:'Core / estabilidade',sets_total:3,reps:'Livre',load_kg:0,rest_sec:60,media_url:'',sets_done:0,set_logs:[]}
+                ]
+              })});
+            });
+
             await page.locator('.bottom-nav [data-page="workouts"]').click();
             await page.locator('#trainingCalendar').waitFor({state:'visible',timeout:30000});
-
-            await page.locator('[data-planner-modality="geral"]').click();
-            await page.locator('[data-method-key="strength"]').click();
-            await page.locator('#addPlanTopBtn').click();
-            await page.locator('#trainingProgramDialog').waitFor({state:'visible',timeout:10000});
-            await page.locator('#programStartDate').fill('2099-12-28');
-            await page.locator('#programWeeks').selectOption('2');
-
-            const responsePromise=page.waitForResponse(r=>r.url().includes('/api/training-program/apply')&&r.request().method()==='POST',{timeout:30000});
-            await page.locator('#applyTrainingProgramBtn').click();
-            const response=await responsePromise;
-            console.log('APPLY STATUS',response.status());
-            console.log('APPLY BODY',await response.text());
-
-            await page.locator('#trainingProgramDialog').waitFor({state:'hidden',timeout:30000});
-            await page.waitForFunction(()=>{
-              return document.querySelectorAll('.calendar-day .day-chip').length>0;
-            },null,{timeout:30000}).catch(()=>{});
-
-            console.log('WEEK RANGE',await page.locator('#weekRange').textContent());
-            console.log('VISIBLE CHIPS',await page.locator('.calendar-day .day-chip').count());
-            console.log('DAY CARDS',await page.locator('.day-plan-card').count());
-            console.log('TOAST',await page.locator('#toast').textContent());
-            console.log('ERRORS',JSON.stringify(errors));
-            await page.screenshot({path:'debug-plan-ui.png',fullPage:true});
+            await page.waitForFunction(()=>document.querySelector('#dayPlanList')?.textContent?.includes('Pernas B'));
+            const card=page.locator('.day-plan-card').filter({hasText:'Pernas B'}).first();
+            if(await card.count()!==1) throw new Error('today workout card missing');
+            await card.locator('[data-start-plan-workout="13"]').click();
+            await page.locator('#workoutExecutionDialog').waitFor({state:'visible',timeout:10000});
+            const title=(await page.locator('#workoutExecTitle').textContent()||'').trim();
+            if(!title.includes('Pernas B')) throw new Error('execution title mismatch '+title);
+            if((await page.locator('#workoutExerciseName').textContent()||'').trim()!=='Levantamento terra romeno') throw new Error('first exercise mismatch');
+            if((await page.locator('#workoutTargetSets').textContent()||'').trim()!=='3') throw new Error('sets mismatch');
+            if((await page.locator('#workoutTargetReps').textContent()||'').trim()!=='6-10') throw new Error('reps mismatch');
+            if((await page.locator('#workoutTargetRest').textContent()||'').trim()!=='120s') throw new Error('rest mismatch');
+            if(await page.locator('#workoutActualLoad').count()!==1) throw new Error('editable load missing');
+            if(await page.locator('#completeWorkoutSetBtn').count()!==1) throw new Error('complete set missing');
+            if(errors.length) throw new Error('page errors '+errors.join(' | '));
+            console.log('PASS live V62 workout execution UI');
             await browser.close();
-
-            if(response.status()!==200) process.exit(2);
-            if(errors.length) process.exit(3);
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
-
-      - name: Upload debug screenshot
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: debug-plan-ui
-          path: debug-plan-ui.png
-          if-no-files-found: ignore
