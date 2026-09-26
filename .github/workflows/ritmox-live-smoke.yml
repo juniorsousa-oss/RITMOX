@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 20
     env:
       APP_URL: https://ritmox.onrender.com
-      EXPECTED_BUILD: "20260925-47"
+      EXPECTED_BUILD: "20260925-48"
     steps:
       - uses: actions/checkout@v4
 
@@ -100,14 +100,14 @@ jobs:
             try{
               for(let i=1;i<=6;i++){
                 const p=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
-                await p.goto(APP+'/?approvedExact=v47-'+i,{waitUntil:'networkidle',timeout:120000});
+                await p.goto(APP+'/?approvedExact=v48-'+i,{waitUntil:'networkidle',timeout:120000});
 
-                const strength=p.locator('.m-feature-strength');
-                const run=p.locator('.m-feature-run');
-                await strength.waitFor({state:'visible',timeout:30000});
-                await run.waitFor({state:'visible',timeout:30000});
-
-                for(const [name,card] of [['strength',strength],['run',run]]){
+                const checks=[
+                  ['strength',p.locator('.m-feature-strength'),'/static/assets/home/home-strength-approved-exact-v48.webp?v=20260925-48','workouts'],
+                  ['run',p.locator('.m-feature-run'),'/static/assets/home/home-run-approved-exact-v48.webp?v=20260925-48','run']
+                ];
+                for(const [name,card,expected] of checks){
+                  await card.waitFor({state:'visible',timeout:30000});
                   const art=card.locator('.home-card-art');
                   const info=await art.evaluate(img=>({
                     src:img.getAttribute('src')||'',
@@ -118,38 +118,51 @@ jobs:
                     objectFit:getComputedStyle(img).objectFit,
                     transform:getComputedStyle(img).transform
                   }));
-                  if(!info.src.startsWith('data:image/webp;base64,')) throw new Error(name+' is not the embedded approved image');
-                  if(!info.complete||info.naturalWidth!==712||info.naturalHeight!==174) throw new Error(name+' source dimensions '+JSON.stringify(info));
+                  if(info.src!==expected) throw new Error(name+' wrong exact approved image '+info.src);
+                  if(!info.complete||info.naturalWidth!==760||info.naturalHeight!==184) throw new Error(name+' source dimensions '+JSON.stringify(info));
                   if(info.display!=='block'||info.objectFit!=='contain'||info.transform!=='none') throw new Error(name+' image styling '+JSON.stringify(info));
-
-                  const copyDisplay=await card.locator('.m-feature-copy').evaluate(el=>getComputedStyle(el).display);
-                  const arrowDisplay=await card.locator('.m-feature-arrow').evaluate(el=>getComputedStyle(el).display);
-                  if(copyDisplay!=='none'||arrowDisplay!=='none') throw new Error(name+' still renders duplicated text/arrow');
-
+                  const copy=card.locator('.m-feature-copy');
+                  const arrow=card.locator('.m-feature-arrow');
+                  if(await copy.count() && await copy.evaluate(el=>getComputedStyle(el).display)!=='none') throw new Error(name+' duplicate copy visible');
+                  if(await arrow.count() && await arrow.evaluate(el=>getComputedStyle(el).display)!=='none') throw new Error(name+' duplicate arrow visible');
                   const b=await card.boundingBox();
-                  const ratio=b.width/b.height;
-                  if(Math.abs(ratio-(712/174))>0.03) throw new Error(name+' ratio mismatch '+ratio);
+                  if(Math.abs((b.width/b.height)-(760/184))>0.03) throw new Error(name+' ratio mismatch '+(b.width/b.height));
                 }
 
-                const sb=await strength.boundingBox(), rb=await run.boundingBox();
-                if(Math.abs(sb.x-rb.x)>.5 || Math.abs(sb.width-rb.width)>.5 || Math.abs(sb.height-rb.height)>.5){
+                const sb=await p.locator('.m-feature-strength').boundingBox();
+                const rb=await p.locator('.m-feature-run').boundingBox();
+                if(Math.abs(sb.x-rb.x)>.5||Math.abs(sb.width-rb.width)>.5||Math.abs(sb.height-rb.height)>.5){
                   throw new Error('cards not aligned '+JSON.stringify({sb,rb}));
                 }
 
-                await strength.click();
+                await p.locator('.m-feature-strength').click();
                 if(!p.url().includes('#workouts')) throw new Error('strength whole-card click failed');
-
-                await p.goto(APP+'/?approvedExactRun=v47-'+i,{waitUntil:'networkidle',timeout:120000});
+                await p.goto(APP+'/?approvedExactRun=v48-'+i,{waitUntil:'networkidle',timeout:120000});
                 await p.locator('.m-feature-run').click();
                 if(!p.url().includes('#run')) throw new Error('run whole-card click failed');
 
                 console.log('PASS exact approved cards '+i+'/6');
                 if(i===6){
-                  await p.goto(APP+'/?approvedExactShot=v47',{waitUntil:'networkidle',timeout:120000});
-                  await p.screenshot({path:'ritmox-v47-home.png',fullPage:true});
+                  await p.goto(APP+'/?approvedExactShot=v48',{waitUntil:'networkidle',timeout:120000});
+                  await p.screenshot({path:'ritmox-v48-home.png',fullPage:true});
                 }
                 await p.close();
               }
+
+              const d=await browser.newPage({viewport:{width:1440,height:900},deviceScaleFactor:1});
+              await d.goto(APP+'/?approvedExactDesktop=v48',{waitUntil:'networkidle',timeout:120000});
+              for(const [name,card,expected] of [
+                ['strength',d.locator('.strength-card'),'/static/assets/home/home-strength-approved-exact-v48.webp?v=20260925-48'],
+                ['run',d.locator('.run-card'),'/static/assets/home/home-run-approved-exact-v48.webp?v=20260925-48']
+              ]){
+                await card.waitFor({state:'visible',timeout:30000});
+                if((await card.locator('.home-card-art').getAttribute('src'))!==expected) throw new Error('desktop '+name+' wrong asset');
+                for(const sel of ['.hero-card-head','.hero-card-body','.hero-action']){
+                  const el=card.locator(sel);
+                  if(await el.count() && await el.evaluate(x=>getComputedStyle(x).display)!=='none') throw new Error('desktop '+name+' duplicate '+sel);
+                }
+              }
+              await d.close();
             }finally{await browser.close();}
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
@@ -232,6 +245,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ritmox-v47-live-validation
-          path: ritmox-v47-home.png
+          name: ritmox-v48-live-validation
+          path: ritmox-v48-home.png
           if-no-files-found: ignore

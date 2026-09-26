@@ -1068,13 +1068,14 @@ body.modal-open{overflow:hidden}
 /* === RITMOX STABLE UI LAYER v46 === */
 .toast{z-index:12050!important}
 
-/* Home: each Musculação/Corrida card is one approved image and the whole card is clickable. */
+/* Home v48: exact user-approved screenshot crop. One image = border + icon + text + chevron. */
 .home-image-card{
   position:relative!important;
-  overflow:hidden!important;
+  overflow:visible!important;
   padding:0!important;
   margin:0!important;
   border:0!important;
+  border-radius:0!important;
   background:transparent!important;
   box-shadow:none!important;
   isolation:isolate!important;
@@ -1090,8 +1091,12 @@ body.modal-open{overflow:hidden}
   width:100%!important;
   height:100%!important;
   display:block!important;
-  object-fit:fill!important;
+  object-fit:contain!important;
   object-position:center!important;
+  transform:none!important;
+  clip-path:none!important;
+  border:0!important;
+  border-radius:0!important;
   pointer-events:none!important;
   z-index:1!important;
 }
@@ -1111,8 +1116,8 @@ body.modal-open{overflow:hidden}
     height:auto!important;
     min-height:0!important;
     max-height:none!important;
-    aspect-ratio:716 / 208!important;
-    border-radius:18px!important;
+    aspect-ratio:760 / 184!important;
+    border-radius:0!important;
   }
 }
 @media(min-width:701px){
@@ -1120,8 +1125,9 @@ body.modal-open{overflow:hidden}
     width:100%!important;
     height:auto!important;
     min-height:0!important;
-    aspect-ratio:1168 / 356!important;
-    border-radius:16px!important;
+    max-height:none!important;
+    aspect-ratio:760 / 184!important;
+    border-radius:0!important;
   }
 }
 
