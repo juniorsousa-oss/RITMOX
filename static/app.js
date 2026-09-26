@@ -364,7 +364,7 @@ $("#saveModalityBtn").onclick=async(ev)=>{
   }catch(e){toast(e.message)}
 };
 
-$("#stravaBtn").onclick=async()=>{
+if($("#stravaBtn")) $("#stravaBtn").onclick=async()=>{
   try{
     const s=await api("/api/integrations/strava");
     if(!s.configured) toast("Interface pronta. Falta configurar as credenciais OAuth do Strava no Render.");

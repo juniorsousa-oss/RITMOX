@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 20
     env:
       APP_URL: https://ritmox.onrender.com
-      EXPECTED_BUILD: "20260926-50"
+      EXPECTED_BUILD: "20260926-51"
     steps:
       - uses: actions/checkout@v4
 
@@ -260,7 +260,7 @@ jobs:
                 if(await p.locator('.day-empty-icon').count()!==1) throw new Error('day empty icon missing');
 
                 console.log('PASS approved profile/calendar '+i+'/6');
-                if(i===6) await p.screenshot({path:'ritmox-v50-profile-calendar.png',fullPage:true});
+                if(i===6) await p.screenshot({path:'ritmox-v51-profile-calendar.png',fullPage:true});
                 await p.close();
               }
             }finally{await browser.close();}
@@ -298,6 +298,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ritmox-v50-live-validation
-          path: ritmox-v50-profile-calendar.png
+          name: ritmox-v51-live-validation
+          path: ritmox-v51-profile-calendar.png
           if-no-files-found: ignore
