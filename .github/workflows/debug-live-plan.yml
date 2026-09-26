@@ -29,7 +29,7 @@ jobs:
             page.on('pageerror',e=>errors.push(String(e)));
             page.on('console',m=>{ if(m.type()==='error') errors.push('console:'+m.text()); });
 
-            await page.goto(APP+'/?debugPlanApply=1',{waitUntil:'networkidle',timeout:120000});
+            await page.goto(APP+'/?debugPlanApply=2',{waitUntil:'networkidle',timeout:120000});
             await page.locator('.bottom-nav [data-page="workouts"]').click();
             await page.locator('#trainingCalendar').waitFor({state:'visible',timeout:30000});
 
