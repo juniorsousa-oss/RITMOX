@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 20
     env:
       APP_URL: https://ritmox.onrender.com
-      EXPECTED_BUILD: "20260926-51"
+      EXPECTED_BUILD: "20260926-52"
     steps:
       - uses: actions/checkout@v4
 
@@ -294,10 +294,57 @@ jobs:
               db.close()
           PY
 
+      - name: Validate approved workout/profile layout six times
+        shell: bash
+        run: |
+          node <<'NODE'
+          const { chromium }=require('playwright-core');
+          const APP=process.env.APP_URL;
+          (async()=>{
+            const browser=await chromium.launch({executablePath:'/usr/bin/google-chrome',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+            try{
+              for(let i=1;i<=6;i++){
+                const page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
+                await page.goto(APP+'/?approvedLayout=v52-'+i,{waitUntil:'networkidle',timeout:120000});
+
+                // Profile: approved structure + clickable customization.
+                await page.locator('.bottom-nav [data-page="profile"]').click();
+                await page.locator('.ritmox-profile-v52').waitFor({state:'visible',timeout:30000});
+                const hero=await page.locator('.profile-hero-card').boundingBox();
+                const anam=await page.locator('#profileAnamnesisCard').boundingBox();
+                if(!hero||!anam||Math.abs(hero.x-anam.x)>.5||Math.abs(hero.width-anam.width)>.5){
+                  throw new Error('profile cards misaligned '+JSON.stringify({hero,anam}));
+                }
+                await page.locator('#editProfileNameBtn').click();
+                await page.locator('#profileEditDialog').waitFor({state:'visible',timeout:10000});
+                await page.locator('#cancelProfileEditBtn').click();
+
+                // Workout: plus aligned inside selected-day header.
+                await page.locator('.bottom-nav [data-page="workouts"]').click();
+                const calendar=page.locator('#trainingCalendar');
+                if(await calendar.isVisible().catch(()=>false)){
+                  const panel=await page.locator('.day-panel').boundingBox();
+                  const plus=await page.locator('#addPlanDayBtn').boundingBox();
+                  const head=await page.locator('.day-panel-head').boundingBox();
+                  if(!panel||!plus||!head) throw new Error('missing calendar geometry');
+                  const rightGap=(panel.x+panel.width)-(plus.x+plus.width);
+                  const topGap=plus.y-head.y;
+                  if(rightGap<12||rightGap>20||topGap<0||topGap>4){
+                    throw new Error('day plus misaligned '+JSON.stringify({rightGap,topGap,panel,plus,head}));
+                  }
+                }
+                console.log('PASS approved workout/profile '+i+'/6');
+                if(i===6) await page.screenshot({path:'ritmox-v52-approved.png',fullPage:true});
+                await page.close();
+              }
+            }finally{await browser.close();}
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+
       - name: Upload v50 screenshot
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ritmox-v51-live-validation
+          name: ritmox-v52-live-validation
           path: ritmox-v51-profile-calendar.png
           if-no-files-found: ignore
