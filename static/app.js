@@ -77,6 +77,7 @@ const pageMeta = {
 };
 
 function navigate(page){
+  document.body.classList.remove("route-pending");
   if(!$("#page-"+page)) page = "home";
   state.page = page;
   document.body.dataset.page = page;
@@ -86,6 +87,7 @@ function navigate(page){
   $("#pageTitle").textContent = meta[0];
   $("#pageSubtitle").textContent = meta[1];
   history.replaceState(null,"","#"+page);
+  try{sessionStorage.setItem("ritmox.page",page)}catch(e){}
   if(page==="home") setTimeout(drawProgressChart,50);
   if(page==="run") setTimeout(drawRunChart,50);
   if(page==="workouts") setTimeout(()=>loadHealthGate(),20);
@@ -1812,7 +1814,10 @@ function renderTrainingCycleState(){
     :"Planeje corrida, musculação e outras modalidades com métodos baseados em evidências.";
 
   const add=$("#addPlanTopBtn");
-  if(add) add.innerHTML=active?"<span>＋</span> Treino avulso":"<span>＋</span> Novo ciclo";
+  if(add){
+    add.hidden=active;
+    add.innerHTML="<span>＋</span> Novo ciclo";
+  }
 
   if(!active) return;
   if($("#activeCycleTitle")) $("#activeCycleTitle").textContent=program.title||"Ciclo ativo";
@@ -2722,7 +2727,9 @@ window.addEventListener("resize",()=>{
   // Restore the requested route before any network request. This prevents
   // the Home page from flashing when reloading #workouts/#run/etc.
   const hash=location.hash.replace("#","");
-  const initialPage=pageMeta[hash]?hash:"home";
+  let remembered="";
+  try{remembered=sessionStorage.getItem("ritmox.page")||""}catch(e){}
+  const initialPage=pageMeta[hash]?hash:(pageMeta[remembered]?remembered:"home");
   navigate(initialPage);
 
   const workoutNavSource=$(".bottom-nav [data-page='workouts'] img")?.src;
