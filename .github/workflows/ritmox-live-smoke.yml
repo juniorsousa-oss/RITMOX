@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 20
     env:
       APP_URL: https://ritmox.onrender.com
-      EXPECTED_BUILD: "20260926-57"
+      EXPECTED_BUILD: "20260926-58"
     steps:
       - uses: actions/checkout@v4
 
@@ -335,6 +335,8 @@ jobs:
                 await p.locator('#cancelProfilePhotoCropBtn').click();
                 if(await p.locator('#profilePhotoCropDialog').isVisible().catch(()=>false)) throw new Error('photo crop did not close');
 
+                const plannerErrors=[];
+                p.on('pageerror',err=>plannerErrors.push(String(err)));
                 await p.locator('.bottom-nav [data-page="workouts"]').click();
                 await p.evaluate(()=>{
                   const gate=document.querySelector('#healthGate');
@@ -347,13 +349,17 @@ jobs:
                   renderTrainingCalendar();
                 });
                 await p.locator('#weekCalendar').waitFor({state:'visible',timeout:10000});
-                const addBox=await p.locator('#addPlanDayBtn').boundingBox();
-                if(Math.abs(addBox.width-48)>1||Math.abs(addBox.height-48)>1) throw new Error('day add button misaligned '+JSON.stringify(addBox));
+                if(await p.locator('#healthStatusStrip').count()!==0) throw new Error('persistent anamnesis banner returned');
+                if(await p.locator('#addPlanDayBtn').count()!==0) throw new Error('duplicate day add button returned');
+                if(await p.locator('#page-workouts .calendar-add-btn').count()!==1) throw new Error('planner must have one primary add CTA');
+                if(await p.locator('[data-planner-modality]').count()!==5) throw new Error('planner modality tabs mismatch');
+                if(await p.locator('[data-method-key]').count()!==4) throw new Error('validated training methods mismatch');
                 const cards=await p.locator('.calendar-day').count();
                 if(cards!==7) throw new Error('calendar days '+cards);
-                const firstBox=await p.locator('.calendar-day').first().boundingBox();
-                if(Math.abs(firstBox.width-71)>1) throw new Error('calendar card width '+firstBox.width);
-                if(await p.locator('.day-empty-icon').count()!==1) throw new Error('day empty icon missing');
+                await p.locator('[data-method-key="strength"]').click();
+                const goal=(await p.locator('#structuredPlanGoal').textContent()||'').trim();
+                if(goal!=='Aumento de força') throw new Error('structured method selection failed: '+goal);
+                if(plannerErrors.length) throw new Error('browser pageerror: '+plannerErrors.join(' | '));
 
                 console.log('PASS approved profile/calendar '+i+'/6');
                 if(i===6) await p.screenshot({path:'ritmox-v57-approved.png',fullPage:true});
@@ -401,7 +407,9 @@ jobs:
             try{
               for(let i=1;i<=6;i++){
                 const page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
-                await page.goto(APP+'/?approvedLayout=v53-'+i,{waitUntil:'networkidle',timeout:120000});
+                const pageErrors=[];
+                page.on('pageerror',err=>pageErrors.push(String(err)));
+                await page.goto(APP+'/?approvedLayout=v58-'+i,{waitUntil:'networkidle',timeout:120000});
 
                 // Profile: approved structure + clickable customization.
                 await page.locator('.bottom-nav [data-page="profile"]').click();
@@ -434,6 +442,7 @@ jobs:
                   if(await page.locator('[data-program-method]').count()!==4) throw new Error('program dialog methods mismatch');
                   await page.locator('#cancelTrainingProgramBtn').click();
                 }
+                if(pageErrors.length) throw new Error('browser pageerror: '+pageErrors.join(' | '));
                 console.log('PASS approved workout/profile '+i+'/6');
                 if(i===6) await page.screenshot({path:'ritmox-v57-approved.png',fullPage:true});
                 await page.close();

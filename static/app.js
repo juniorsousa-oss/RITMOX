@@ -1707,7 +1707,7 @@ function planDetailLabel(plan){
 }
 function renderPlannerMethodCards(){
   const method=selectedPlannerMethod();
-  $("[data-method-key]").forEach(card=>{
+  $$("[data-method-key]").forEach(card=>{
     const item=plannerMethodByKey(card.dataset.methodKey);
     card.classList.toggle("active",card.dataset.methodKey===state.calendar.methodKey);
     if(!item) return;
@@ -1716,7 +1716,7 @@ function renderPlannerMethodCards(){
     if(em) em.textContent=item.tag;
     if(small) small.textContent=item.summary;
   });
-  $("[data-program-method]").forEach(card=>{
+  $$("[data-program-method]").forEach(card=>{
     card.classList.toggle("active",card.dataset.programMethod===state.calendar.methodKey);
   });
   if(!method) return;
@@ -2238,11 +2238,11 @@ if($("#todayWeekBtn")) $("#todayWeekBtn").onclick=()=>{
   loadTrainingCalendar(true);
 };
 if($("#addPlanTopBtn")) $("#addPlanTopBtn").onclick=openTrainingProgramDialog;
-$("[data-method-key]").forEach(btn=>btn.onclick=()=>selectTrainingMethod(btn.dataset.methodKey));
-$("[data-program-method]").forEach(btn=>btn.onclick=()=>selectTrainingMethod(btn.dataset.programMethod));
-$("[data-planner-modality]").forEach(btn=>btn.onclick=()=>{
+$$("[data-method-key]").forEach(btn=>btn.onclick=()=>selectTrainingMethod(btn.dataset.methodKey));
+$$("[data-program-method]").forEach(btn=>btn.onclick=()=>selectTrainingMethod(btn.dataset.programMethod));
+$$("[data-planner-modality]").forEach(btn=>btn.onclick=()=>{
   state.calendar.modalityFilter=btn.dataset.plannerModality;
-  $("[data-planner-modality]").forEach(x=>x.classList.toggle("active",x===btn));
+  $$("[data-planner-modality]").forEach(x=>x.classList.toggle("active",x===btn));
   renderTrainingCalendar();
 });
 if($("#closeTrainingProgramDialog")) $("#closeTrainingProgramDialog").onclick=closeTrainingProgramDialog;
