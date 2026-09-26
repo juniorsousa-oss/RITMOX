@@ -257,9 +257,22 @@ jobs:
                 if(!msg.includes('pendências')) throw new Error('missing explicit error: '+msg);
 
                 const canvas=p.locator('#haSignatureCanvas');
-                const b=await canvas.boundingBox();
-                await p.mouse.move(b.x+40,b.y+70); await p.mouse.down();
-                await p.mouse.move(b.x+110,b.y+45,{steps:5}); await p.mouse.move(b.x+180,b.y+80,{steps:5}); await p.mouse.up();
+                await canvas.evaluate(el=>{
+                  const rect=el.getBoundingClientRect();
+                  const fire=(type,x,y,buttons)=>el.dispatchEvent(new PointerEvent(type,{
+                    bubbles:true,
+                    cancelable:true,
+                    pointerId:1,
+                    pointerType:'mouse',
+                    clientX:rect.left+x,
+                    clientY:rect.top+y,
+                    buttons
+                  }));
+                  fire('pointerdown',40,70,1);
+                  fire('pointermove',110,45,1);
+                  fire('pointermove',180,80,1);
+                  fire('pointerup',180,80,0);
+                });
                 if(!await p.evaluate(()=>state.health.signatureHasInk)) throw new Error('signature did not register');
                 await p.locator('#haConsentTruthful').click();
                 await p.locator('#haConsentScreening').click();
