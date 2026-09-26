@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 20
     env:
       APP_URL: https://ritmox.onrender.com
-      EXPECTED_BUILD: "20260926-60"
+      EXPECTED_BUILD: "20260926-61"
     steps:
       - uses: actions/checkout@v4
 
@@ -473,10 +473,40 @@ jobs:
 
                   await page.locator('[data-planner-modality="geral"]').click();
                   if(await page.locator('[data-method-key]:visible').count()!==4) throw new Error('geral methods did not restore');
+                  await page.locator('[data-method-key="strength"]').click();
+
+                  let applyRequests=0;
+                  let appliedMethod='';
+                  await page.route('**/api/training-program/apply',async route=>{
+                    applyRequests++;
+                    const payload=route.request().postDataJSON();
+                    appliedMethod=payload.method_key||'';
+                    await route.fulfill({
+                      status:200,
+                      contentType:'application/json',
+                      body:JSON.stringify({
+                        program:{
+                          method_key:appliedMethod,
+                          start_date:payload.start_date,
+                          weeks:payload.weeks,
+                          title:'Força',
+                          goal:'Aumento de força',
+                          frequency:'3x musculação + recuperação',
+                          structure:'Corpo inteiro A/B'
+                        },
+                        created_count:4
+                      })
+                    });
+                  });
+
                   await page.locator('#addPlanTopBtn').click();
                   await page.locator('#trainingProgramDialog').waitFor({state:'visible',timeout:10000});
                   if(await page.locator('[data-program-method]:visible').count()!==4) throw new Error('program dialog methods mismatch');
-                  await page.locator('#cancelTrainingProgramBtn').click();
+                  await page.locator('#applyTrainingProgramBtn').click();
+                  await page.locator('#trainingProgramDialog').waitFor({state:'hidden',timeout:10000});
+                  if(applyRequests!==1) throw new Error('apply button did not emit one POST request: '+applyRequests);
+                  if(appliedMethod!=='strength') throw new Error('wrong method sent by apply button: '+appliedMethod);
+                  await page.unroute('**/api/training-program/apply');
                 }
                 if(pageErrors.length) throw new Error('browser pageerror: '+pageErrors.join(' | '));
                 console.log('PASS approved workout/profile '+i+'/6');

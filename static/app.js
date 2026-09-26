@@ -1841,8 +1841,8 @@ function openPlannerPrimaryAction(){
   }
   openPlanDialog(null,state.calendar.selectedDate||localISO(new Date()),filter);
 }
-async function applyTrainingProgram(ev){
-  ev.preventDefault();
+async function applyTrainingProgram(ev=null){
+  ev?.preventDefault?.();
   const btn=$("#applyTrainingProgramBtn");
   const old=btn?.textContent||"Aplicar ao calendário";
   if(btn){btn.disabled=true;btn.textContent="Aplicando...";}
@@ -1859,8 +1859,8 @@ async function applyTrainingProgram(ev){
     state.calendar.weekStart=startOfWeek(parseISODate($("#programStartDate").value));
     state.calendar.selectedDate=localISO(state.calendar.weekStart);
     closeTrainingProgramDialog();
-    await loadTrainingCalendar(true);
     toast(`${result.created_count} sessões adicionadas ao calendário.`);
+    await loadTrainingCalendar(true);
   }catch(e){
     toast(e.message);
   }finally{
@@ -2308,6 +2308,11 @@ $$("[data-planner-modality]").forEach(btn=>btn.onclick=()=>{
 });
 if($("#closeTrainingProgramDialog")) $("#closeTrainingProgramDialog").onclick=closeTrainingProgramDialog;
 if($("#cancelTrainingProgramBtn")) $("#cancelTrainingProgramBtn").onclick=closeTrainingProgramDialog;
+if($("#applyTrainingProgramBtn")) $("#applyTrainingProgramBtn").onclick=()=>{
+  const form=$("#trainingProgramForm");
+  if(form && !form.reportValidity()) return;
+  applyTrainingProgram();
+};
 if($("#trainingProgramForm")) $("#trainingProgramForm").addEventListener("submit",applyTrainingProgram);
 if($("#addExerciseRowBtn")) $("#addExerciseRowBtn").onclick=()=>addExerciseRow();
 if($("#planModality")) $("#planModality").addEventListener("change",ev=>{
