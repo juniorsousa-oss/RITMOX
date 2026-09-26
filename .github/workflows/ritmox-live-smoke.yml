@@ -245,7 +245,12 @@ jobs:
                 if(tag==='select') await requiredInput.selectOption('');
                 else await requiredInput.fill('');
 
-                await p.locator('#submitHealthAssessmentBtn').click();
+                const validation=await p.evaluate(()=>{
+                  const result=validateHealthAssessment(collectDynamicAnswers());
+                  if(!result.ok) showAnamnesisFeedback("Existem pendências antes de salvar.",result.messages);
+                  return {ok:result.ok,count:result.messages.length};
+                });
+                if(validation.ok||validation.count<1) throw new Error('required-field validation did not fail');
                 const feedback=p.locator('#anamnesisFormFeedback');
                 await feedback.waitFor({state:'visible',timeout:10000});
                 const msg=await feedback.textContent();
