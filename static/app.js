@@ -17,7 +17,7 @@ const state = {
   },
   timerStartedAt: null,
   timerHandle: null,
-  workoutExecution: {restHandle:null,restEndsAt:null},
+  workoutExecution: {restHandle:null,restEndsAt:null,activeExerciseId:null,advanceAfterRest:false},
   homeToday: {strength:null,run:null},
   calendar: {
     weekStart: null,
@@ -2045,7 +2045,21 @@ function targetRepsNumber(value){
 function currentWorkoutExercise(){
   const w=state.workout;
   if(!w?.exercises?.length) return null;
-  return w.exercises.find(e=>e.sets_done<e.sets_total) || w.exercises[w.exercises.length-1];
+  if(state.workoutExecution.activeExerciseId){
+    const active=w.exercises.find(e=>e.id===state.workoutExecution.activeExerciseId);
+    if(active) return active;
+  }
+  const next=w.exercises.find(e=>e.sets_done<e.sets_total) || w.exercises[w.exercises.length-1];
+  state.workoutExecution.activeExerciseId=next?.id||null;
+  return next;
+}
+function advanceWorkoutExerciseAfterRest(){
+  const w=state.workout;
+  if(!w?.exercises?.length) return;
+  const next=w.exercises.find(e=>e.sets_done<e.sets_total);
+  state.workoutExecution.activeExerciseId=next?.id||null;
+  state.workoutExecution.advanceAfterRest=false;
+  renderWorkoutExecution();
 }
 function clearRestTimer(){
   if(state.workoutExecution.restHandle){
@@ -2055,6 +2069,13 @@ function clearRestTimer(){
   state.workoutExecution.restEndsAt=null;
   if($("#workoutRestTimer")) $("#workoutRestTimer").hidden=true;
 }
+function finishRestTimer(skipped=false){
+  const shouldAdvance=!!state.workoutExecution.advanceAfterRest;
+  clearRestTimer();
+  if(shouldAdvance) advanceWorkoutExerciseAfterRest();
+  else renderWorkoutExecution();
+  toast(skipped?"Descanso pulado.":"Descanso concluído. Próxima série.");
+}
 function updateRestTimer(){
   if(!state.workoutExecution.restEndsAt) return;
   const remaining=Math.max(0,Math.ceil((state.workoutExecution.restEndsAt-Date.now())/1000));
@@ -2063,14 +2084,17 @@ function updateRestTimer(){
   if($("#workoutRestTimerValue")) $("#workoutRestTimerValue").textContent=mm+":"+ss;
   if($("#workoutRestTimer")) $("#workoutRestTimer").hidden=false;
   if(remaining<=0){
-    clearRestTimer();
-    toast("Descanso concluído. Próxima série.");
+    finishRestTimer(false);
   }
 }
-function startRestTimer(seconds){
+function startRestTimer(seconds,advanceAfterRest=false){
   clearRestTimer();
+  state.workoutExecution.advanceAfterRest=!!advanceAfterRest;
   const duration=Math.max(0,Number(seconds||0));
-  if(!duration) return;
+  if(!duration){
+    finishRestTimer(false);
+    return;
+  }
   state.workoutExecution.restEndsAt=Date.now()+duration*1000;
   updateRestTimer();
   state.workoutExecution.restHandle=setInterval(updateRestTimer,250);
@@ -2123,8 +2147,15 @@ function renderWorkoutExecution(){
   $("#workoutExecInputs").hidden=w.completed;
   $("#workoutCompleteState").hidden=!w.completed;
   if(!w.completed){
-    $("#completeWorkoutSetBtn").textContent="Concluir série "+Math.min(current.sets_done+1,current.sets_total)+" / "+current.sets_total;
-    $("#undoWorkoutSetBtn").hidden=!logs.length;
+    const resting=!!state.workoutExecution.restEndsAt;
+    const seriesNumber=Math.min(current.sets_done+1,current.sets_total);
+    $("#completeWorkoutSetBtn").textContent=resting
+      ?"Aguardando descanso..."
+      :"Concluir série "+seriesNumber+" / "+current.sets_total;
+    $("#completeWorkoutSetBtn").disabled=resting || current.sets_done>=current.sets_total;
+    $("#workoutActualReps").disabled=resting || current.sets_done>=current.sets_total;
+    $("#workoutActualLoad").disabled=resting || current.sets_done>=current.sets_total;
+    $("#undoWorkoutSetBtn").hidden=!logs.length || resting;
   }
 
   const next=w.exercises[index+1];
@@ -2137,6 +2168,8 @@ async function openPlannedWorkout(planId){
     const w=await api('/api/training-plans/'+planId+'/start-workout',{method:"POST"});
     state.workout=w;
     clearRestTimer();
+    state.workoutExecution.advanceAfterRest=false;
+    state.workoutExecution.activeExerciseId=(w.exercises.find(e=>e.sets_done<e.sets_total)||w.exercises[0])?.id||null;
     renderWorkoutExecution();
     const dialog=$("#workoutExecutionDialog");
     if(dialog&&!dialog.open) dialog.showModal();
@@ -2161,21 +2194,28 @@ async function completeWorkoutExecutionSet(){
   btn.disabled=true;
   btn.textContent="Salvando série...";
   try{
+    const finishingExercise=(current.sets_done+1)>=current.sets_total;
     const result=await api('/api/exercises/'+current.id+'/complete-set',{
       method:"POST",
       body:JSON.stringify({reps_done:reps,load_kg:load,rest_sec:current.rest_sec||60})
     });
     state.workout=result.workout;
-    renderWorkoutExecution();
+    state.workoutExecution.activeExerciseId=current.id;
     if(result.workout_completed){
+      state.workoutExecution.advanceAfterRest=false;
       clearRestTimer();
+      renderWorkoutExecution();
       toast("Treino concluído e salvo no histórico.");
     }else{
-      startRestTimer(result.rest_sec||current.rest_sec||60);
-      toast("Série registrada.");
+      renderWorkoutExecution();
+      startRestTimer(result.rest_sec||current.rest_sec||60,finishingExercise);
+      renderWorkoutExecution();
+      toast(finishingExercise?"Exercício concluído. Descanse antes do próximo.":"Série registrada. Descanse antes da próxima.");
     }
   }catch(e){toast(e.message)}
-  finally{btn.disabled=false}
+  finally{
+    if(!state.workoutExecution.restEndsAt) btn.disabled=false;
+  }
 }
 async function undoWorkoutExecutionSet(){
   const w=state.workout;
@@ -2186,6 +2226,8 @@ async function undoWorkoutExecutionSet(){
     const result=await api('/api/exercises/'+completed.id+'/undo-set',{method:"POST"});
     state.workout=result.workout;
     clearRestTimer();
+    state.workoutExecution.advanceAfterRest=false;
+    state.workoutExecution.activeExerciseId=completed.id;
     renderWorkoutExecution();
     toast("Última série desfeita.");
   }catch(e){toast(e.message)}
@@ -2575,7 +2617,7 @@ if($("#closeWorkoutExecutionBtn")) $("#closeWorkoutExecutionBtn").onclick=closeW
 if($("#finishWorkoutCloseBtn")) $("#finishWorkoutCloseBtn").onclick=closeWorkoutExecution;
 if($("#completeWorkoutSetBtn")) $("#completeWorkoutSetBtn").onclick=completeWorkoutExecutionSet;
 if($("#undoWorkoutSetBtn")) $("#undoWorkoutSetBtn").onclick=undoWorkoutExecutionSet;
-if($("#restTimerSkipBtn")) $("#restTimerSkipBtn").onclick=clearRestTimer;
+if($("#restTimerSkipBtn")) $("#restTimerSkipBtn").onclick=()=>finishRestTimer(true);
 if($("#restTimerMinusBtn")) $("#restTimerMinusBtn").onclick=()=>adjustRestTimer(-15);
 if($("#restTimerPlusBtn")) $("#restTimerPlusBtn").onclick=()=>adjustRestTimer(15);
 
