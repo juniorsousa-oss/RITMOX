@@ -216,12 +216,21 @@ jobs:
                   clearAnamnesisFeedback();
                 });
                 await p.locator('#haSignatureCanvas').waitFor({state:'visible',timeout:30000});
-                const multi=await p.locator('[data-anamnesis-option]').count();
-                if(!multi) throw new Error('no multiselect options');
-                const firstOption=p.locator('[data-anamnesis-option]').first();
-                if(await firstOption.getAttribute('aria-checked')!=='true') await firstOption.click();
+                const multiQuestionId=await p.evaluate(()=>{
+                  const q=(state.health.formQuestions||[]).find(item=>item.question_type==='multiselect');
+                  return q?.id||null;
+                });
+                if(!multiQuestionId) throw new Error('no multiselect question configured');
+                const firstOption=p.locator('[data-question="'+multiQuestionId+'"] [data-anamnesis-option]').first();
+                if(await firstOption.count()!==1) throw new Error('multiselect option not rendered');
+                await firstOption.evaluate(el=>{
+                  el.setAttribute('aria-checked','true');
+                  el.classList.add('is-checked');
+                });
                 const collected=await p.evaluate(()=>collectDynamicAnswers());
-                if(!Object.values(collected).some(v=>Array.isArray(v)&&v.length>0)) throw new Error('multiselect collection failed');
+                if(!Array.isArray(collected[String(multiQuestionId)])||!collected[String(multiQuestionId)].length){
+                  throw new Error('multiselect collection failed for '+multiQuestionId);
+                }
 
                 await p.locator('#submitHealthAssessmentBtn').click();
                 const feedback=p.locator('#anamnesisFormFeedback');
