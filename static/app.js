@@ -968,20 +968,43 @@ function closeProfilePhotoCrop(){
   const input=$("#profilePhotoInput");
   if(input) input.value="";
 }
-function profilePhotoCropMetrics(){
+const PROFILE_PHOTO_CROP_INSET=.10;
+function profilePhotoCropRect(){
   const canvas=$("#profilePhotoCropCanvas");
+  if(!canvas) return null;
+  const size=canvas.width*(1-(PROFILE_PHOTO_CROP_INSET*2));
+  return {
+    x:(canvas.width-size)/2,
+    y:(canvas.height-size)/2,
+    size,
+    centerX:canvas.width/2,
+    centerY:canvas.height/2,
+  };
+}
+function profilePhotoCropMetrics(){
   const img=state.photoCrop.image;
-  if(!canvas||!img) return null;
-  const base=Math.max(canvas.width/img.naturalWidth,canvas.height/img.naturalHeight);
+  const rect=profilePhotoCropRect();
+  if(!img||!rect) return null;
+
+  // 100% = "contain": a foto inteira cabe dentro do quadrado branco.
+  // Acima de 100%, o usuário escolhe quanto deseja recortar.
+  const base=Math.min(rect.size/img.naturalWidth,rect.size/img.naturalHeight);
   const scale=base*state.photoCrop.zoom;
-  return {scale,width:img.naturalWidth*scale,height:img.naturalHeight*scale};
+  return {
+    scale,
+    width:img.naturalWidth*scale,
+    height:img.naturalHeight*scale,
+  };
 }
 function clampProfilePhotoCrop(){
-  const canvas=$("#profilePhotoCropCanvas");
   const m=profilePhotoCropMetrics();
-  if(!canvas||!m) return;
-  const maxX=Math.max(0,(m.width-canvas.width)/2);
-  const maxY=Math.max(0,(m.height-canvas.height)/2);
+  const rect=profilePhotoCropRect();
+  if(!m||!rect) return;
+
+  // Quando a imagem é menor que o recorte em um eixo, ela pode ser movida
+  // dentro do quadrado sem perder conteúdo. Quando é maior, mantém cobertura.
+  const maxX=Math.abs(m.width-rect.size)/2;
+  const maxY=Math.abs(m.height-rect.size)/2;
   state.photoCrop.offsetX=Math.max(-maxX,Math.min(maxX,state.photoCrop.offsetX));
   state.photoCrop.offsetY=Math.max(-maxY,Math.min(maxY,state.photoCrop.offsetY));
 }
@@ -989,14 +1012,17 @@ function drawProfilePhotoCrop(){
   const canvas=$("#profilePhotoCropCanvas");
   const img=state.photoCrop.image;
   const m=profilePhotoCropMetrics();
-  if(!canvas||!img||!m) return;
+  const rect=profilePhotoCropRect();
+  if(!canvas||!img||!m||!rect) return;
+
   clampProfilePhotoCrop();
   const ctx=canvas.getContext("2d");
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.fillStyle="#030712";
   ctx.fillRect(0,0,canvas.width,canvas.height);
-  const x=(canvas.width-m.width)/2+state.photoCrop.offsetX;
-  const y=(canvas.height-m.height)/2+state.photoCrop.offsetY;
+
+  const x=rect.centerX-(m.width/2)+state.photoCrop.offsetX;
+  const y=rect.centerY-(m.height/2)+state.photoCrop.offsetY;
   ctx.drawImage(img,x,y,m.width,m.height);
 }
 function setProfilePhotoZoom(value,preserveComposition=true){
@@ -1013,6 +1039,25 @@ function setProfilePhotoZoom(value,preserveComposition=true){
   if(range) range.value=String(next);
   if(valueEl) valueEl.textContent=Math.round(next*100)+"%";
   drawProfilePhotoCrop();
+}
+function getProfilePhotoCropDataUrl(){
+  const canvas=$("#profilePhotoCropCanvas");
+  const rect=profilePhotoCropRect();
+  if(!canvas||!rect||!state.photoCrop.image) return "";
+  drawProfilePhotoCrop();
+
+  const output=document.createElement("canvas");
+  output.width=512;
+  output.height=512;
+  const ctx=output.getContext("2d");
+  ctx.fillStyle="#030712";
+  ctx.fillRect(0,0,output.width,output.height);
+  ctx.drawImage(
+    canvas,
+    rect.x,rect.y,rect.size,rect.size,
+    0,0,output.width,output.height
+  );
+  return output.toDataURL("image/jpeg",0.88);
 }
 function recenterProfilePhotoCrop(){
   state.photoCrop.offsetX=0;
@@ -1149,8 +1194,8 @@ async function applyProfilePhotoCrop(){
   const old=btn?.innerHTML||"Usar foto";
   if(btn){btn.disabled=true;btn.textContent="Salvando...";}
   try{
-    drawProfilePhotoCrop();
-    const photo=canvas.toDataURL("image/jpeg",0.88);
+    const photo=getProfilePhotoCropDataUrl();
+    if(!photo) throw new Error("Não foi possível gerar o recorte da foto.");
     const current=state.profile||await api("/api/profile");
     state.profile=await api("/api/profile",{
       method:"PUT",
