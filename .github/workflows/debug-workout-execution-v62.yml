@@ -11,7 +11,7 @@ jobs:
       - name: Install browser runtime
         run: npm install --no-save playwright-core
 
-      - name: Validate simple strength workout end to end
+      - name: Inspect first strength set end to end
         shell: bash
         run: |
           set -euo pipefail
@@ -35,60 +35,38 @@ jobs:
                 notes:'RITMOX_TEST_EXEC_V62',
                 exercises:[],
                 blocks:[
-                  {kind:'strength',name:'Supino teste',detail:'Peito',sets_total:2,reps:'8',load_kg:40,distance_km:0,duration_min:0,pace_target:'',repetitions:0,rest_sec:2,intensity:''},
-                  {kind:'strength',name:'Remada teste',detail:'Costas',sets_total:2,reps:'10',load_kg:35,distance_km:0,duration_min:0,pace_target:'',repetitions:0,rest_sec:2,intensity:''}
+                  {kind:'strength',name:'Supino teste',detail:'Peito',sets_total:2,reps:'8',load_kg:40,distance_km:0,duration_min:0,pace_target:'',repetitions:0,rest_sec:2,intensity:''}
                 ]
               })
             });
             console.log('PLAN_ID',plan.id);
 
-            const browser=await chromium.launch({
-              executablePath:'/usr/bin/google-chrome',
-              headless:true,
-              args:['--no-sandbox','--disable-dev-shm-usage']
-            });
+            const browser=await chromium.launch({executablePath:'/usr/bin/google-chrome',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
             const page=await browser.newPage({viewport:{width:390,height:844}});
             const errors=[];
-            page.on('pageerror',e=>errors.push(String(e)));
-            await page.goto(APP+'/?debugExecution=v62',{waitUntil:'networkidle',timeout:120000});
+            page.on('pageerror',e=>{errors.push(String(e));console.log('PAGEERROR',String(e));});
+            page.on('console',m=>{if(m.type()==='error') console.log('CONSOLE_ERROR',m.text());});
+            await page.goto(APP+'/?debugExecution=v62-first-set',{waitUntil:'networkidle',timeout:120000});
+            console.log('BUILD',await page.evaluate(()=>fetch('/api/version').then(r=>r.json())));
 
             await page.evaluate(id=>openPlannedWorkout(id),plan.id);
             await page.locator('#workoutExecutionDialog').waitFor({state:'visible',timeout:15000});
-            if((await page.locator('#workoutExerciseName').textContent()).trim()!=='Supino teste') throw new Error('first exercise not loaded');
-            if((await page.locator('#workoutActualLoad').inputValue())!=='40') throw new Error('planned load not loaded');
+            console.log('EXERCISE_BEFORE',await page.locator('#workoutExerciseName').textContent());
+            console.log('LOAD_BEFORE',await page.locator('#workoutActualLoad').inputValue());
 
             await page.locator('#workoutActualReps').fill('8');
             await page.locator('#workoutActualLoad').fill('42.5');
+            const responsePromise=page.waitForResponse(r=>r.url().includes('/api/exercises/')&&r.url().includes('/complete-set')&&r.request().method()==='POST',{timeout:15000});
             await page.locator('#completeWorkoutSetBtn').click();
-            await page.waitForFunction(()=>document.querySelectorAll('.workout-set-row.done').length===1,{timeout:15000});
-            if(!await page.locator('#workoutRestTimer').isVisible()) throw new Error('rest timer did not start');
-            await page.locator('#restTimerSkipBtn').click();
-
-            await page.locator('#workoutActualReps').fill('7');
-            await page.locator('#workoutActualLoad').fill('42.5');
-            await page.locator('#completeWorkoutSetBtn').click();
-            await page.waitForFunction(()=>document.querySelector('#workoutExerciseName')?.textContent?.trim()==='Remada teste',{timeout:15000});
-            await page.locator('#restTimerSkipBtn').click().catch(()=>{});
-
-            await page.locator('#workoutActualReps').fill('10');
-            await page.locator('#workoutActualLoad').fill('35');
-            await page.locator('#completeWorkoutSetBtn').click();
-            await page.locator('#restTimerSkipBtn').click().catch(()=>{});
-            await page.locator('#workoutActualReps').fill('9');
-            await page.locator('#workoutActualLoad').fill('35');
-            await page.locator('#completeWorkoutSetBtn').click();
-
-            await page.locator('#workoutCompleteState').waitFor({state:'visible',timeout:15000});
-            const workoutId=await page.evaluate(()=>state.workout?.id);
-            const workout=await api('/api/workouts/'+workoutId);
-            if(!workout.completed) throw new Error('workout not persisted as completed');
-            if(workout.exercises.length!==2) throw new Error('wrong exercise count');
-            if(workout.exercises[0].set_logs.length!==2||workout.exercises[1].set_logs.length!==2) throw new Error('set history not persisted');
-            if(Number(workout.exercises[0].set_logs[0].load_kg)!==42.5) throw new Error('edited load not persisted');
-            if(Number(workout.exercises[0].set_logs[1].reps_done)!==7) throw new Error('edited reps not persisted');
-            console.log('WORKOUT_ID',workoutId);
-            console.log('PASS workout execution v62');
+            const response=await responsePromise;
+            console.log('COMPLETE_STATUS',response.status());
+            console.log('COMPLETE_BODY',await response.text());
+            await page.waitForTimeout(1200);
+            console.log('HISTORY_HTML',await page.locator('#workoutSetHistory').innerHTML());
+            console.log('DONE_ROWS',await page.locator('.workout-set-row.done').count());
+            console.log('REST_VISIBLE',await page.locator('#workoutRestTimer').isVisible());
             console.log('ERRORS',JSON.stringify(errors));
+            console.log('WORKOUT_ID',await page.evaluate(()=>state.workout?.id));
 
             await api('/api/training-plans/'+plan.id,{method:'DELETE'});
             await browser.close();
