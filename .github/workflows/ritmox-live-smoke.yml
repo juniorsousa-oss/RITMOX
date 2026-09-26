@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 20
     env:
       APP_URL: https://ritmox.onrender.com
-      EXPECTED_BUILD: "20260926-66"
+      EXPECTED_BUILD: "20260926-67"
     steps:
       - uses: actions/checkout@v4
 
@@ -30,6 +30,18 @@ jobs:
           if bad:
               raise SystemExit("Invalid single-node selector .forEach found: "+repr(bad))
           print("PASS selector guard")
+          PY
+
+      - name: Validate completed workout history and story export
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          source=Path("app.py").read_text()+Path("static/index.html").read_text()+Path("static/app.js").read_text()+Path("static/story-export.js").read_text()
+          required=['@app.get("/api/workouts/{workout_id}")','data-view-workout','id="exportWorkoutStoryBtn"','function buildWorkoutStoryCanvas(w)','c.width=1080;c.height=1920','async function exportWorkoutStory(w)']
+          missing=[x for x in required if x not in source]
+          if missing: raise SystemExit("Missing story/history guards: "+repr(missing))
+          print("PASS completed workout history + 1080x1920 story export")
           PY
 
       - name: Validate strength set-rest sequencing
