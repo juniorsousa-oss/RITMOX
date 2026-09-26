@@ -413,7 +413,11 @@ def cleanup_initial_demo_data() -> None:
         db.close()
 
 
-cleanup_initial_demo_data()
+# Nunca execute limpeza destrutiva automaticamente em produção.
+# Dados de demonstração só podem ser removidos explicitamente em ambiente local.
+if os.getenv("RITMOX_CLEANUP_DEMO_DATA", "").strip().lower() in {"1", "true", "yes", "on"}:
+    cleanup_initial_demo_data()
+
 seed_default_anamnesis_once()
 app = FastAPI(title="RITMOX", version="0.1.0")
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
