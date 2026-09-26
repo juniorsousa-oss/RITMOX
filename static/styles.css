@@ -2811,3 +2811,7 @@ body.modal-open{overflow:hidden}
   .active-cycle-actions{display:grid;grid-template-columns:1fr 1fr}
   .active-cycle-actions button{width:100%}
 }
+
+/* === COMPLETED WORKOUT HISTORY + UNIFIED STORY V67 === */
+.day-plan-start.completed{background:linear-gradient(135deg,#7d20ff,#ff2d91);box-shadow:0 0 18px rgba(255,45,145,.18)}
+.workout-finish-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%;margin:14px 0}.workout-finish-summary>div{background:#081526;border:1px solid #2d3f5b;border-radius:11px;padding:10px;text-align:left}.workout-finish-summary small{display:block;color:#8190a7;font-size:9px;margin-bottom:4px}.workout-finish-summary strong{font-size:12px;color:#fff}.instagram-export-btn{width:100%;margin:4px 0 8px;background:linear-gradient(135deg,#ff176f,#c320ff)!important}@media(max-width:520px){.workout-finish-summary{grid-template-columns:repeat(2,1fr)}}
