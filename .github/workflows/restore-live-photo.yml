@@ -1,0 +1,45 @@
+name: Restore preserved RITMOX profile photo
+
+on:
+  push:
+    branches: [supabase-persistence-v56]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  restore-photo:
+    runs-on: ubuntu-latest
+    env:
+      APP_URL: https://ritmox.onrender.com
+      SNAPSHOT_ARTIFACT_ID: "10898253165"
+    steps:
+      - name: Restore preserved profile photo to current live database
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/ritmox-restore
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$SNAPSHOT_ARTIFACT_ID/zip" \
+            -o /tmp/ritmox-restore/snapshot.zip
+          unzip -q /tmp/ritmox-restore/snapshot.zip -d /tmp/ritmox-restore/data
+          python - <<'PY'
+          import json, os, urllib.request
+          from pathlib import Path
+          app=os.environ["APP_URL"].rstrip("/")
+          p=json.loads(Path("/tmp/ritmox-restore/data/profile.json").read_text())
+          payload={k:p.get(k,"") for k in ("name","email","birth_date","goals","photo_data")}
+          assert payload["photo_data"], "snapshot has no photo"
+          data=json.dumps(payload,ensure_ascii=False).encode()
+          req=urllib.request.Request(app+"/api/profile",data=data,method="PUT",headers={"Content-Type":"application/json"})
+          with urllib.request.urlopen(req,timeout=60) as resp:
+              restored=json.loads(resp.read().decode())
+          assert restored.get("photo_data")==payload["photo_data"]
+          print("PHOTO RESTORED",len(payload["photo_data"]))
+          PY
