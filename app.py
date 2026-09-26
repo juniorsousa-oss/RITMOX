@@ -23,7 +23,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, rela
 
 ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
-BUILD_VERSION = "20260926-61"
+BUILD_VERSION = "20260926-62"
 
 raw_database_url = os.getenv("DATABASE_URL", "").strip()
 require_persistent_db = os.getenv("REQUIRE_PERSISTENT_DB", "").strip().lower() in {"1", "true", "yes", "on"}
@@ -66,12 +66,15 @@ class Base(DeclarativeBase):
 class Workout(Base):
     __tablename__ = "workouts"
     id: Mapped[int] = mapped_column(primary_key=True)
+    plan_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     modality: Mapped[str] = mapped_column(String(40), default="musculacao")
     title: Mapped[str] = mapped_column(String(160))
     subtitle: Mapped[str] = mapped_column(String(220), default="")
     duration_min: Mapped[int] = mapped_column(Integer, default=45)
     started: Mapped[bool] = mapped_column(Boolean, default=False)
     completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     exercises: Mapped[list["Exercise"]] = relationship(back_populates="workout", cascade="all, delete-orphan")
 
 
@@ -84,8 +87,25 @@ class Exercise(Base):
     sets_total: Mapped[int] = mapped_column(Integer, default=4)
     reps: Mapped[str] = mapped_column(String(30), default="8-10")
     load_kg: Mapped[float] = mapped_column(Float, default=0)
+    rest_sec: Mapped[int] = mapped_column(Integer, default=60)
+    media_url: Mapped[str] = mapped_column(String(500), default="")
     sets_done: Mapped[int] = mapped_column(Integer, default=0)
     workout: Mapped[Workout] = relationship(back_populates="exercises")
+    set_logs: Mapped[list["WorkoutSetLog"]] = relationship(
+        back_populates="exercise", cascade="all, delete-orphan", order_by="WorkoutSetLog.set_number"
+    )
+
+
+class WorkoutSetLog(Base):
+    __tablename__ = "workout_set_logs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    exercise_id: Mapped[int] = mapped_column(ForeignKey("exercises.id", ondelete="CASCADE"), index=True)
+    set_number: Mapped[int] = mapped_column(Integer)
+    reps_done: Mapped[int] = mapped_column(Integer, default=0)
+    load_kg: Mapped[float] = mapped_column(Float, default=0)
+    rest_sec: Mapped[int] = mapped_column(Integer, default=60)
+    completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    exercise: Mapped[Exercise] = relationship(back_populates="set_logs")
 
 
 class RunActivity(Base):
@@ -468,15 +488,30 @@ def app_version():
     return {"app": "RITMOX", "build": BUILD_VERSION}
 
 
+class CompleteSetIn(BaseModel):
+    reps_done: int | None = Field(default=None, ge=1, le=100)
+    load_kg: float | None = Field(default=None, ge=0, le=2000)
+    rest_sec: int | None = Field(default=None, ge=0, le=3600)
+
+
+def _default_reps_done(target: str) -> int | None:
+    raw = (target or "").replace("–", "-").replace("—", "-")
+    match = __import__("re").search(r"\d+", raw)
+    return int(match.group(0)) if match else None
+
+
 def workout_payload(w: Workout) -> dict:
     return {
         "id": w.id,
+        "plan_id": w.plan_id,
         "modality": w.modality,
         "title": w.title,
         "subtitle": w.subtitle,
         "duration_min": w.duration_min,
         "started": w.started,
         "completed": w.completed,
+        "started_at": w.started_at.isoformat() if w.started_at else None,
+        "completed_at": w.completed_at.isoformat() if w.completed_at else None,
         "exercises": [
             {
                 "id": e.id,
@@ -485,7 +520,20 @@ def workout_payload(w: Workout) -> dict:
                 "sets_total": e.sets_total,
                 "reps": e.reps,
                 "load_kg": e.load_kg,
+                "rest_sec": e.rest_sec,
+                "media_url": e.media_url,
                 "sets_done": e.sets_done,
+                "set_logs": [
+                    {
+                        "id": log.id,
+                        "set_number": log.set_number,
+                        "reps_done": log.reps_done,
+                        "load_kg": log.load_kg,
+                        "rest_sec": log.rest_sec,
+                        "completed_at": log.completed_at.isoformat() if log.completed_at else None,
+                    }
+                    for log in e.set_logs
+                ],
             }
             for e in w.exercises
         ],
@@ -528,9 +576,23 @@ def dashboard(db: Session = Depends(session)):
 
 @app.get("/api/workouts/current")
 def current_workout(db: Session = Depends(session)):
-    w = db.scalars(select(Workout).where(Workout.modality == "musculacao").order_by(Workout.id)).first()
+    w = db.scalars(
+        select(Workout)
+        .where(Workout.modality == "musculacao", Workout.completed == False)
+        .order_by(Workout.id.desc())
+    ).first()
     if not w:
-        return None
+        w = db.scalars(
+            select(Workout).where(Workout.modality == "musculacao").order_by(Workout.id.desc())
+        ).first()
+    return workout_payload(w) if w else None
+
+
+@app.get("/api/workouts/{workout_id}")
+def get_workout(workout_id: int, db: Session = Depends(session)):
+    w = db.get(Workout, workout_id)
+    if not w:
+        raise HTTPException(404, "Treino não encontrado")
     return workout_payload(w)
 
 
@@ -540,22 +602,56 @@ def start_workout(workout_id: int, db: Session = Depends(session)):
     if not w:
         raise HTTPException(404, "Treino não encontrado")
     w.started = True
+    w.started_at = w.started_at or datetime.now(timezone.utc)
     db.commit()
+    db.refresh(w)
     return workout_payload(w)
 
 
 @app.post("/api/exercises/{exercise_id}/complete-set")
-def complete_set(exercise_id: int, db: Session = Depends(session)):
+def complete_set(
+    exercise_id: int,
+    data: CompleteSetIn | None = None,
+    db: Session = Depends(session),
+):
     e = db.get(Exercise, exercise_id)
     if not e:
         raise HTTPException(404, "Exercício não encontrado")
-    if e.sets_done < e.sets_total:
-        e.sets_done += 1
     w = e.workout
+    if w.completed:
+        raise HTTPException(409, "Este treino já foi concluído.")
+    if not w.started:
+        w.started = True
+        w.started_at = w.started_at or datetime.now(timezone.utc)
+    if e.sets_done >= e.sets_total:
+        return {"workout": workout_payload(w), "workout_completed": w.completed, "rest_sec": e.rest_sec}
+
+    payload = data or CompleteSetIn()
+    reps_done = payload.reps_done if payload.reps_done is not None else _default_reps_done(e.reps)
+    if reps_done is None:
+        raise HTTPException(422, "Informe quantas repetições foram realizadas nesta série.")
+    load_kg = e.load_kg if payload.load_kg is None else payload.load_kg
+    rest_sec = e.rest_sec if payload.rest_sec is None else payload.rest_sec
+
+    log = WorkoutSetLog(
+        exercise_id=e.id,
+        set_number=e.sets_done + 1,
+        reps_done=reps_done,
+        load_kg=load_kg,
+        rest_sec=rest_sec,
+    )
+    db.add(log)
+    e.sets_done += 1
+    e.load_kg = load_kg
+    e.rest_sec = rest_sec
+
     if all(x.sets_done >= x.sets_total for x in w.exercises):
         w.completed = True
+        w.completed_at = datetime.now(timezone.utc)
+
     db.commit()
-    return {"exercise": {"id": e.id, "sets_done": e.sets_done, "sets_total": e.sets_total}, "workout_completed": w.completed}
+    db.refresh(w)
+    return {"workout": workout_payload(w), "workout_completed": w.completed, "rest_sec": rest_sec}
 
 
 @app.post("/api/exercises/{exercise_id}/undo-set")
@@ -563,10 +659,19 @@ def undo_set(exercise_id: int, db: Session = Depends(session)):
     e = db.get(Exercise, exercise_id)
     if not e:
         raise HTTPException(404, "Exercício não encontrado")
+    latest = db.scalars(
+        select(WorkoutSetLog)
+        .where(WorkoutSetLog.exercise_id == exercise_id)
+        .order_by(WorkoutSetLog.set_number.desc(), WorkoutSetLog.id.desc())
+    ).first()
+    if latest:
+        db.delete(latest)
     e.sets_done = max(0, e.sets_done - 1)
     e.workout.completed = False
+    e.workout.completed_at = None
     db.commit()
-    return {"id": e.id, "sets_done": e.sets_done, "sets_total": e.sets_total}
+    db.refresh(e.workout)
+    return {"workout": workout_payload(e.workout)}
 
 
 @app.get("/api/runs/latest")
@@ -904,6 +1009,67 @@ def get_training_plan(plan_id: int, db: Session = Depends(session)):
     if not plan:
         raise HTTPException(404, "Treino planejado não encontrado")
     return plan_payload(plan)
+
+
+@app.post("/api/training-plans/{plan_id}/start-workout")
+def start_planned_workout(plan_id: int, db: Session = Depends(session)):
+    ensure_training_planning_allowed(db)
+    plan = db.get(WorkoutPlan, plan_id)
+    if not plan:
+        raise HTTPException(404, "Treino planejado não encontrado")
+    if plan.modality != "musculacao":
+        raise HTTPException(422, "A execução série a série desta etapa é exclusiva para musculação.")
+
+    existing = db.scalars(
+        select(Workout).where(Workout.plan_id == plan_id).order_by(Workout.id.desc())
+    ).first()
+    if existing and not existing.completed:
+        existing.started = True
+        existing.started_at = existing.started_at or datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(existing)
+        return workout_payload(existing)
+
+    blocks = [b for b in plan.blocks if b.kind == "strength" and b.name.strip()]
+    if not blocks and plan.exercises:
+        blocks = list(plan.exercises)
+    if not blocks:
+        raise HTTPException(422, "Adicione ao menos um exercício de musculação antes de iniciar.")
+
+    workout = Workout(
+        plan_id=plan.id,
+        modality="musculacao",
+        title=plan.title,
+        subtitle=plan.notes or f"Treino planejado para {plan.planned_date}",
+        duration_min=plan.duration_min,
+        started=True,
+        completed=False,
+        started_at=datetime.now(timezone.utc),
+    )
+    for source in blocks:
+        if isinstance(source, PlannedBlock):
+            workout.exercises.append(Exercise(
+                name=source.name.strip(),
+                muscle=source.detail.strip(),
+                sets_total=max(1, int(source.sets_total or 1)),
+                reps=source.reps.strip() or "Livre",
+                load_kg=float(source.load_kg or 0),
+                rest_sec=int(source.rest_sec or 60),
+            ))
+        else:
+            workout.exercises.append(Exercise(
+                name=source.name.strip(),
+                muscle=source.muscle.strip(),
+                sets_total=max(1, int(source.sets_total or 1)),
+                reps=source.reps.strip() or "Livre",
+                load_kg=float(source.load_kg or 0),
+                rest_sec=60,
+            ))
+
+    db.add(workout)
+    db.commit()
+    db.refresh(workout)
+    return workout_payload(workout)
 
 
 @app.get("/api/training-methods")

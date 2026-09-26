@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 20
     env:
       APP_URL: https://ritmox.onrender.com
-      EXPECTED_BUILD: "20260926-61"
+      EXPECTED_BUILD: "20260926-62"
     steps:
       - uses: actions/checkout@v4
 
@@ -371,7 +371,9 @@ jobs:
                 if(cards!==7) throw new Error('calendar days '+cards);
                 const viewport=await p.evaluate(()=>({vw:innerWidth,scroll:document.documentElement.scrollWidth}));
                 if(viewport.scroll>viewport.vw+1) throw new Error('planner exceeds viewport '+JSON.stringify(viewport));
+                await p.locator('[data-planner-modality="musculacao"]').click();
                 await p.locator('[data-method-key="strength"]').click();
+                await p.waitForFunction(()=>document.querySelector('#structuredPlanGoal')?.textContent?.trim()==='Aumento de força');
                 const goal=(await p.locator('#structuredPlanGoal').textContent()||'').trim();
                 if(goal!=='Aumento de força') throw new Error('structured method selection failed: '+goal);
                 if(plannerErrors.length) throw new Error('browser pageerror: '+plannerErrors.join(' | '));

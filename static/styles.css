@@ -2714,3 +2714,65 @@ body.modal-open{overflow:hidden}
     grid-template-columns:minmax(0,1fr)!important;
   }
 }
+
+
+/* === WORKOUT EXECUTION V62 === */
+.day-plan-card{align-items:center}
+.day-plan-actions{display:flex;align-items:center;gap:8px;margin-left:auto}
+.day-plan-start,.day-plan-open{min-height:38px;border-radius:11px;padding:0 12px;font-weight:800;font-size:11px;cursor:pointer}
+.day-plan-start{border:1px solid #ff2d7a;background:linear-gradient(135deg,#ff1774,#ff4aa1);color:#fff}
+.day-plan-open{border:1px solid #33435e;background:#0b1627;color:#dbe5f5}
+.workout-execution-dialog{width:min(680px,calc(100vw - 20px));max-width:680px;max-height:calc(100dvh - 20px);margin:auto;padding:0;border:1px solid #30405b;border-radius:22px;background:#08111f;color:#eef4fb;box-shadow:0 28px 80px rgba(0,0,0,.55)}
+.workout-execution-dialog::backdrop{background:rgba(2,7,15,.82);backdrop-filter:blur(7px)}
+.workout-exec-shell{padding:20px;display:grid;gap:15px;overflow:auto;max-height:calc(100dvh - 22px);box-sizing:border-box}
+.workout-exec-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+.workout-exec-head h2{margin:5px 0 3px;font-size:25px;line-height:1.05}
+.workout-exec-head p{margin:0;color:#8795aa;font-size:12px}
+.workout-exec-progress>div:first-child{display:flex;justify-content:space-between;color:#91a0b6;font-size:11px;margin-bottom:7px}
+.workout-exec-progress-track{height:8px;border-radius:999px;background:#16243a;overflow:hidden}
+.workout-exec-progress-track i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ff2d7a,#b248ff);border-radius:inherit;transition:width .25s ease}
+.workout-rest-timer{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;border:1px solid #ff2d7a66;border-radius:16px;background:#2a1024}
+.workout-rest-timer small{display:block;color:#ff7bb2;font-size:9px;letter-spacing:.12em;font-weight:900}
+.workout-rest-timer strong{display:block;font-size:30px;margin-top:2px}
+.workout-rest-actions{display:flex;gap:6px}
+.workout-rest-actions button{border:1px solid #4b3551;background:#120f1c;color:#fff;border-radius:10px;padding:8px 9px;font-size:10px;font-weight:800}
+.workout-exercise-visual{min-height:160px;border:1px solid #263a57;border-radius:18px;background:radial-gradient(circle at 50% 20%,#1d2444,#08111f 68%);overflow:hidden;display:grid;place-items:center}
+.workout-exercise-visual img{width:100%;height:210px;object-fit:contain;background:#060c16}
+.workout-exercise-fallback{text-align:center;display:grid;gap:7px;place-items:center;padding:24px;color:#8d9bb0}
+.workout-exercise-fallback>span{font-size:36px;color:#ff2d7a}
+.workout-exercise-fallback strong{color:#f4f7fb;font-size:18px}
+.workout-exercise-fallback small{max-width:320px;font-size:10px;line-height:1.45}
+.workout-exercise-card{border:1px solid #2d3e59;background:#0d192b;border-radius:18px;padding:18px}
+.workout-exercise-card h3{font-size:23px;margin:7px 0 2px}
+.workout-exercise-card>p{margin:0;color:#8898ae;font-size:12px}
+.workout-target-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:16px 0}
+.workout-target-grid>div{border:1px solid #2a3c58;background:#091524;border-radius:12px;padding:10px}
+.workout-target-grid small{display:block;color:#8190a6;font-size:9px}
+.workout-target-grid strong{display:block;margin-top:4px;font-size:16px}
+.workout-set-history{display:grid;gap:7px;margin:0 0 15px}
+.workout-set-row{display:flex;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid #243650;border-radius:10px;color:#8594a9;font-size:11px}
+.workout-set-row.done{border-color:#29d7ae55;background:#0b2a29;color:#dffcf6}
+.workout-live-inputs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.workout-live-inputs label{display:grid;gap:6px;color:#93a2b7;font-size:10px;font-weight:700}
+.workout-live-inputs input{width:100%;box-sizing:border-box;border:1px solid #32445f;border-radius:11px;background:#071322;color:#fff;padding:12px;font-size:16px}
+.workout-exec-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+.workout-complete-state{text-align:center;padding:16px 0 4px}
+.workout-complete-state>span{display:grid;place-items:center;margin:0 auto 10px;width:52px;height:52px;border-radius:50%;background:#0e483c;color:#6effd6;font-size:24px}
+.workout-complete-state strong{display:block;font-size:21px}
+.workout-complete-state p{color:#8998ad;font-size:11px}
+.workout-next-exercise{border:1px solid #273a56;border-radius:14px;background:#0a1525;padding:13px 15px;display:grid;gap:4px}
+.workout-next-exercise small{color:#7f8ea4;font-size:8px;letter-spacing:.12em}
+.workout-next-exercise strong{font-size:14px}
+.workout-next-exercise span{color:#8c9bb0;font-size:10px}
+@media(max-width:700px){
+  .day-plan-card{align-items:flex-start}
+  .day-plan-actions{width:100%;margin:8px 0 0;padding-left:54px}
+  .day-plan-actions button{flex:1}
+  .workout-execution-dialog{width:calc(100vw - 10px);max-width:calc(100vw - 10px);max-height:calc(100dvh - 10px);border-radius:18px}
+  .workout-exec-shell{padding:15px;max-height:calc(100dvh - 12px)}
+  .workout-exec-head h2{font-size:22px}
+  .workout-rest-timer{align-items:flex-start;flex-direction:column}
+  .workout-rest-actions{width:100%}
+  .workout-rest-actions button{flex:1}
+  .workout-live-inputs{grid-template-columns:1fr}
+}

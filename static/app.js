@@ -17,6 +17,7 @@ const state = {
   },
   timerStartedAt: null,
   timerHandle: null,
+  workoutExecution: {restHandle:null,restEndsAt:null},
   calendar: {
     weekStart: null,
     selectedDate: null,
@@ -1956,12 +1957,169 @@ function renderSelectedDay(){
           <p>${escapeHTML(detail)}</p>
           <div class="day-plan-meta">
             <span>◷ ${p.duration_min} min</span>
+            <span>${structureCountLabel(p)}</span>
             ${method?`<span class="method-badge">${escapeHTML(method.title)}</span>`:`<span>${escapeHTML(modalityLabel(p.modality))}</span>`}
           </div>
         </div>
-        <button type="button" class="day-plan-open" data-edit-plan="${p.id}" aria-label="Abrir ${escapeHTML(p.title)}">›</button>
+        <div class="day-plan-actions">
+          ${p.modality==="musculacao"&&p.exercise_count>0?`<button type="button" class="day-plan-start" data-start-plan-workout="${p.id}">Iniciar treino</button>`:""}
+          <button type="button" class="day-plan-open" data-edit-plan="${p.id}">Editar</button>
+        </div>
       </article>`;
   }).join("");
+}
+
+
+function targetRepsNumber(value){
+  const m=String(value||"").match(/\d+/);
+  return m?Number(m[0]):"";
+}
+function currentWorkoutExercise(){
+  const w=state.workout;
+  if(!w?.exercises?.length) return null;
+  return w.exercises.find(e=>e.sets_done<e.sets_total) || w.exercises[w.exercises.length-1];
+}
+function clearRestTimer(){
+  if(state.workoutExecution.restHandle){
+    clearInterval(state.workoutExecution.restHandle);
+    state.workoutExecution.restHandle=null;
+  }
+  state.workoutExecution.restEndsAt=null;
+  if($("#workoutRestTimer")) $("#workoutRestTimer").hidden=true;
+}
+function updateRestTimer(){
+  if(!state.workoutExecution.restEndsAt) return;
+  const remaining=Math.max(0,Math.ceil((state.workoutExecution.restEndsAt-Date.now())/1000));
+  const mm=String(Math.floor(remaining/60)).padStart(2,"0");
+  const ss=String(remaining%60).padStart(2,"0");
+  if($("#workoutRestTimerValue")) $("#workoutRestTimerValue").textContent=mm+":"+ss;
+  if($("#workoutRestTimer")) $("#workoutRestTimer").hidden=false;
+  if(remaining<=0){
+    clearRestTimer();
+    toast("Descanso concluído. Próxima série.");
+  }
+}
+function startRestTimer(seconds){
+  clearRestTimer();
+  const duration=Math.max(0,Number(seconds||0));
+  if(!duration) return;
+  state.workoutExecution.restEndsAt=Date.now()+duration*1000;
+  updateRestTimer();
+  state.workoutExecution.restHandle=setInterval(updateRestTimer,250);
+}
+function adjustRestTimer(delta){
+  if(!state.workoutExecution.restEndsAt) return;
+  state.workoutExecution.restEndsAt=Math.max(Date.now(),state.workoutExecution.restEndsAt+delta*1000);
+  updateRestTimer();
+}
+function renderWorkoutExecution(){
+  const w=state.workout;
+  if(!w||!$("#workoutExecutionDialog")) return;
+  $("#workoutExecTitle").textContent=w.title;
+  $("#workoutExecSubtitle").textContent=w.subtitle||"Treino de musculação";
+  const total=w.exercises.reduce((sum,e)=>sum+e.sets_total,0);
+  const done=w.exercises.reduce((sum,e)=>sum+e.sets_done,0);
+  const progress=total?Math.round(done/total*100):0;
+  $("#workoutExecProgressBar").style.width=progress+"%";
+  $("#workoutExecProgressText").textContent=done+" / "+total+" séries";
+
+  const current=currentWorkoutExercise();
+  if(!current) return;
+  const index=Math.max(0,w.exercises.findIndex(e=>e.id===current.id));
+  $("#workoutExerciseCounter").textContent="EXERCÍCIO "+(index+1)+" DE "+w.exercises.length;
+  $("#workoutExerciseName").textContent=current.name;
+  $("#workoutExerciseMuscle").textContent=current.muscle||"Musculação";
+  $("#workoutTargetSets").textContent=current.sets_total;
+  $("#workoutTargetReps").textContent=current.reps;
+  $("#workoutTargetRest").textContent=(current.rest_sec||60)+"s";
+  $("#workoutActualReps").value=targetRepsNumber(current.reps);
+  $("#workoutActualLoad").value=Number(current.load_kg||0);
+
+  const img=$("#workoutExerciseImage");
+  const fallback=$("#workoutExerciseFallback");
+  if(current.media_url){
+    img.src=current.media_url; img.hidden=false; fallback.hidden=true;
+  }else{
+    img.hidden=true; fallback.hidden=false;
+    fallback.innerHTML='<span>✚</span><strong>'+escapeHTML(current.name)+'</strong><small>Demonstração visual entra na biblioteca de exercícios da próxima etapa.</small>';
+  }
+
+  const logs=current.set_logs||[];
+  $("#workoutSetHistory").innerHTML=Array.from({length:current.sets_total},(_,i)=>{
+    const log=logs.find(x=>x.set_number===i+1);
+    return '<div class="workout-set-row '+(log?"done":"")+'"><span>Série '+(i+1)+'</span>'+
+      (log?'<strong>'+log.reps_done+' reps · '+Number(log.load_kg).toLocaleString("pt-BR",{maximumFractionDigits:1})+' kg</strong>':'<strong>—</strong>')+
+      '</div>';
+  }).join("");
+
+  $("#workoutExecInputs").hidden=w.completed;
+  $("#workoutCompleteState").hidden=!w.completed;
+  if(!w.completed){
+    $("#completeWorkoutSetBtn").textContent="Concluir série "+Math.min(current.sets_done+1,current.sets_total)+" / "+current.sets_total;
+    $("#undoWorkoutSetBtn").hidden=!logs.length;
+  }
+
+  const next=w.exercises[index+1];
+  $("#workoutNextExercise").innerHTML=next
+    ? '<small>PRÓXIMO EXERCÍCIO</small><strong>'+escapeHTML(next.name)+'</strong><span>'+next.sets_total+' séries · '+escapeHTML(next.reps)+' reps</span>'
+    : '<small>PRÓXIMO EXERCÍCIO</small><strong>'+(w.completed?"Treino concluído":"Último exercício")+'</strong><span>'+(w.completed?"Histórico salvo.":"Finalize as séries atuais.")+'</span>';
+}
+async function openPlannedWorkout(planId){
+  try{
+    const w=await api('/api/training-plans/'+planId+'/start-workout',{method:"POST"});
+    state.workout=w;
+    clearRestTimer();
+    renderWorkoutExecution();
+    const dialog=$("#workoutExecutionDialog");
+    if(dialog&&!dialog.open) dialog.showModal();
+  }catch(e){toast(e.message)}
+}
+function closeWorkoutExecution(){
+  clearRestTimer();
+  const dialog=$("#workoutExecutionDialog");
+  if(dialog?.open) dialog.close();
+  loadDashboard();
+  loadTrainingCalendar(true);
+}
+async function completeWorkoutExecutionSet(){
+  const current=currentWorkoutExercise();
+  if(!current) return;
+  const repsRaw=$("#workoutActualReps").value;
+  if(!repsRaw||Number(repsRaw)<1){toast("Informe as repetições realizadas.");return}
+  const reps=Number(repsRaw);
+  const load=Math.max(0,Number($("#workoutActualLoad").value||0));
+  const btn=$("#completeWorkoutSetBtn");
+  btn.disabled=true;
+  btn.textContent="Salvando série...";
+  try{
+    const result=await api('/api/exercises/'+current.id+'/complete-set',{
+      method:"POST",
+      body:JSON.stringify({reps_done:reps,load_kg:load,rest_sec:current.rest_sec||60})
+    });
+    state.workout=result.workout;
+    renderWorkoutExecution();
+    if(result.workout_completed){
+      clearRestTimer();
+      toast("Treino concluído e salvo no histórico.");
+    }else{
+      startRestTimer(result.rest_sec||current.rest_sec||60);
+      toast("Série registrada.");
+    }
+  }catch(e){toast(e.message)}
+  finally{btn.disabled=false}
+}
+async function undoWorkoutExecutionSet(){
+  const w=state.workout;
+  if(!w) return;
+  const completed=[...w.exercises].reverse().find(e=>(e.set_logs||[]).length);
+  if(!completed) return;
+  try{
+    const result=await api('/api/exercises/'+completed.id+'/undo-set',{method:"POST"});
+    state.workout=result.workout;
+    clearRestTimer();
+    renderWorkoutExecution();
+    toast("Última série desfeita.");
+  }catch(e){toast(e.message)}
 }
 
 function runKindLabel(kind){
@@ -2129,6 +2287,7 @@ function addExerciseRow(data={},forcedModality=null){
       <label>Séries<input data-field="sets_total" type="number" min="1" max="30" value="${Number(data.sets_total||4)}"></label>
       <label>Repetições<input data-field="reps" maxlength="30" value="${escapeHTML(data.reps||"8-10")}"></label>
       <label>Carga kg<input data-field="load_kg" type="number" min="0" max="2000" step="0.5" value="${Number(data.load_kg||0)}"></label>
+      <label>Descanso (s)<input data-field="rest_sec" type="number" min="0" max="600" step="5" value="${Number(data.rest_sec||60)}"></label>
       <button type="button" class="remove-exercise-btn" aria-label="Remover exercício">×</button>`;
   }
 
@@ -2190,7 +2349,7 @@ function collectPlanForm(){
       duration_min:0,
       pace_target:"",
       repetitions:0,
-      rest_sec:0,
+      rest_sec:Number(row.querySelector('[data-field="rest_sec"]')?.value||60),
       intensity:""
     };
   }).filter(block=>modality==="corrida" || block.name);
@@ -2273,6 +2432,12 @@ document.addEventListener("click",async ev=>{
     renderTrainingCalendar();
     return;
   }
+  const startPlanWorkout=ev.target.closest("[data-start-plan-workout]");
+  if(startPlanWorkout){
+    ev.preventDefault();
+    await openPlannedWorkout(Number(startPlanWorkout.dataset.startPlanWorkout));
+    return;
+  }
   const edit=ev.target.closest("[data-edit-plan]");
   if(edit){
     const id=Number(edit.dataset.editPlan);
@@ -2306,6 +2471,14 @@ $$("[data-planner-modality]").forEach(btn=>btn.onclick=()=>{
   renderPlannerMethodCards();
   renderTrainingCalendar();
 });
+if($("#closeWorkoutExecutionBtn")) $("#closeWorkoutExecutionBtn").onclick=closeWorkoutExecution;
+if($("#finishWorkoutCloseBtn")) $("#finishWorkoutCloseBtn").onclick=closeWorkoutExecution;
+if($("#completeWorkoutSetBtn")) $("#completeWorkoutSetBtn").onclick=completeWorkoutExecutionSet;
+if($("#undoWorkoutSetBtn")) $("#undoWorkoutSetBtn").onclick=undoWorkoutExecutionSet;
+if($("#restTimerSkipBtn")) $("#restTimerSkipBtn").onclick=clearRestTimer;
+if($("#restTimerMinusBtn")) $("#restTimerMinusBtn").onclick=()=>adjustRestTimer(-15);
+if($("#restTimerPlusBtn")) $("#restTimerPlusBtn").onclick=()=>adjustRestTimer(15);
+
 if($("#closeTrainingProgramDialog")) $("#closeTrainingProgramDialog").onclick=closeTrainingProgramDialog;
 if($("#cancelTrainingProgramBtn")) $("#cancelTrainingProgramBtn").onclick=closeTrainingProgramDialog;
 if($("#applyTrainingProgramBtn")) $("#applyTrainingProgramBtn").onclick=()=>{

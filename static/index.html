@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
   <link rel="shortcut icon" type="image/png" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
   <link rel="apple-touch-icon" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
-  <link rel="stylesheet" href="/static/styles.css?v=20260926-61">
+  <link rel="stylesheet" href="/static/styles.css?v=20260926-62">
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true">
@@ -737,6 +737,48 @@
     </form>
   </div></div>
 
+  <dialog id="workoutExecutionDialog" class="workout-execution-dialog">
+    <div class="workout-exec-shell">
+      <header class="workout-exec-head">
+        <div><span class="eyebrow pink-text">TREINO EM ANDAMENTO</span><h2 id="workoutExecTitle">Treino</h2><p id="workoutExecSubtitle"></p></div>
+        <button type="button" class="dialog-close" id="closeWorkoutExecutionBtn" aria-label="Fechar">×</button>
+      </header>
+      <div class="workout-exec-progress">
+        <div><span>Progresso</span><strong id="workoutExecProgressText">0 / 0 séries</strong></div>
+        <div class="workout-exec-progress-track"><i id="workoutExecProgressBar"></i></div>
+      </div>
+      <section class="workout-rest-timer" id="workoutRestTimer" hidden>
+        <div><small>DESCANSO ENTRE SÉRIES</small><strong id="workoutRestTimerValue">01:00</strong></div>
+        <div class="workout-rest-actions"><button type="button" id="restTimerMinusBtn">−15s</button><button type="button" id="restTimerSkipBtn">Pular</button><button type="button" id="restTimerPlusBtn">+15s</button></div>
+      </section>
+      <section class="workout-exercise-visual">
+        <img id="workoutExerciseImage" alt="Demonstração do exercício" hidden>
+        <div id="workoutExerciseFallback" class="workout-exercise-fallback"><span>✚</span><strong>Exercício</strong><small>Demonstração visual</small></div>
+      </section>
+      <section class="workout-exercise-card">
+        <span class="eyebrow" id="workoutExerciseCounter">EXERCÍCIO 1 DE 1</span>
+        <h3 id="workoutExerciseName">Exercício</h3><p id="workoutExerciseMuscle"></p>
+        <div class="workout-target-grid">
+          <div><small>Séries</small><strong id="workoutTargetSets">0</strong></div>
+          <div><small>Repetições</small><strong id="workoutTargetReps">0</strong></div>
+          <div><small>Descanso</small><strong id="workoutTargetRest">60s</strong></div>
+        </div>
+        <div class="workout-set-history" id="workoutSetHistory"></div>
+        <div id="workoutExecInputs">
+          <div class="workout-live-inputs">
+            <label>Repetições realizadas<input id="workoutActualReps" type="number" min="1" max="100" inputmode="numeric"></label>
+            <label>Carga utilizada (kg)<input id="workoutActualLoad" type="number" min="0" max="2000" step="0.5" inputmode="decimal"></label>
+          </div>
+          <div class="workout-exec-actions"><button type="button" class="ghost-btn" id="undoWorkoutSetBtn">Desfazer última</button><button type="button" class="primary-btn pink-btn" id="completeWorkoutSetBtn">Concluir série</button></div>
+        </div>
+        <div class="workout-complete-state" id="workoutCompleteState" hidden>
+          <span>✓</span><strong>Treino concluído</strong><p>Séries, repetições e cargas foram salvas no histórico.</p><button type="button" class="primary-btn pink-btn" id="finishWorkoutCloseBtn">Finalizar treino</button>
+        </div>
+      </section>
+      <aside class="workout-next-exercise" id="workoutNextExercise"></aside>
+    </div>
+  </dialog>
+
   <dialog id="trainingProgramDialog" class="plan-dialog training-program-dialog">
     <form id="trainingProgramForm">
       <button type="button" class="dialog-close" id="closeTrainingProgramDialog" aria-label="Fechar">×</button>
@@ -842,6 +884,6 @@
   </dialog>
 
   <div id="toast" class="toast"></div>
-  <script src="/static/app.js?v=20260926-61"></script>
+  <script src="/static/app.js?v=20260926-62"></script>
 </body>
 </html>
