@@ -38,7 +38,7 @@ jobs:
             await page.locator('#addPlanTopBtn').click();
             await page.locator('#trainingProgramDialog').waitFor({state:'visible',timeout:10000});
             await page.locator('#programStartDate').fill('2099-12-28');
-            await page.locator('#programWeeks').selectOption('1');
+            await page.locator('#programWeeks').selectOption('2');
 
             const responsePromise=page.waitForResponse(r=>r.url().includes('/api/training-program/apply')&&r.request().method()==='POST',{timeout:30000});
             await page.locator('#applyTrainingProgramBtn').click();
