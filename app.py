@@ -5,7 +5,7 @@ import json
 import base64
 import html as html_lib
 from io import BytesIO
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Generator
 
@@ -23,7 +23,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, rela
 
 ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
-BUILD_VERSION = "20260926-56"
+BUILD_VERSION = "20260926-57"
 
 raw_database_url = os.getenv("DATABASE_URL", "").strip()
 require_persistent_db = os.getenv("REQUIRE_PERSISTENT_DB", "").strip().lower() in {"1", "true", "yes", "on"}
@@ -670,6 +670,156 @@ class WorkoutPlanIn(BaseModel):
             raise ValueError("Data inválida. Use AAAA-MM-DD.") from exc
 
 
+class TrainingProgramApplyIn(BaseModel):
+    method_key: str = Field(min_length=2, max_length=40)
+    start_date: str = Field(min_length=10, max_length=10)
+    weeks: int = Field(default=4, ge=1, le=12)
+
+    def parsed_start(self) -> date:
+        try:
+            return date.fromisoformat(self.start_date)
+        except ValueError as exc:
+            raise ValueError("Data inválida. Use AAAA-MM-DD.") from exc
+
+
+TRAINING_METHODS: dict[str, dict[str, Any]] = {
+    "hypertrophy": {
+        "key": "hypertrophy",
+        "title": "Hipertrofia",
+        "tag": "Força progressiva",
+        "summary": "Volume semanal progressivo para ganho de massa muscular.",
+        "modality": "Musculação + Corrida leve",
+        "goal": "Hipertrofia",
+        "frequency": "4x musculação + 2x cardio leve",
+        "structure": "A/B + corrida regenerativa",
+        "description": "Prioriza consistência e volume semanal. A referência ACSM 2026 aponta maior volume semanal, em torno de 10 séries por grupo muscular, como estratégia útil para hipertrofia.",
+        "evidence": "ACSM 2026",
+        "sessions": [
+            {"day": 0, "title": "Musculação A", "modality": "musculacao", "duration": 60, "detail": "Peito, costas, ombros e braços", "blocks": [
+                ("Supino horizontal", "Peito", 3, "6-12"), ("Remada horizontal", "Costas", 3, "6-12"),
+                ("Desenvolvimento", "Ombros", 3, "6-12"), ("Puxada vertical", "Costas", 3, "6-12"),
+                ("Braços", "Bíceps / Tríceps", 2, "8-15"),
+            ]},
+            {"day": 1, "title": "Musculação B", "modality": "musculacao", "duration": 60, "detail": "Membros inferiores e core", "blocks": [
+                ("Agachamento", "Quadríceps / Glúteos", 3, "6-12"), ("Levantamento romeno", "Posteriores", 3, "6-12"),
+                ("Afundo", "Quadríceps / Glúteos", 3, "8-12"), ("Panturrilha", "Panturrilhas", 3, "10-15"),
+                ("Core", "Abdômen / estabilizadores", 3, "10-15"),
+            ]},
+            {"day": 2, "title": "Corrida regenerativa", "modality": "corrida", "duration": 25, "detail": "Zona 2 / leve", "run": ("run_recovery", 25, "Z2")},
+            {"day": 3, "title": "Musculação A", "modality": "musculacao", "duration": 60, "detail": "Peito, costas, ombros e braços", "blocks": [
+                ("Supino inclinado", "Peito", 3, "6-12"), ("Remada unilateral", "Costas", 3, "6-12"),
+                ("Elevação lateral", "Ombros", 3, "10-15"), ("Puxada vertical", "Costas", 3, "6-12"),
+                ("Braços", "Bíceps / Tríceps", 2, "8-15"),
+            ]},
+            {"day": 4, "title": "Musculação B", "modality": "musculacao", "duration": 60, "detail": "Membros inferiores e core", "blocks": [
+                ("Leg press", "Quadríceps / Glúteos", 3, "8-12"), ("Flexão de joelhos", "Posteriores", 3, "8-12"),
+                ("Extensão de joelhos", "Quadríceps", 3, "10-15"), ("Panturrilha", "Panturrilhas", 3, "10-15"),
+                ("Core", "Abdômen / estabilizadores", 3, "10-15"),
+            ]},
+            {"day": 5, "title": "Corrida leve", "modality": "corrida", "duration": 30, "detail": "Zona 2 / conversa confortável", "run": ("run_easy", 30, "Z2")},
+        ],
+    },
+    "strength": {
+        "key": "strength",
+        "title": "Força",
+        "tag": "Carga alta",
+        "summary": "Baixas repetições, descanso maior e progressão de carga.",
+        "modality": "Musculação",
+        "goal": "Aumento de força",
+        "frequency": "3x musculação + recuperação",
+        "structure": "Corpo inteiro A/B",
+        "description": "A referência ACSM 2026 favorece cargas mais altas, em torno de 80% de 1RM, com 2–3 séries por exercício para maximizar força em adultos saudáveis.",
+        "evidence": "ACSM 2026",
+        "sessions": [
+            {"day": 0, "title": "Força A", "modality": "musculacao", "duration": 65, "detail": "Corpo inteiro — ênfase agachamento e supino", "blocks": [
+                ("Agachamento", "Membros inferiores", 3, "3-6"), ("Supino", "Peito / tríceps", 3, "3-6"), ("Remada", "Costas", 3, "4-6"),
+            ]},
+            {"day": 2, "title": "Força B", "modality": "musculacao", "duration": 65, "detail": "Corpo inteiro — ênfase posterior e ombros", "blocks": [
+                ("Levantamento terra / variação", "Posteriores / costas", 2, "3-5"), ("Desenvolvimento", "Ombros", 3, "3-6"), ("Puxada / barra", "Costas", 3, "4-6"),
+            ]},
+            {"day": 4, "title": "Força A", "modality": "musculacao", "duration": 65, "detail": "Corpo inteiro — progressão técnica", "blocks": [
+                ("Agachamento / variação", "Membros inferiores", 3, "3-6"), ("Supino / variação", "Peito / tríceps", 3, "3-6"), ("Remada", "Costas", 3, "4-6"),
+            ]},
+            {"day": 5, "title": "Mobilidade e recuperação", "modality": "mobilidade", "duration": 20, "detail": "Mobilidade ativa e recuperação"},
+        ],
+    },
+    "weight_loss": {
+        "key": "weight_loss",
+        "title": "Perda de peso",
+        "tag": "Cardio + força",
+        "summary": "Combina musculação e aeróbio para apoiar controle de peso e preservar massa magra.",
+        "modality": "Musculação + Aeróbio",
+        "goal": "Redução de gordura corporal",
+        "frequency": "3x força + 2x cardio",
+        "structure": "Força total + aeróbio progressivo",
+        "description": "O consenso ACSM sobre peso corporal enfatiza atividade física dentro de uma estratégia de balanço energético. A musculação ajuda a preservar massa magra e o aeróbio amplia o gasto energético.",
+        "evidence": "ACSM 2024 + WHO 2020",
+        "sessions": [
+            {"day": 0, "title": "Força A", "modality": "musculacao", "duration": 50, "detail": "Corpo inteiro", "blocks": [
+                ("Agachamento", "Membros inferiores", 3, "8-12"), ("Supino / flexão", "Peito", 3, "8-12"), ("Remada", "Costas", 3, "8-12"), ("Core", "Core", 3, "10-15"),
+            ]},
+            {"day": 1, "title": "Cardio moderado", "modality": "corrida", "duration": 40, "detail": "Ritmo confortável", "run": ("run_easy", 40, "Z2")},
+            {"day": 3, "title": "Força B", "modality": "musculacao", "duration": 50, "detail": "Corpo inteiro", "blocks": [
+                ("Levantamento romeno", "Posteriores", 3, "8-12"), ("Desenvolvimento", "Ombros", 3, "8-12"), ("Puxada", "Costas", 3, "8-12"), ("Core", "Core", 3, "10-15"),
+            ]},
+            {"day": 4, "title": "Cardio intervalado controlado", "modality": "corrida", "duration": 25, "detail": "Intervalos curtos com recuperação", "run": ("run_interval", 25, "Z3-Z4")},
+            {"day": 5, "title": "Força total", "modality": "musculacao", "duration": 45, "detail": "Circuito de força sem pressa", "blocks": [
+                ("Agachar", "Membros inferiores", 3, "8-12"), ("Empurrar", "Peito / ombros", 3, "8-12"), ("Puxar", "Costas", 3, "8-12"), ("Carregar / core", "Core", 3, "10-15"),
+            ]},
+        ],
+    },
+    "conditioning": {
+        "key": "conditioning",
+        "title": "Condicionamento",
+        "tag": "Base + intervalos",
+        "summary": "Combina volume aeróbio moderado com intervalos e força.",
+        "modality": "Corrida + Musculação",
+        "goal": "Condicionamento cardiorrespiratório",
+        "frequency": "3x cardio + 1x força",
+        "structure": "Base leve + limiar + intervalos",
+        "description": "A WHO recomenda volume aeróbio semanal e fortalecimento; evidências revisadas pelo ACSM mostram que HIIT pode complementar o treino contínuo, desde que a progressão e a recuperação sejam adequadas.",
+        "evidence": "WHO 2020 + ACSM 2019",
+        "sessions": [
+            {"day": 0, "title": "Base aeróbia", "modality": "corrida", "duration": 40, "detail": "Zona 2 / leve", "run": ("run_easy", 40, "Z2")},
+            {"day": 2, "title": "Intervalado", "modality": "corrida", "duration": 30, "detail": "Blocos intensos com recuperação", "run": ("run_interval", 30, "Z4")},
+            {"day": 4, "title": "Força de suporte", "modality": "musculacao", "duration": 45, "detail": "Corpo inteiro", "blocks": [
+                ("Agachamento", "Membros inferiores", 3, "6-10"), ("Empurrar", "Peito / ombros", 3, "6-10"), ("Puxar", "Costas", 3, "6-10"), ("Core", "Core", 3, "10-15"),
+            ]},
+            {"day": 5, "title": "Tempo / limiar", "modality": "corrida", "duration": 35, "detail": "Ritmo sustentado controlado", "run": ("run_tempo", 35, "Z3-Z4")},
+        ],
+    },
+}
+
+
+def training_method_payload(method: dict[str, Any]) -> dict[str, Any]:
+    return {k: v for k, v in method.items() if k != "sessions"}
+
+
+def active_training_program(db: Session) -> dict[str, Any] | None:
+    row = db.scalar(select(AppSetting).where(AppSetting.key == "active_training_program"))
+    if not row or not row.value:
+        return None
+    try:
+        data = json.loads(row.value)
+    except (TypeError, json.JSONDecodeError):
+        return None
+    method = TRAINING_METHODS.get(data.get("method_key", ""))
+    if method:
+        data["method"] = training_method_payload(method)
+    return data
+
+
+def save_active_training_program(db: Session, data: dict[str, Any]) -> None:
+    row = db.scalar(select(AppSetting).where(AppSetting.key == "active_training_program"))
+    value = json.dumps(data, ensure_ascii=False)
+    now = datetime.now(timezone.utc)
+    if row:
+        row.value = value
+        row.updated_at = now
+    else:
+        db.add(AppSetting(key="active_training_program", value=value, updated_at=now))
+
+
 def plan_payload(plan: WorkoutPlan) -> dict:
     return {
         "id": plan.id,
@@ -754,6 +904,114 @@ def get_training_plan(plan_id: int, db: Session = Depends(session)):
     if not plan:
         raise HTTPException(404, "Treino planejado não encontrado")
     return plan_payload(plan)
+
+
+@app.get("/api/training-methods")
+def list_training_methods():
+    return [training_method_payload(method) for method in TRAINING_METHODS.values()]
+
+
+@app.get("/api/training-program/current")
+def current_training_program(db: Session = Depends(session)):
+    return {"program": active_training_program(db)}
+
+
+@app.post("/api/training-program/apply")
+def apply_training_program(data: TrainingProgramApplyIn, db: Session = Depends(session)):
+    ensure_training_planning_allowed(db)
+    method = TRAINING_METHODS.get(data.method_key)
+    if not method:
+        raise HTTPException(422, "Método de treinamento não reconhecido.")
+    try:
+        start = data.parsed_start()
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+
+    # Remove somente sessões futuras geradas automaticamente pelo próprio RITMOX.
+    # Treinos manuais e histórico anterior são preservados.
+    generated = db.scalars(
+        select(WorkoutPlan).where(
+            WorkoutPlan.planned_date >= data.start_date,
+            WorkoutPlan.notes.like("RITMOX_METHOD:%"),
+        )
+    ).all()
+    for plan in generated:
+        db.delete(plan)
+    db.flush()
+
+    created: list[WorkoutPlan] = []
+    for week in range(data.weeks):
+        week_start = start + timedelta(days=week * 7)
+        for session_template in method["sessions"]:
+            planned = week_start + timedelta(days=int(session_template["day"]))
+            note = (
+                f"RITMOX_METHOD:{data.method_key} · {method['title']} · "
+                f"{session_template.get('detail', '')}"
+            )[:500]
+            plan = WorkoutPlan(
+                planned_date=planned.isoformat(),
+                title=session_template["title"],
+                modality=session_template["modality"],
+                duration_min=int(session_template["duration"]),
+                notes=note,
+            )
+
+            for index, block in enumerate(session_template.get("blocks", [])):
+                name, detail, sets_total, reps = block
+                plan.blocks.append(PlannedBlock(
+                    position=index,
+                    kind="strength",
+                    name=name,
+                    detail=detail,
+                    sets_total=sets_total,
+                    reps=reps,
+                    load_kg=0,
+                    distance_km=0,
+                    duration_min=0,
+                    pace_target="",
+                    repetitions=0,
+                    rest_sec=0,
+                    intensity="",
+                ))
+
+            run_data = session_template.get("run")
+            if run_data:
+                kind, duration_min, intensity = run_data
+                plan.blocks.append(PlannedBlock(
+                    position=0,
+                    kind=kind,
+                    name=session_template["title"],
+                    detail=session_template.get("detail", ""),
+                    sets_total=0,
+                    reps="",
+                    load_kg=0,
+                    distance_km=0,
+                    duration_min=int(duration_min),
+                    pace_target="",
+                    repetitions=0,
+                    rest_sec=0,
+                    intensity=intensity,
+                ))
+            db.add(plan)
+            created.append(plan)
+
+    program = {
+        "method_key": data.method_key,
+        "start_date": data.start_date,
+        "weeks": data.weeks,
+        "title": method["title"],
+        "goal": method["goal"],
+        "frequency": method["frequency"],
+        "structure": method["structure"],
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    save_active_training_program(db, program)
+    db.commit()
+
+    return {
+        "program": {**program, "method": training_method_payload(method)},
+        "created_count": len(created),
+    }
 
 
 @app.post("/api/training-plans")

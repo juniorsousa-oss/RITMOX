@@ -2035,3 +2035,471 @@ body.modal-open{overflow:hidden}
   .profile-info-row svg.purple{stroke:#a855f7!important}
   .profile-info-row>span{display:grid!important;gap:3px!important;min-width:0!important}
 }
+
+
+/* === TRAINING PLANNER V57 — validated general planning layout === */
+.training-planner-v57{
+  display:grid;
+  gap:18px;
+}
+.training-planner-v57 .calendar-toolbar{
+  margin:0;
+}
+.planner-modality-tabs{
+  display:flex;
+  gap:10px;
+  overflow-x:auto;
+  scrollbar-width:none;
+  padding:1px 1px 3px;
+}
+.planner-modality-tabs::-webkit-scrollbar{display:none}
+.planner-modality-tabs button{
+  min-height:52px;
+  padding:0 18px;
+  border:1px solid #2b3a53;
+  border-radius:15px;
+  background:linear-gradient(180deg,#101a2d,#0b1525);
+  color:#aab5c7;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  white-space:nowrap;
+  font-weight:750;
+}
+.planner-modality-tabs button.active{
+  border-color:#ff2d7a;
+  color:#fff;
+  background:linear-gradient(135deg,rgba(255,45,122,.22),rgba(125,35,255,.12));
+  box-shadow:0 0 20px rgba(255,45,122,.12),inset 0 0 0 1px rgba(255,45,122,.18);
+}
+.planner-tab-icon{
+  color:#ff4b96;
+  font-size:20px;
+  line-height:1;
+}
+.planner-tab-icon.cyan{color:#10d8ee}
+.planner-tab-icon.purple{color:#b44fff}
+.planner-tab-icon.pink{color:#ff3b91}
+.planner-tab-icon.teal{color:#16e0cf}
+
+.planner-methods-panel,
+.planner-structured-panel{
+  border:1px solid #2b3a53!important;
+  border-radius:18px!important;
+  padding:18px!important;
+  background:linear-gradient(180deg,#101a2d,#0b1525)!important;
+}
+.planner-section-head{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  margin-bottom:14px;
+}
+.planner-section-head h3{
+  margin:0 0 4px;
+  font-size:21px;
+  line-height:1.05;
+}
+.planner-section-head p{
+  margin:0;
+  color:#91a0b7;
+  font-size:12px;
+  line-height:1.35;
+}
+.planner-section-icon{
+  color:#ff2d7a;
+  font-size:25px;
+  line-height:1;
+  text-shadow:0 0 14px rgba(255,45,122,.45);
+}
+.training-method-cards{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;
+}
+.training-method-card{
+  min-width:0;
+  min-height:166px;
+  padding:14px 12px;
+  border:1px solid #2b3a53;
+  border-radius:15px;
+  background:#0b1525;
+  color:#edf2fa;
+  text-align:left;
+  display:grid;
+  align-content:start;
+  gap:9px;
+}
+.training-method-card.active{
+  border-color:#ff2d7a;
+  background:linear-gradient(145deg,rgba(255,45,122,.21),rgba(85,20,92,.30));
+  box-shadow:inset 0 0 0 1px rgba(255,45,122,.25),0 0 22px rgba(255,45,122,.09);
+}
+.training-method-card .method-icon{
+  color:#ff4b96;
+  font-size:22px;
+  line-height:1;
+}
+.training-method-card strong{
+  font-size:14px;
+  line-height:1.08;
+}
+.training-method-card em{
+  width:max-content;
+  max-width:100%;
+  padding:5px 9px;
+  border:1px solid #3a4a65;
+  border-radius:999px;
+  color:#a9b6cc;
+  font-size:10px;
+  line-height:1;
+  font-style:normal;
+  white-space:nowrap;
+}
+.training-method-card.active em{
+  border-color:#ff2d7a;
+  color:#ff6ba9;
+}
+.training-method-card small{
+  color:#9aa7bc;
+  font-size:10px;
+  line-height:1.42;
+}
+
+.structured-plan-body{
+  display:grid;
+  grid-template-columns:minmax(0,1.1fr) minmax(240px,.9fr);
+  border:1px solid #283852;
+  border-radius:15px;
+  overflow:hidden;
+  background:#0b1525;
+}
+.structured-plan-facts{
+  padding:16px;
+  display:grid;
+  gap:11px;
+}
+.structured-plan-facts>div{
+  display:grid;
+  grid-template-columns:24px 110px minmax(0,1fr);
+  align-items:center;
+  gap:8px;
+}
+.structured-plan-facts>div>span{
+  color:#a8b7d3;
+  font-size:18px;
+}
+.structured-plan-facts small{
+  color:#91a0b7;
+  font-size:11px;
+}
+.structured-plan-facts strong{
+  color:#f3f6fb;
+  font-size:12px;
+  line-height:1.25;
+}
+.structured-plan-description{
+  padding:16px 18px;
+  border-left:1px solid #2a3a53;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:12px;
+}
+.structured-plan-description p{
+  margin:0;
+  color:#aab6c9;
+  font-size:11px;
+  line-height:1.48;
+}
+.structured-plan-description small{
+  color:#ff5b9e;
+  font-size:9px;
+  font-weight:750;
+}
+
+.training-planner-v57 .day-panel{
+  width:100%;
+}
+.training-planner-v57 .day-panel-head{
+  display:block!important;
+  margin-bottom:14px!important;
+}
+.training-planner-v57 .day-plan-card{
+  position:relative;
+  display:grid;
+  grid-template-columns:64px minmax(0,1fr) 30px;
+  gap:14px;
+  align-items:center;
+  padding:13px 14px;
+  border:1px solid #263751;
+  border-radius:14px;
+  background:#0b1525;
+}
+.training-planner-v57 .day-plan-icon{
+  width:58px;height:58px;
+  border:1px solid #6b2f8c;
+  border-radius:13px;
+  display:grid;
+  place-items:center;
+  background:#10162b;
+  overflow:hidden;
+}
+.training-planner-v57 .day-plan-icon img{
+  width:100%;height:100%;object-fit:cover;
+}
+.training-planner-v57 .day-plan-info h4{
+  margin:0 0 4px;
+  font-size:16px;
+}
+.training-planner-v57 .day-plan-info p{
+  margin:0 0 8px;
+  color:#99a8bd;
+  font-size:11px;
+}
+.training-planner-v57 .day-plan-meta{
+  display:flex;
+  gap:7px;
+  flex-wrap:wrap;
+}
+.training-planner-v57 .day-plan-meta span{
+  padding:4px 8px;
+  border:1px solid #2b3d59;
+  border-radius:999px;
+  color:#aab7cb;
+  font-size:9px;
+}
+.training-planner-v57 .day-plan-meta .method-badge{
+  border-color:#663083;
+  color:#d274ff;
+  background:rgba(164,70,255,.08);
+}
+.training-planner-v57 .day-plan-open{
+  width:30px;height:42px;
+  border:0;
+  background:transparent;
+  color:#f3f6fb;
+  font-size:30px;
+  line-height:1;
+}
+.training-planner-v57 .day-empty{
+  min-height:170px!important;
+}
+
+.training-program-dialog{
+  width:min(700px,calc(100vw - 24px));
+}
+.training-program-dialog form{
+  padding:24px;
+}
+.training-program-intro{
+  margin:4px 42px 18px 0;
+  color:#92a0b4;
+  font-size:12px;
+  line-height:1.45;
+}
+.program-method-select{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:9px;
+  margin:0 0 16px;
+}
+.program-method-select button{
+  min-height:72px;
+  padding:10px;
+  border:1px solid #2b3a53;
+  border-radius:12px;
+  background:#0b1525;
+  color:#fff;
+  display:grid;
+  gap:5px;
+  text-align:left;
+}
+.program-method-select button.active{
+  border-color:#ff2d7a;
+  background:rgba(255,45,122,.10);
+}
+.program-method-select strong{font-size:11px}
+.program-method-select small{font-size:9px;color:#8f9db2}
+.program-preview{
+  margin-top:16px;
+  padding:16px;
+  border:1px solid #2b3a53;
+  border-radius:14px;
+  background:#0a1423;
+}
+.program-preview .eyebrow{font-size:8px}
+.program-preview>strong{
+  display:block;
+  margin:7px 0;
+  font-size:18px;
+}
+.program-preview>p{
+  margin:0 0 12px;
+  color:#9aa8bc;
+  font-size:11px;
+  line-height:1.45;
+}
+.program-preview>div{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:9px;
+}
+.program-preview>div span{
+  padding:9px 10px;
+  border:1px solid #26364f;
+  border-radius:10px;
+  display:grid;
+  gap:3px;
+}
+.program-preview small{color:#8897ac;font-size:8px}
+.program-preview b{font-size:10px}
+.program-preview em{
+  display:block;
+  margin-top:10px;
+  color:#ff5b9e;
+  font-size:9px;
+  font-style:normal;
+}
+.program-safety-note{
+  max-width:330px;
+  color:#8391a6;
+  font-size:9px;
+  line-height:1.35;
+}
+
+@media(max-width:700px){
+  .training-planner-v57{
+    padding:14px 14px 126px!important;
+    gap:14px!important;
+  }
+  .training-planner-v57 .calendar-toolbar{
+    grid-template-columns:minmax(0,1fr) 154px!important;
+    gap:12px!important;
+  }
+  .training-planner-v57 .calendar-toolbar h2{
+    font-size:26px!important;
+  }
+  .training-planner-v57 .calendar-toolbar p{
+    max-width:205px!important;
+  }
+  .planner-modality-tabs{
+    margin:0 -14px;
+    padding:0 14px 3px;
+    gap:7px;
+  }
+  .planner-modality-tabs button{
+    min-height:42px;
+    padding:0 13px;
+    border-radius:12px;
+    font-size:9px;
+  }
+  .planner-tab-icon{font-size:16px}
+
+  .planner-methods-panel,
+  .planner-structured-panel{
+    padding:13px!important;
+    border-radius:15px!important;
+  }
+  .planner-section-head{
+    gap:9px;
+    margin-bottom:11px;
+  }
+  .planner-section-head h3{font-size:16px}
+  .planner-section-head p{font-size:9px}
+  .planner-section-icon{font-size:19px}
+  .training-method-cards{
+    grid-template-columns:repeat(4,122px);
+    gap:7px;
+    overflow-x:auto;
+    margin:0 -13px;
+    padding:0 13px 5px;
+    scrollbar-width:none;
+  }
+  .training-method-cards::-webkit-scrollbar{display:none}
+  .training-method-card{
+    min-height:150px;
+    padding:11px 10px;
+    gap:7px;
+    border-radius:12px;
+  }
+  .training-method-card strong{font-size:11px}
+  .training-method-card em{font-size:8px;padding:4px 7px}
+  .training-method-card small{font-size:8px;line-height:1.35}
+  .training-method-card .method-icon{font-size:18px}
+
+  .structured-plan-body{
+    grid-template-columns:1fr;
+  }
+  .structured-plan-facts{
+    padding:12px;
+    gap:9px;
+  }
+  .structured-plan-facts>div{
+    grid-template-columns:20px 76px minmax(0,1fr);
+    gap:7px;
+  }
+  .structured-plan-facts>div>span{font-size:15px}
+  .structured-plan-facts small{font-size:8px}
+  .structured-plan-facts strong{font-size:9px}
+  .structured-plan-description{
+    border-left:0;
+    border-top:1px solid #2a3a53;
+    padding:12px;
+  }
+  .structured-plan-description p{font-size:9px}
+  .structured-plan-description small{font-size:8px}
+
+  .training-planner-v57 .day-panel{
+    padding:15px 13px 17px!important;
+  }
+  .training-planner-v57 .day-panel-head{
+    margin-bottom:12px!important;
+  }
+  .training-planner-v57 .day-plan-card{
+    grid-template-columns:50px minmax(0,1fr) 24px;
+    gap:10px;
+    padding:10px;
+    border-radius:12px;
+  }
+  .training-planner-v57 .day-plan-icon{
+    width:46px;height:46px;border-radius:11px;
+  }
+  .training-planner-v57 .day-plan-info h4{font-size:12px}
+  .training-planner-v57 .day-plan-info p{font-size:9px;margin-bottom:6px}
+  .training-planner-v57 .day-plan-meta span{font-size:8px;padding:3px 6px}
+  .training-planner-v57 .day-plan-open{font-size:24px;width:24px}
+
+  .training-program-dialog{
+    width:calc(100vw - 14px)!important;
+    max-height:calc(100dvh - 18px)!important;
+  }
+  .training-program-dialog form{
+    padding:20px 14px!important;
+  }
+  .training-program-intro{
+    margin-right:34px;
+    font-size:10px;
+  }
+  .program-method-select{
+    grid-template-columns:1fr 1fr;
+    gap:7px;
+  }
+  .program-method-select button{min-height:58px}
+  .program-preview>div{grid-template-columns:1fr}
+  .training-program-dialog .plan-dialog-actions{
+    align-items:flex-start!important;
+  }
+  .program-safety-note{
+    max-width:100%;
+    margin-bottom:8px;
+  }
+}
+
+@media(min-width:701px){
+  .training-planner-v57{
+    max-width:1080px;
+    margin:0 auto;
+  }
+}
