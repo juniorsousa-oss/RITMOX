@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
   <link rel="shortcut icon" type="image/png" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
   <link rel="apple-touch-icon" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
-  <link rel="stylesheet" href="/static/styles.css?v=20260926-66">
+  <link rel="stylesheet" href="/static/styles.css?v=20260926-67">
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true">
@@ -799,7 +799,7 @@
           <div class="workout-exec-actions"><button type="button" class="ghost-btn" id="undoWorkoutSetBtn">Desfazer última</button><button type="button" class="primary-btn pink-btn" id="completeWorkoutSetBtn">Concluir série</button></div>
         </div>
         <div class="workout-complete-state" id="workoutCompleteState" hidden>
-          <span>✓</span><strong>Treino concluído</strong><p>Séries, repetições e cargas foram salvas no histórico.</p><button type="button" class="primary-btn pink-btn" id="finishWorkoutCloseBtn">Finalizar treino</button>
+          <span>✓</span><strong>Treino concluído</strong><p>Séries, repetições e cargas foram salvas no histórico.</p><div class="workout-finish-summary" id="workoutFinishSummary"></div><button type="button" class="primary-btn pink-btn instagram-export-btn" id="exportWorkoutStoryBtn">Exportar para Instagram</button><button type="button" class="ghost-btn" id="finishWorkoutCloseBtn">Fechar resumo</button>
         </div>
       </section>
       <aside class="workout-next-exercise" id="workoutNextExercise"></aside>
@@ -911,6 +911,7 @@
   </dialog>
 
   <div id="toast" class="toast"></div>
-  <script src="/static/app.js?v=20260926-66"></script>
+  <script src="/static/story-export.js?v=20260926-67"></script>
+  <script src="/static/app.js?v=20260926-67"></script>
 </body>
 </html>
