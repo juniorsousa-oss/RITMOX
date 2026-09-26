@@ -1681,11 +1681,43 @@ function escapeHTML(value){
   return String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[ch]));
 }
 
+const PLANNER_METHOD_FILTERS={
+  hypertrophy:["geral","musculacao"],
+  strength:["geral","musculacao"],
+  weight_loss:["geral","musculacao","corrida"],
+  conditioning:["geral","musculacao","corrida"],
+};
+const PLANNER_METHOD_PREFERENCE={
+  geral:"hypertrophy",
+  musculacao:"hypertrophy",
+  corrida:"conditioning",
+};
+
 function plannerMethodByKey(key){
-  return state.calendar.methods.find(m=>m.key===key) || state.calendar.methods[0] || null;
+  if(!key) return null;
+  return state.calendar.methods.find(m=>m.key===key) || null;
+}
+function plannerMethodSupportsFilter(key,filter=state.calendar.modalityFilter||"geral"){
+  return (PLANNER_METHOD_FILTERS[key]||["geral"]).includes(filter);
+}
+function plannerMethodsForFilter(filter=state.calendar.modalityFilter||"geral"){
+  return state.calendar.methods.filter(m=>plannerMethodSupportsFilter(m.key,filter));
+}
+function ensurePlannerMethodForFilter(){
+  const filter=state.calendar.modalityFilter||"geral";
+  const compatible=plannerMethodsForFilter(filter);
+  if(!compatible.length){
+    state.calendar.methodKey=null;
+    return null;
+  }
+  if(!compatible.some(m=>m.key===state.calendar.methodKey)){
+    const preferred=PLANNER_METHOD_PREFERENCE[filter];
+    state.calendar.methodKey=compatible.find(m=>m.key===preferred)?.key||compatible[0].key;
+  }
+  return plannerMethodByKey(state.calendar.methodKey);
 }
 function selectedPlannerMethod(){
-  return plannerMethodByKey(state.calendar.methodKey);
+  return ensurePlannerMethodForFilter();
 }
 function plannerFilteredPlans(plans=state.calendar.plans){
   const filter=state.calendar.modalityFilter||"geral";
@@ -1706,20 +1738,38 @@ function planDetailLabel(plan){
   return note||modalityLabel(plan.modality);
 }
 function renderPlannerMethodCards(){
-  const method=selectedPlannerMethod();
-  $$("[data-method-key]").forEach(card=>{
-    const item=plannerMethodByKey(card.dataset.methodKey);
-    card.classList.toggle("active",card.dataset.methodKey===state.calendar.methodKey);
+  const filter=state.calendar.modalityFilter||"geral";
+  const method=ensurePlannerMethodForFilter();
+  const compatible=plannerMethodsForFilter(filter);
+  const empty=compatible.length===0;
+
+  $("[data-method-key]").forEach(card=>{
+    const key=card.dataset.methodKey;
+    const item=plannerMethodByKey(key);
+    const visible=plannerMethodSupportsFilter(key,filter);
+    card.hidden=!visible;
+    card.classList.toggle("active",visible&&key===state.calendar.methodKey);
     if(!item) return;
     const strong=card.querySelector("strong"), em=card.querySelector("em"), small=card.querySelector("small");
     if(strong) strong.textContent=item.title;
     if(em) em.textContent=item.tag;
     if(small) small.textContent=item.summary;
   });
-  $$("[data-program-method]").forEach(card=>{
-    card.classList.toggle("active",card.dataset.programMethod===state.calendar.methodKey);
+  $("[data-program-method]").forEach(card=>{
+    const key=card.dataset.programMethod;
+    const visible=plannerMethodSupportsFilter(key,filter);
+    card.hidden=!visible;
+    card.classList.toggle("active",visible&&key===state.calendar.methodKey);
   });
-  if(!method) return;
+
+  if($("#plannerMethodEmpty")) $("#plannerMethodEmpty").hidden=!empty;
+  if($("#structuredPlanBody")) $("#structuredPlanBody").hidden=empty;
+  if($("#structuredPlanEmpty")) $("#structuredPlanEmpty").hidden=!empty;
+
+  if(!method){
+    if($("#programPreview")) $("#programPreview").innerHTML="";
+    return;
+  }
   if($("#structuredPlanModality")) $("#structuredPlanModality").textContent=method.modality;
   if($("#structuredPlanGoal")) $("#structuredPlanGoal").textContent=method.goal;
   if($("#structuredPlanFrequency")) $("#structuredPlanFrequency").textContent=method.frequency;
@@ -1736,9 +1786,10 @@ async function loadTrainingPlannerMeta(){
     ]);
     state.calendar.methods=methodsResult||[];
     state.calendar.activeProgram=currentResult?.program||null;
-    if(state.calendar.activeProgram?.method_key){
+    if(state.calendar.activeProgram?.method_key && (state.calendar.modalityFilter||"geral")==="geral"){
       state.calendar.methodKey=state.calendar.activeProgram.method_key;
     }
+    ensurePlannerMethodForFilter();
     renderPlannerMethodCards();
   }catch(e){
     toast(e.message);
@@ -1782,6 +1833,14 @@ function closeTrainingProgramDialog(){
   const dialog=$("#trainingProgramDialog");
   if(dialog?.open) dialog.close();
 }
+function openPlannerPrimaryAction(){
+  const filter=state.calendar.modalityFilter||"geral";
+  if(plannerMethodsForFilter(filter).length){
+    openTrainingProgramDialog();
+    return;
+  }
+  openPlanDialog(null,state.calendar.selectedDate||localISO(new Date()),filter);
+}
 async function applyTrainingProgram(ev){
   ev.preventDefault();
   const btn=$("#applyTrainingProgramBtn");
@@ -1809,7 +1868,7 @@ async function applyTrainingProgram(ev){
   }
 }
 function selectTrainingMethod(key){
-  if(!plannerMethodByKey(key)) return;
+  if(!plannerMethodByKey(key)||!plannerMethodSupportsFilter(key)) return;
   state.calendar.methodKey=key;
   renderPlannerMethodCards();
 }
@@ -1954,7 +2013,7 @@ function configurePlanStructure(modality){
   renderExerciseEditorEmpty();
 }
 
-function openPlanDialog(plan=null,dateValue=null){
+function openPlanDialog(plan=null,dateValue=null,preferredModality=null){
   if(!state.health.assessment?.training_allowed){
     toast("Conclua a anamnese e a triagem de segurança antes de planejar treinos.");
     loadHealthGate();
@@ -1966,7 +2025,7 @@ function openPlanDialog(plan=null,dateValue=null){
   $("#planDialogEyebrow").textContent=plan?"EDITAR TREINO":"NOVO TREINO";
   $("#planDialogTitle").textContent=plan?"Editar treino planejado":"Planejar treino";
   $("#planDate").value=plan?.planned_date||dateValue||state.calendar.selectedDate||localISO(new Date());
-  const modality=plan?.modality||"musculacao";
+  const modality=plan?.modality||preferredModality||"musculacao";
   $("#planModality").value=modality;
   $("#planTitle").value=plan?.title||"";
   $("#planDuration").value=plan?.duration_min||45;
@@ -2237,12 +2296,14 @@ if($("#todayWeekBtn")) $("#todayWeekBtn").onclick=()=>{
   state.calendar.selectedDate=localISO(new Date());
   loadTrainingCalendar(true);
 };
-if($("#addPlanTopBtn")) $("#addPlanTopBtn").onclick=openTrainingProgramDialog;
-$$("[data-method-key]").forEach(btn=>btn.onclick=()=>selectTrainingMethod(btn.dataset.methodKey));
-$$("[data-program-method]").forEach(btn=>btn.onclick=()=>selectTrainingMethod(btn.dataset.programMethod));
-$$("[data-planner-modality]").forEach(btn=>btn.onclick=()=>{
+if($("#addPlanTopBtn")) $("#addPlanTopBtn").onclick=openPlannerPrimaryAction;
+$("[data-method-key]").forEach(btn=>btn.onclick=()=>selectTrainingMethod(btn.dataset.methodKey));
+$("[data-program-method]").forEach(btn=>btn.onclick=()=>selectTrainingMethod(btn.dataset.programMethod));
+$("[data-planner-modality]").forEach(btn=>btn.onclick=()=>{
   state.calendar.modalityFilter=btn.dataset.plannerModality;
-  $$("[data-planner-modality]").forEach(x=>x.classList.toggle("active",x===btn));
+  $("[data-planner-modality]").forEach(x=>x.classList.toggle("active",x===btn));
+  ensurePlannerMethodForFilter();
+  renderPlannerMethodCards();
   renderTrainingCalendar();
 });
 if($("#closeTrainingProgramDialog")) $("#closeTrainingProgramDialog").onclick=closeTrainingProgramDialog;

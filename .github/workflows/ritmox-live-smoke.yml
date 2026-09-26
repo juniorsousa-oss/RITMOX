@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 20
     env:
       APP_URL: https://ritmox.onrender.com
-      EXPECTED_BUILD: "20260926-58"
+      EXPECTED_BUILD: "20260926-59"
     steps:
       - uses: actions/checkout@v4
 
@@ -356,6 +356,8 @@ jobs:
                 if(await p.locator('[data-method-key]').count()!==4) throw new Error('validated training methods mismatch');
                 const cards=await p.locator('.calendar-day').count();
                 if(cards!==7) throw new Error('calendar days '+cards);
+                const viewport=await p.evaluate(()=>({vw:innerWidth,scroll:document.documentElement.scrollWidth}));
+                if(viewport.scroll>viewport.vw+1) throw new Error('planner exceeds viewport '+JSON.stringify(viewport));
                 await p.locator('[data-method-key="strength"]').click();
                 const goal=(await p.locator('#structuredPlanGoal').textContent()||'').trim();
                 if(goal!=='Aumento de força') throw new Error('structured method selection failed: '+goal);
@@ -433,13 +435,34 @@ jobs:
                   if(await page.locator('[data-planner-modality]').count()!==5) throw new Error('planner modality tabs mismatch');
                   if(await page.locator('[data-method-key]').count()!==4) throw new Error('validated training methods mismatch');
 
+                  const viewport=await page.evaluate(()=>({vw:innerWidth,scroll:document.documentElement.scrollWidth}));
+                  if(viewport.scroll>viewport.vw+1) throw new Error('planner exceeds viewport '+JSON.stringify(viewport));
+                  for(const selector of ['#trainingCalendar','.planner-methods-panel','.planner-structured-panel']){
+                    const box=await page.locator(selector).boundingBox();
+                    if(!box||box.x<-.5||box.x+box.width>391) throw new Error('planner block outside viewport '+selector+' '+JSON.stringify(box));
+                  }
+
+                  await page.locator('[data-planner-modality="corrida"]').click();
+                  if(!await page.locator('[data-planner-modality="corrida"]').evaluate(el=>el.classList.contains('active'))) throw new Error('corrida tab did not activate');
+                  if(await page.locator('[data-method-key]:visible').count()!==2) throw new Error('corrida compatible methods mismatch');
+                  if((await page.locator('#structuredPlanGoal').textContent()||'').trim()!=='Condicionamento cardiorrespiratório') throw new Error('corrida structured plan mismatch');
+
+                  await page.locator('[data-planner-modality="musculacao"]').click();
+                  if(await page.locator('[data-method-key]:visible').count()!==4) throw new Error('musculacao compatible methods mismatch');
                   await page.locator('[data-method-key="strength"]').click();
                   const goal=(await page.locator('#structuredPlanGoal').textContent()||'').trim();
                   if(goal!=='Aumento de força') throw new Error('structured method selection failed: '+goal);
 
+                  await page.locator('[data-planner-modality="ciclismo"]').click();
+                  if(await page.locator('[data-method-key]:visible').count()!==0) throw new Error('unvalidated ciclismo method exposed');
+                  if(!await page.locator('#plannerMethodEmpty').isVisible()) throw new Error('ciclismo validation empty state missing');
+                  if(!await page.locator('#structuredPlanEmpty').isVisible()) throw new Error('ciclismo structured empty state missing');
+
+                  await page.locator('[data-planner-modality="geral"]').click();
+                  if(await page.locator('[data-method-key]:visible').count()!==4) throw new Error('geral methods did not restore');
                   await page.locator('#addPlanTopBtn').click();
                   await page.locator('#trainingProgramDialog').waitFor({state:'visible',timeout:10000});
-                  if(await page.locator('[data-program-method]').count()!==4) throw new Error('program dialog methods mismatch');
+                  if(await page.locator('[data-program-method]:visible').count()!==4) throw new Error('program dialog methods mismatch');
                   await page.locator('#cancelTrainingProgramBtn').click();
                 }
                 if(pageErrors.length) throw new Error('browser pageerror: '+pageErrors.join(' | '));

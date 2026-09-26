@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
   <link rel="shortcut icon" type="image/png" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
   <link rel="apple-touch-icon" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
-  <link rel="stylesheet" href="/static/styles.css?v=20260926-58">
+  <link rel="stylesheet" href="/static/styles.css?v=20260926-59">
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true">
@@ -251,6 +251,10 @@
                 <small>Combina base aeróbia, limiar, intervalos e força de suporte.</small>
               </button>
             </div>
+            <div class="planner-filter-empty" id="plannerMethodEmpty" hidden>
+              <strong>Método estruturado ainda não validado</strong>
+              <span>Você ainda pode cadastrar um treino manual desta modalidade pelo botão “Novo plano”.</span>
+            </div>
           </section>
 
           <section class="panel planner-structured-panel">
@@ -261,7 +265,7 @@
                 <p>Detalhes do método selecionado e como ele será aplicado.</p>
               </div>
             </div>
-            <div class="structured-plan-body">
+            <div class="structured-plan-body" id="structuredPlanBody">
               <div class="structured-plan-facts">
                 <div><span>✚</span><small>Modalidade</small><strong id="structuredPlanModality">Musculação + Corrida leve</strong></div>
                 <div><span>◎</span><small>Objetivo</small><strong id="structuredPlanGoal">Hipertrofia</strong></div>
@@ -272,6 +276,10 @@
                 <p id="structuredPlanDescription">Plano com sobrecarga progressiva, volume semanal adequado e recuperação. O calendário recebe automaticamente as sessões do método escolhido.</p>
                 <small id="structuredPlanEvidence">Referência: ACSM 2026</small>
               </div>
+            </div>
+            <div class="planner-filter-empty structured-empty" id="structuredPlanEmpty" hidden>
+              <strong>Sem plano estruturado para esta modalidade</strong>
+              <span>Os modelos específicos só serão liberados depois de validação. Treinos manuais continuam disponíveis.</span>
             </div>
           </section>
 
@@ -786,6 +794,7 @@
             <option value="corrida">Corrida</option>
             <option value="funcional">Funcional</option>
             <option value="ciclismo">Ciclismo</option>
+            <option value="mobilidade">Mobilidade</option>
             <option value="outro">Outra</option>
           </select>
         </label>
@@ -833,6 +842,6 @@
   </dialog>
 
   <div id="toast" class="toast"></div>
-  <script src="/static/app.js?v=20260926-58"></script>
+  <script src="/static/app.js?v=20260926-59"></script>
 </body>
 </html>
