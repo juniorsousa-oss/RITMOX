@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 20
     env:
       APP_URL: https://ritmox.onrender.com
-      EXPECTED_BUILD: "20260925-45"
+      EXPECTED_BUILD: "20260925-46"
     steps:
       - uses: actions/checkout@v4
 
@@ -85,7 +85,7 @@ jobs:
       - name: Install browser runtime
         run: npm install --no-save playwright-core
 
-      - name: Validate complete single-image home cards six times
+      - name: Validate approved single-image home cards six times
         shell: bash
         run: |
           node <<'NODE'
@@ -96,24 +96,48 @@ jobs:
             try{
               for(let i=1;i<=6;i++){
                 const p=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
-                await p.goto(APP+'/?cardAlignment=v45-'+i,{waitUntil:'networkidle',timeout:120000});
-                await p.waitForFunction(()=>document.querySelectorAll('.m-feature-card.home-card-baked-live').length===2,null,{timeout:30000});
+                await p.goto(APP+'/?approvedCard=v46-'+i,{waitUntil:'networkidle',timeout:120000});
+
                 const strength=p.locator('.m-feature-strength');
                 const run=p.locator('.m-feature-run');
-                for(const [name,card] of [['strength',strength],['run',run]]){
+                await strength.waitFor({state:'visible',timeout:30000});
+                await run.waitFor({state:'visible',timeout:30000});
+
+                const checks=[
+                  ['strength',strength,'home-strength-final-mobile-v46.png'],
+                  ['run',run,'home-run-final-mobile-v46.png']
+                ];
+                for(const [name,card,asset] of checks){
                   const art=card.locator('.home-card-art');
                   const src=await art.getAttribute('src');
-                  if(!src.startsWith('data:image/png;base64,')) throw new Error(name+' is not one final PNG');
-                  const copyVisibility=await card.locator('.m-feature-copy').evaluate(el=>getComputedStyle(el).visibility);
-                  const arrowVisibility=await card.locator('.m-feature-arrow').evaluate(el=>getComputedStyle(el).visibility);
-                  if(copyVisibility!=='hidden'||arrowVisibility!=='hidden') throw new Error(name+' still renders separate overlay elements');
+                  if(!src||!src.includes(asset)) throw new Error(name+' wrong approved image: '+src);
+
+                  const copyDisplay=await card.locator('.m-feature-copy').evaluate(el=>getComputedStyle(el).display);
+                  const arrowDisplay=await card.locator('.m-feature-arrow').evaluate(el=>getComputedStyle(el).display);
+                  if(copyDisplay!=='none'||arrowDisplay!=='none') throw new Error(name+' still renders separate layout elements');
+
                   const b=await card.boundingBox();
-                  if(Math.abs(b.height-104)>1) throw new Error(name+' height mismatch '+b.height);
+                  const ratio=b.width/b.height;
+                  if(Math.abs(ratio-(716/208))>0.03) throw new Error(name+' ratio mismatch '+ratio);
                 }
+
                 const sb=await strength.boundingBox(), rb=await run.boundingBox();
-                if(Math.abs(sb.x-rb.x)>.5||Math.abs(sb.width-rb.width)>.5) throw new Error('cards misaligned '+JSON.stringify({sb,rb}));
-                console.log('PASS complete card image '+i+'/6',JSON.stringify({sb,rb}));
-                if(i===6) await p.screenshot({path:'ritmox-v45-home.png',fullPage:true});
+                if(Math.abs(sb.x-rb.x)>.5 || Math.abs(sb.width-rb.width)>.5 || Math.abs(sb.height-rb.height)>.5){
+                  throw new Error('cards not aligned '+JSON.stringify({sb,rb}));
+                }
+
+                await strength.click();
+                if(!p.url().includes('#workouts')) throw new Error('strength whole-card click failed');
+
+                await p.goto(APP+'/?approvedCardRun=v46-'+i,{waitUntil:'networkidle',timeout:120000});
+                await p.locator('.m-feature-run').click();
+                if(!p.url().includes('#run')) throw new Error('run whole-card click failed');
+
+                console.log('PASS approved home cards '+i+'/6');
+                if(i===6){
+                  await p.goto(APP+'/?approvedCardShot=v46',{waitUntil:'networkidle',timeout:120000});
+                  await p.screenshot({path:'ritmox-v46-home.png',fullPage:true});
+                }
                 await p.close();
               }
             }finally{await browser.close();}
@@ -198,6 +222,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ritmox-v45-live-validation
-          path: ritmox-v45-home.png
+          name: ritmox-v46-live-validation
+          path: ritmox-v46-home.png
           if-no-files-found: ignore

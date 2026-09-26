@@ -1065,30 +1065,66 @@ body.modal-open{overflow:hidden}
 
 
 
-/* === RITMOX STABLE UI LAYER v42 === */
+/* === RITMOX STABLE UI LAYER v46 === */
 .toast{z-index:12050!important}
-.home-image-card{position:relative!important;overflow:hidden!important;background:none!important;isolation:isolate}
-.home-image-card:before,.home-image-card:after{display:none!important;content:none!important}
-.home-card-art{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;object-fit:cover!important;object-position:center!important;display:block!important;pointer-events:none!important;z-index:0!important}
-.home-image-card .m-feature-copy,.home-image-card .m-feature-arrow,.desktop-home-image-card .hero-card-head,.desktop-home-image-card .hero-card-body,.desktop-home-image-card .hero-action{position:relative!important;z-index:2!important}
+
+/* Home: each Musculação/Corrida card is one approved image and the whole card is clickable. */
+.home-image-card{
+  position:relative!important;
+  overflow:hidden!important;
+  padding:0!important;
+  margin:0!important;
+  border:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  isolation:isolate!important;
+  cursor:pointer!important;
+}
+.home-image-card:before,.home-image-card:after{
+  display:none!important;
+  content:none!important;
+}
+.home-image-card .home-card-art{
+  position:absolute!important;
+  inset:0!important;
+  width:100%!important;
+  height:100%!important;
+  display:block!important;
+  object-fit:fill!important;
+  object-position:center!important;
+  pointer-events:none!important;
+  z-index:1!important;
+}
+.home-image-card .m-feature-copy,
+.home-image-card .m-feature-arrow,
+.desktop-home-image-card .hero-card-head,
+.desktop-home-image-card .hero-card-body,
+.desktop-home-image-card .hero-action{
+  display:none!important;
+  visibility:hidden!important;
+  opacity:0!important;
+  pointer-events:none!important;
+}
 @media(max-width:700px){
   .m-feature-card.home-image-card{
-    display:grid!important;grid-template-columns:minmax(0,1fr) 24px!important;
-    height:104px!important;min-height:104px!important;max-height:104px!important;
-    padding:14px 16px 14px 92px!important;gap:8px!important;align-items:center!important
+    width:100%!important;
+    height:auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    aspect-ratio:716 / 208!important;
+    border-radius:18px!important;
   }
-  .m-feature-card.home-image-card .m-feature-copy{display:grid!important;gap:2px!important;min-width:0!important;align-self:center!important}
-  .m-feature-card.home-image-card .m-feature-copy small{font-size:9px!important;letter-spacing:1.2px!important;line-height:1.2!important}
-  .m-feature-card.home-image-card .m-feature-copy strong{font-size:19px!important;line-height:1.08!important}
-  .m-feature-card.home-image-card .m-feature-copy>span{font-size:11px!important;margin-top:2px!important;line-height:1.25!important}
-  .m-feature-card.home-image-card .m-feature-arrow{font-size:28px!important;justify-self:end!important;align-self:center!important}
 }
 @media(min-width:701px){
-  .desktop-home-image-card{background:none!important;cursor:pointer!important}
-  .desktop-home-image-card .hero-card-head{display:grid!important;grid-template-columns:1fr auto!important;padding-left:66px!important}
-  .desktop-home-image-card .hero-card-body{padding-left:66px!important}
-  .desktop-home-image-card .hero-action{margin-left:66px!important}
+  .desktop-home-image-card{
+    width:100%!important;
+    height:auto!important;
+    min-height:0!important;
+    aspect-ratio:1168 / 356!important;
+    border-radius:16px!important;
+  }
 }
+
 .bottom-nav .nav-glyph{width:42px!important;height:42px!important;display:grid!important;place-items:center!important;margin:0 auto 5px!important}
 .bottom-nav .nav-glyph img{width:100%!important;height:100%!important;object-fit:contain!important;object-position:center!important;display:block!important}
 .m-kpi-icon{width:42px!important;height:42px!important;display:grid!important;place-items:center!important;background:transparent!important}
@@ -1136,23 +1172,3 @@ body.modal-open{overflow:hidden}
   .profile-anamnesis-head{display:grid}.profile-anamnesis-meta{grid-template-columns:1fr}.profile-anamnesis-actions{display:grid;grid-template-columns:1fr}.profile-answer-row{grid-template-columns:1fr}.profile-anamnesis-dialog-body,.signature-dialog form{padding:18px 12px}
 }
 
-/* v45: mobile Musculação/Corrida are rendered as one complete image per card. */
-@media(max-width:700px){
-  .m-feature-card.home-card-baked-live{
-    padding:0!important;
-    display:block!important;
-  }
-  .m-feature-card.home-card-baked-live .m-feature-copy,
-  .m-feature-card.home-card-baked-live .m-feature-arrow{
-    visibility:hidden!important;
-    opacity:0!important;
-    pointer-events:none!important;
-  }
-  .m-feature-card.home-card-baked-live .home-card-art{
-    position:absolute!important;
-    inset:0!important;
-    width:100%!important;
-    height:100%!important;
-    object-fit:fill!important;
-  }
-}
