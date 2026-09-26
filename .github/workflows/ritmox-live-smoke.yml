@@ -2,7 +2,7 @@ name: RITMOX live regression tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, supabase-persistence-v56]
   workflow_dispatch:
 
 permissions:
@@ -17,6 +17,48 @@ jobs:
       EXPECTED_BUILD: "20260926-55"
     steps:
       - uses: actions/checkout@v4
+
+      - name: Snapshot current live RITMOX data before Supabase cutover
+        if: github.ref == 'refs/heads/supabase-persistence-v56'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ritmox-live-snapshot
+          curl -fsS "$APP_URL/api/profile" -o ritmox-live-snapshot/profile.json
+          curl -fsS "$APP_URL/api/profile/anamnesis" -o ritmox-live-snapshot/profile-anamnesis.json
+          curl -fsS "$APP_URL/api/health-assessment/latest" -o ritmox-live-snapshot/health-assessment-latest.json
+          curl -fsS "$APP_URL/api/anamnesis/form" -o ritmox-live-snapshot/anamnesis-form.json
+          curl -fsS "$APP_URL/api/training-plans" -o ritmox-live-snapshot/training-plans.json
+          curl -fsS "$APP_URL/api/modalities" -o ritmox-live-snapshot/modalities.json
+          curl -fsS "$APP_URL/api/workouts/current" -o ritmox-live-snapshot/workout-current.json
+          curl -fsS "$APP_URL/api/run/latest" -o ritmox-live-snapshot/run-latest.json
+          python - <<'PY'
+          import json, pathlib
+          root=pathlib.Path("ritmox-live-snapshot")
+          summary={}
+          for p in sorted(root.glob("*.json")):
+              try:
+                  data=json.loads(p.read_text())
+                  if isinstance(data,dict):
+                      summary[p.name]={"type":"object","keys":sorted(data.keys())}
+                  elif isinstance(data,list):
+                      summary[p.name]={"type":"list","items":len(data)}
+                  else:
+                      summary[p.name]={"type":type(data).__name__}
+              except Exception as exc:
+                  summary[p.name]={"error":str(exc)}
+          (root/"snapshot-summary.json").write_text(json.dumps(summary,ensure_ascii=False,indent=2))
+          print(json.dumps(summary,ensure_ascii=False,indent=2))
+          PY
+
+      - name: Upload pre-Supabase snapshot
+        if: github.ref == 'refs/heads/supabase-persistence-v56'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ritmox-pre-supabase-snapshot
+          path: ritmox-live-snapshot/
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Validate signed anamnesis save and PDF locally six times
         shell: bash
