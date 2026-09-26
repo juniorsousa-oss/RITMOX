@@ -11,6 +11,10 @@ services:
         value: 3.12.8
       - key: DATABASE_URL
         sync: false
+      - key: DB_SCHEMA
+        value: ritmox
+      - key: REQUIRE_PERSISTENT_DB
+        value: "true"
       - key: STRAVA_CLIENT_ID
         sync: false
       - key: STRAVA_CLIENT_SECRET

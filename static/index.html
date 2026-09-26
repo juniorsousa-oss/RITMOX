@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
   <link rel="shortcut icon" type="image/png" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
   <link rel="apple-touch-icon" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
-  <link rel="stylesheet" href="/static/styles.css?v=20260926-55">
+  <link rel="stylesheet" href="/static/styles.css?v=20260926-56">
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true">
@@ -66,7 +66,7 @@
         <div class="top-actions">
           <div class="search-box"><img class="search-image" src="/static/assets/validated/search.webp" alt=""><input id="globalSearch" placeholder="Buscar treinos, exercícios..."></div>
           <button class="icon-btn image-button" title="Notificações" aria-label="Notificações"><img src="/static/assets/validated/bell.webp" alt=""></button>
-          <button class="avatar-btn" title="Perfil">J</button>
+          <button class="avatar-btn is-loading" title="Perfil" aria-label="Perfil"></button>
         </div>
       </header>
 
@@ -75,7 +75,7 @@
         <div class="mobile-only mobile-home-shell">
           <div class="m-brandbar">
             <div class="m-brand-lockup"><img class="brand-lockup-image" src="/static/assets/validated/ritmox-logo.webp" alt="RITMOX — Treino em movimento"></div>
-            <button class="m-avatar" data-page="profile">J</button>
+            <button class="m-avatar is-loading" data-page="profile" aria-label="Perfil"></button>
           </div>
           <div class="m-greeting">
             <small>SEU DIA NO RITMOX</small>
@@ -346,9 +346,9 @@
       <section class="page" id="page-profile">
         <div class="profile-grid ritmox-profile-v53">
           <article class="panel profile-hero-card">
-            <div class="profile-photo-wrap">
+            <div class="profile-photo-wrap is-loading">
               <img id="profilePhotoImage" alt="Foto do perfil" hidden>
-              <div class="profile-avatar" id="profileAvatarFallback">J</div>
+              <div class="profile-avatar" id="profileAvatarFallback" hidden></div>
             </div>
             <div class="profile-hero-copy">
               <h2 id="profileNameTitle">Júnior</h2>
@@ -753,6 +753,6 @@
   </dialog>
 
   <div id="toast" class="toast"></div>
-  <script src="/static/app.js?v=20260926-55"></script>
+  <script src="/static/app.js?v=20260926-56"></script>
 </body>
 </html>

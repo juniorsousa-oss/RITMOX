@@ -860,11 +860,16 @@ async function loadUserProfile(){
     state.profile=await api("/api/profile");
     renderUserProfile();
   }catch(e){
+    // Resolve the loading placeholder only after the request actually fails.
+    // The initial "J" must never flash before we know there is no saved photo.
+    state.profile=state.profile||{name:"Júnior",email:"",birth_date:"",goals:"",photo_data:""};
+    renderUserProfile();
     toast(e.message);
   }
 }
 function applyProfilePhoto(el,photo,name){
   if(!el) return;
+  el.classList.remove("is-loading");
   if(photo){
     el.style.backgroundImage=`url("${photo}")`;
     el.style.backgroundSize="cover";
@@ -890,6 +895,7 @@ function renderUserProfile(){
 
   const photo=$("#profilePhotoImage");
   const fallback=$("#profileAvatarFallback");
+  const photoWrap=$(".profile-photo-wrap");
   if(photo&&fallback){
     if(p.photo_data){
       photo.src=p.photo_data;
@@ -898,9 +904,11 @@ function renderUserProfile(){
     }else{
       photo.removeAttribute("src");
       photo.hidden=true;
+      fallback.textContent=profileInitial(name);
       fallback.hidden=false;
     }
   }
+  if(photoWrap) photoWrap.classList.remove("is-loading");
 
   applyProfilePhoto($(".m-avatar"),p.photo_data,name);
   applyProfilePhoto($(".avatar-btn"),p.photo_data,name);

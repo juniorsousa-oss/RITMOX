@@ -23,20 +23,40 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, rela
 
 ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
-BUILD_VERSION = "20260926-55"
+BUILD_VERSION = "20260926-56"
 
-database_url = os.getenv("DATABASE_URL", f"sqlite:///{ROOT / 'ritmox.db'}")
+raw_database_url = os.getenv("DATABASE_URL", "").strip()
+require_persistent_db = os.getenv("REQUIRE_PERSISTENT_DB", "").strip().lower() in {"1", "true", "yes", "on"}
+
+if require_persistent_db and not raw_database_url:
+    raise RuntimeError(
+        "RITMOX: DATABASE_URL é obrigatório em produção. "
+        "O aplicativo não iniciará com SQLite efêmero."
+    )
+
+database_url = raw_database_url or f"sqlite:///{ROOT / 'ritmox.db'}"
 if database_url.startswith("postgres://"):
     database_url = "postgresql+psycopg://" + database_url[len("postgres://"):]
 elif database_url.startswith("postgresql://") and "+psycopg" not in database_url:
     database_url = "postgresql+psycopg://" + database_url[len("postgresql://"):]
 
+is_postgres = database_url.startswith("postgresql+psycopg://")
+db_schema = os.getenv("DB_SCHEMA", "ritmox").strip() if is_postgres else ""
+
+connect_args: dict[str, Any] = {"check_same_thread": False} if database_url.startswith("sqlite:") else {}
+if is_postgres and db_schema:
+    # Mantém todas as tabelas do RITMOX isoladas no schema próprio do Supabase.
+    connect_args["options"] = f"-csearch_path={db_schema},public"
+
 engine = create_engine(
     database_url,
-    connect_args={"check_same_thread": False} if database_url.startswith("sqlite:") else {},
+    connect_args=connect_args,
     pool_pre_ping=True,
 )
 DB = sessionmaker(bind=engine, expire_on_commit=False)
+
+storage_backend = "postgresql" if is_postgres else "sqlite"
+storage_persistent = bool(is_postgres)
 
 
 class Base(DeclarativeBase):
@@ -393,7 +413,11 @@ def cleanup_initial_demo_data() -> None:
         db.close()
 
 
-cleanup_initial_demo_data()
+# Nunca execute limpeza destrutiva automaticamente em produção.
+# Dados de demonstração só podem ser removidos explicitamente em ambiente local.
+if os.getenv("RITMOX_CLEANUP_DEMO_DATA", "").strip().lower() in {"1", "true", "yes", "on"}:
+    cleanup_initial_demo_data()
+
 seed_default_anamnesis_once()
 app = FastAPI(title="RITMOX", version="0.1.0")
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
@@ -412,7 +436,16 @@ def home():
 
 
 def health_payload():
-    return {"status": "ok", "app": "RITMOX", "build": BUILD_VERSION}
+    return {
+        "status": "ok",
+        "app": "RITMOX",
+        "build": BUILD_VERSION,
+        "storage": {
+            "backend": storage_backend,
+            "persistent": storage_persistent,
+            "schema": db_schema or None,
+        },
+    }
 
 
 @app.get("/health")

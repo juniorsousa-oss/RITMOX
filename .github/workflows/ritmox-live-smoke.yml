@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   live-regression:
@@ -14,7 +15,7 @@ jobs:
     timeout-minutes: 20
     env:
       APP_URL: https://ritmox.onrender.com
-      EXPECTED_BUILD: "20260926-55"
+      EXPECTED_BUILD: "20260926-56"
     steps:
       - uses: actions/checkout@v4
 
@@ -75,9 +76,12 @@ jobs:
         run: |
           set -euo pipefail
           for attempt in {1..70}; do
-            body="$(curl -fsS --max-time 20 "$APP_URL/api/version" || true)"
+            body="$(curl -fsS --max-time 20 "$APP_URL/health" || true)"
             echo "attempt=$attempt body=$body"
-            if echo "$body" | grep -q "$EXPECTED_BUILD"; then exit 0; fi
+            if echo "$body" | grep -q "$EXPECTED_BUILD" && echo "$body" | grep -q '"persistent":true'; then
+              echo "Persistent PostgreSQL confirmed."
+              exit 0
+            fi
             sleep 10
           done
           exit 1
