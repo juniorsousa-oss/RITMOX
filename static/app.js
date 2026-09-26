@@ -6,6 +6,7 @@ const state = {
   workout: null,
   run: null,
   dashboard: null,
+  profile: null,
   timerStartedAt: null,
   timerHandle: null,
   calendar: {
@@ -73,7 +74,7 @@ function navigate(page){
   if(page==="home") setTimeout(drawProgressChart,50);
   if(page==="run") setTimeout(drawRunChart,50);
   if(page==="workouts") setTimeout(()=>loadHealthGate(),20);
-  if(page==="profile") setTimeout(()=>loadProfileAnamnesis(),20);
+  if(page==="profile") setTimeout(()=>Promise.all([loadUserProfile(),loadProfileAnamnesis()]),20);
   if(page==="settings") setTimeout(()=>loadAnamnesisSettings(),20);
   window.scrollTo({top:0,behavior:"smooth"});
 }
@@ -836,6 +837,154 @@ async function loadHealthGate(){
 }
 
 
+
+function profileInitial(name){
+  return (String(name||"Júnior").trim().charAt(0)||"J").toUpperCase();
+}
+function profileBirthLabel(value){
+  if(!value) return "Não informada";
+  const parts=value.split("-");
+  return parts.length===3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : value;
+}
+async function loadUserProfile(){
+  try{
+    state.profile=await api("/api/profile");
+    renderUserProfile();
+  }catch(e){
+    toast(e.message);
+  }
+}
+function applyProfilePhoto(el,photo,name){
+  if(!el) return;
+  if(photo){
+    el.style.backgroundImage=`url("${photo}")`;
+    el.style.backgroundSize="cover";
+    el.style.backgroundPosition="center";
+    el.textContent="";
+    el.classList.add("has-photo");
+  }else{
+    el.style.backgroundImage="";
+    el.textContent=profileInitial(name);
+    el.classList.remove("has-photo");
+  }
+}
+function renderUserProfile(){
+  const p=state.profile||{name:"Júnior",email:"",birth_date:"",goals:"",photo_data:""};
+  const name=p.name||"Júnior";
+  const first=name.trim().split(/s+/)[0]||"Júnior";
+  if($("#profileNameTitle")) $("#profileNameTitle").textContent=name;
+  if($("#profileAvatarFallback")) $("#profileAvatarFallback").textContent=profileInitial(name);
+  if($("#profileInfoName")) $("#profileInfoName").textContent=name;
+  if($("#profileInfoEmail")) $("#profileInfoEmail").textContent=p.email||"Não informado";
+  if($("#profileInfoBirth")) $("#profileInfoBirth").textContent=profileBirthLabel(p.birth_date);
+  if($("#profileInfoGoals")) $("#profileInfoGoals").textContent=p.goals||"Não informado";
+
+  const photo=$("#profilePhotoImage");
+  const fallback=$("#profileAvatarFallback");
+  if(photo&&fallback){
+    if(p.photo_data){
+      photo.src=p.photo_data;
+      photo.hidden=false;
+      fallback.hidden=true;
+    }else{
+      photo.removeAttribute("src");
+      photo.hidden=true;
+      fallback.hidden=false;
+    }
+  }
+
+  applyProfilePhoto($(".m-avatar"),p.photo_data,name);
+  applyProfilePhoto($(".avatar-btn"),p.photo_data,name);
+  const mobileGreeting=$(".m-greeting h1");
+  if(mobileGreeting) mobileGreeting.textContent=`Bom dia, ${first}!`;
+  pageMeta.home[0]=`Bom dia, ${first}!`;
+  if(state.page==="home"&&$("#pageTitle")) $("#pageTitle").textContent=pageMeta.home[0];
+}
+function openProfileEditDialog(focusName=false){
+  const p=state.profile||{name:"Júnior",email:"",birth_date:"",goals:""};
+  $("#profileEditName").value=p.name||"Júnior";
+  $("#profileEditEmail").value=p.email||"";
+  $("#profileEditBirth").value=p.birth_date||"";
+  $("#profileEditGoals").value=p.goals||"";
+  openDialogSafe($("#profileEditDialog"));
+  setTimeout(()=>focusName?$("#profileEditName")?.focus():$("#profileEditEmail")?.focus(),40);
+}
+function closeProfileEditDialog(){
+  closeDialogSafe($("#profileEditDialog"));
+}
+async function saveProfileEdit(ev){
+  ev.preventDefault();
+  const p=state.profile||{};
+  const payload={
+    name:$("#profileEditName").value.trim(),
+    email:$("#profileEditEmail").value.trim(),
+    birth_date:$("#profileEditBirth").value,
+    goals:$("#profileEditGoals").value.trim(),
+    photo_data:p.photo_data||""
+  };
+  const btn=$("#saveProfileEditBtn");
+  const old=btn?.textContent||"Salvar alterações";
+  if(btn){btn.disabled=true;btn.textContent="Salvando...";}
+  try{
+    state.profile=await api("/api/profile",{method:"PUT",body:JSON.stringify(payload)});
+    renderUserProfile();
+    closeProfileEditDialog();
+    toast("Perfil atualizado.");
+  }catch(e){
+    toast(e.message);
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent=old;}
+  }
+}
+function resizeProfilePhoto(file){
+  return new Promise((resolve,reject)=>{
+    if(!file||!file.type.startsWith("image/")){reject(new Error("Selecione uma imagem válida."));return;}
+    if(file.size>12*1024*1024){reject(new Error("A imagem deve ter no máximo 12 MB."));return;}
+    const reader=new FileReader();
+    reader.onerror=()=>reject(new Error("Não foi possível ler a imagem."));
+    reader.onload=()=>{
+      const img=new Image();
+      img.onerror=()=>reject(new Error("Formato de imagem não suportado."));
+      img.onload=()=>{
+        const size=512;
+        const canvas=document.createElement("canvas");
+        canvas.width=size; canvas.height=size;
+        const ctx=canvas.getContext("2d");
+        const crop=Math.min(img.naturalWidth,img.naturalHeight);
+        const sx=(img.naturalWidth-crop)/2;
+        const sy=(img.naturalHeight-crop)/2;
+        ctx.drawImage(img,sx,sy,crop,crop,0,0,size,size);
+        resolve(canvas.toDataURL("image/jpeg",0.84));
+      };
+      img.src=reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+async function handleProfilePhoto(file){
+  try{
+    const photo=await resizeProfilePhoto(file);
+    const current=state.profile||await api("/api/profile");
+    state.profile=await api("/api/profile",{
+      method:"PUT",
+      body:JSON.stringify({
+        name:current.name||"Júnior",
+        email:current.email||"",
+        birth_date:current.birth_date||"",
+        goals:current.goals||"",
+        photo_data:photo
+      })
+    });
+    renderUserProfile();
+    toast("Foto de perfil atualizada.");
+  }catch(e){
+    toast(e.message);
+  }finally{
+    const input=$("#profilePhotoInput");
+    if(input) input.value="";
+  }
+}
+
 function isAriaChecked(el){
   return !!el && el.getAttribute("aria-checked")==="true";
 }
@@ -878,9 +1027,10 @@ function renderProfileAnamnesis(){
   status.textContent=assessmentStatusLabel(latest);
   status.className="status-pill "+(latest.risk_status==="attention_required"&&!latest.professional_clearance?"warning":"connected");
   subtitle.textContent="Última atualização: "+formatDateTimeBR(latest.updated_at||latest.completed_at);
-  meta.innerHTML='<div><small>TRIAGEM</small><strong>'+escapeHTML(assessmentStatusLabel(latest))+'</strong></div>'+
-    '<div><small>ASSINATURA</small><strong>'+escapeHTML(signatureStatusLabel(latest))+'</strong></div>'+
-    '<div><small>REGISTRO</small><strong>#'+latest.id+'</strong></div>';
+  meta.innerHTML=
+    '<div class="profile-meta-tile"><span class="profile-meta-icon pink"><svg><use href="#i-file"/></svg></span><span><small>TRIAGEM</small><strong>'+escapeHTML(assessmentStatusLabel(latest))+'</strong></span></div>'+
+    '<div class="profile-meta-tile"><span class="profile-meta-icon cyan"><svg><use href="#i-file"/></svg></span><span><small>ASSINATURA</small><strong>'+escapeHTML(signatureStatusLabel(latest))+'</strong></span></div>'+
+    '<div class="profile-meta-tile"><span class="profile-meta-icon purple">#</span><span><small>REGISTRO</small><strong>#'+latest.id+'</strong></span></div>';
   view.hidden=false; pdf.hidden=false; sign.hidden=latest.signature_status!=="pending";
 }
 function answerText(value){
@@ -1328,7 +1478,7 @@ function renderSelectedDay(){
 
   const list=$("#dayPlanList");
   if(!plans.length){
-    list.innerHTML=`<div class="day-empty"><div><strong>Dia livre</strong><span>Inclua um treino para começar o planejamento.</span></div></div>`;
+    list.innerHTML=`<div class="day-empty"><div><span class="day-empty-icon"><svg><use href="#i-calendar"/></svg></span><strong>Dia livre</strong><span>Inclua um treino para começar o planejamento.</span></div></div>`;
     return;
   }
   list.innerHTML=plans.map(p=>`
@@ -1734,6 +1884,18 @@ if($("#closeSignatureBtn")) $("#closeSignatureBtn").onclick=()=>closeDialogSafe(
 if($("#cancelSignatureBtn")) $("#cancelSignatureBtn").onclick=()=>closeDialogSafe($("#signatureDialog"));
 if($("#signatureForm")) $("#signatureForm").addEventListener("submit",submitSignature);
 
+
+if($("#changeProfilePhotoBtn")) $("#changeProfilePhotoBtn").onclick=()=>$("#profilePhotoInput")?.click();
+if($("#profilePhotoInput")) $("#profilePhotoInput").addEventListener("change",ev=>handleProfilePhoto(ev.target.files?.[0]));
+if($("#editProfileNameBtn")) $("#editProfileNameBtn").onclick=()=>openProfileEditDialog(true);
+if($("#editProfileDataBtn")) $("#editProfileDataBtn").onclick=()=>openProfileEditDialog(false);
+$$("[data-profile-edit]").forEach(btn=>btn.onclick=()=>openProfileEditDialog(false));
+if($("#closeProfileEditBtn")) $("#closeProfileEditBtn").onclick=closeProfileEditDialog;
+if($("#cancelProfileEditBtn")) $("#cancelProfileEditBtn").onclick=closeProfileEditDialog;
+if($("#profileEditForm")) $("#profileEditForm").addEventListener("submit",saveProfileEdit);
+if($("#privacyProfileBtn")) $("#privacyProfileBtn").onclick=()=>toast("Privacidade e segurança entram na próxima etapa.");
+if($("#supportProfileBtn")) $("#supportProfileBtn").onclick=()=>toast("Central de ajuda e suporte entra na próxima etapa.");
+
 window.addEventListener("resize",()=>{
   clearTimeout(window._resize);
   window._resize=setTimeout(()=>{drawProgressChart();drawRunChart()},120);
@@ -1744,7 +1906,7 @@ window.addEventListener("resize",()=>{
   const desktopWorkoutIcon=$(".side-nav [data-page='workouts'] img");
   if(workoutNavSource && desktopWorkoutIcon) desktopWorkoutIcon.src=workoutNavSource;
 
-  await Promise.all([loadDashboard(),loadRun()]);
+  await Promise.all([loadDashboard(),loadRun(),loadUserProfile()]);
   const hash=location.hash.replace("#","");
   navigate(pageMeta[hash]?hash:"home");
 })();

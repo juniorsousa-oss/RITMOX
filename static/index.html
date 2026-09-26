@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
   <link rel="shortcut icon" type="image/png" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
   <link rel="apple-touch-icon" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
-  <link rel="stylesheet" href="/static/styles.css?v=20260925-49">
+  <link rel="stylesheet" href="/static/styles.css?v=20260926-50">
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true">
@@ -25,6 +25,15 @@
     <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.1.1l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1M14 11a5 5 0 0 0-7.1-.1l-2 2A5 5 0 0 0 12 20l1.1-1.1"/></symbol>
     <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m15.4 15.4 4.1 4.1"/></symbol>
     <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6.8 9.8a5.2 5.2 0 0 1 10.4 0v3.5l1.8 2.2H5l1.8-2.2V9.8Z"/><path d="M9.8 18.2a2.4 2.4 0 0 0 4.4 0"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8.5h3l1.4-2h7.2l1.4 2h3v10H4z"/><circle cx="12" cy="13.5" r="3.2"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.7"/></symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4.5 7 7.5 6 7.5-6"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24"><circle cx="11" cy="13" r="7"/><circle cx="11" cy="13" r="3"/><path d="m14 10 7-7M17 3h4v4"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2 20 5v6c0 5.2-3.2 9-8 11-4.8-2-8-5.8-8-11V5z"/><path d="M12 7v10"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.7 9a2.5 2.5 0 0 1 4.7 1.2c0 1.8-2.4 2.2-2.4 4M12 18h.01"/></symbol>
   </svg>
 
   <div class="app-shell">
@@ -335,39 +344,100 @@
       </section>
 
       <section class="page" id="page-profile">
-        <div class="profile-grid">
-          <article class="panel profile-card">
-            <div class="profile-avatar">J</div>
-            <div><h2>Júnior</h2><p>Atleta RITMOX</p></div>
+        <div class="profile-grid ritmox-profile-v50">
+          <article class="panel profile-hero-card">
+            <div class="profile-photo-wrap">
+              <img id="profilePhotoImage" alt="Foto do perfil" hidden>
+              <div class="profile-avatar" id="profileAvatarFallback">J</div>
+            </div>
+            <div class="profile-hero-copy">
+              <h2 id="profileNameTitle">Júnior</h2>
+              <p>Atleta RITMOX</p>
+              <span class="profile-active-badge"><i></i> Membro ativo</span>
+            </div>
+            <button type="button" class="profile-photo-btn" id="changeProfilePhotoBtn">
+              <svg aria-hidden="true"><use href="#i-camera"/></svg><span>Alterar foto</span>
+            </button>
+            <input id="profilePhotoInput" type="file" accept="image/*" hidden>
+            <div class="profile-quick-actions">
+              <button type="button" id="editProfileNameBtn">
+                <svg aria-hidden="true"><use href="#i-user"/></svg>
+                <span>Editar nome</span><b>›</b>
+              </button>
+              <button type="button" id="editProfileDataBtn">
+                <svg aria-hidden="true"><use href="#i-file"/></svg>
+                <span>Editar dados pessoais</span><b>›</b>
+              </button>
+            </div>
           </article>
+
           <article class="panel profile-anamnesis-card" id="profileAnamnesisCard">
             <div class="profile-anamnesis-head">
-              <div><small>SAÚDE E TRIAGEM</small><h3>Anamnese</h3><p id="profileAnamnesisSubtitle">Carregando registro do aluno...</p></div>
+              <div>
+                <small>SAÚDE E TRIAGEM</small>
+                <h3>Anamnese</h3>
+                <p id="profileAnamnesisSubtitle">Carregando registro do aluno...</p>
+              </div>
               <span id="profileAnamnesisStatus" class="status-pill">Carregando</span>
             </div>
             <div class="profile-anamnesis-meta" id="profileAnamnesisMeta"></div>
             <div class="profile-anamnesis-actions">
-              <button type="button" class="ghost-btn" id="viewProfileAnamnesisBtn" hidden>Visualizar</button>
+              <button type="button" class="ghost-btn profile-view-btn" id="viewProfileAnamnesisBtn" hidden>
+                <svg aria-hidden="true"><use href="#i-eye"/></svg><span>Visualizar</span>
+              </button>
               <button type="button" class="ghost-btn" id="signProfileAnamnesisBtn" hidden>Assinar anamnese</button>
-              <button type="button" class="primary-btn pink-btn" id="exportProfileAnamnesisBtn" hidden>Exportar PDF</button>
+              <button type="button" class="primary-btn pink-btn profile-pdf-btn" id="exportProfileAnamnesisBtn" hidden>
+                <svg aria-hidden="true"><use href="#i-file"/></svg><span>Exportar PDF</span>
+              </button>
             </div>
           </article>
-          <article class="panel profile-settings-card">
-            <div>
+
+          <article class="panel profile-info-card">
+            <div class="profile-section-title">
+              <small>MINHA CONTA</small>
+              <h3>Informações pessoais</h3>
+              <p>Gerencie seus dados e informações da conta.</p>
+            </div>
+            <div class="profile-info-list">
+              <button type="button" class="profile-info-row" data-profile-edit>
+                <svg aria-hidden="true"><use href="#i-user"/></svg>
+                <span><strong>Nome</strong><small id="profileInfoName">Júnior</small></span><b>›</b>
+              </button>
+              <button type="button" class="profile-info-row" data-profile-edit>
+                <svg aria-hidden="true"><use href="#i-mail"/></svg>
+                <span><strong>E-mail</strong><small id="profileInfoEmail">Não informado</small></span><b>›</b>
+              </button>
+              <button type="button" class="profile-info-row" data-profile-edit>
+                <svg aria-hidden="true"><use href="#i-calendar"/></svg>
+                <span><strong>Data de nascimento</strong><small id="profileInfoBirth">Não informada</small></span><b>›</b>
+              </button>
+              <button type="button" class="profile-info-row" data-profile-edit>
+                <svg aria-hidden="true"><use href="#i-target"/></svg>
+                <span><strong>Objetivos</strong><small id="profileInfoGoals">Não informado</small></span><b>›</b>
+              </button>
+            </div>
+          </article>
+
+          <article class="panel profile-admin-card">
+            <div class="profile-section-title">
               <small>ADMINISTRAÇÃO</small>
               <h3>Configurações</h3>
-              <p>Parametrize a anamnese e outras regras do RITMOX.</p>
+              <p>Personalize sua experiência no RITMOX.</p>
             </div>
-            <button class="ghost-btn" data-page="settings">Abrir configurações</button>
-          </article>
-          <article class="panel integration-card">
-            <div class="integration-head">
-              <span class="strava-mark">▲</span>
-              <div><small>INTEGRAÇÕES</small><h3>Strava</h3></div>
-              <span id="stravaStatus" class="status-pill">Não conectado</span>
+            <div class="profile-info-list">
+              <button type="button" class="profile-info-row" data-page="settings">
+                <svg class="purple" aria-hidden="true"><use href="#i-gear"/></svg>
+                <span><strong>Preferências do app</strong><small>Anamnese, notificações e formulários</small></span><b>›</b>
+              </button>
+              <button type="button" class="profile-info-row" id="privacyProfileBtn">
+                <svg class="purple" aria-hidden="true"><use href="#i-shield"/></svg>
+                <span><strong>Privacidade e segurança</strong><small>Seus dados e permissões</small></span><b>›</b>
+              </button>
+              <button type="button" class="profile-info-row" id="supportProfileBtn">
+                <svg class="purple" aria-hidden="true"><use href="#i-help"/></svg>
+                <span><strong>Ajuda e suporte</strong><small>Dúvidas, tutoriais e contato</small></span><b>›</b>
+              </button>
             </div>
-            <p>Importe corridas e métricas quando a integração OAuth estiver configurada.</p>
-            <button id="stravaBtn" class="primary-btn orange-btn"><svg><use href="#i-link"/></svg> Conectar com Strava</button>
           </article>
         </div>
       </section>
@@ -417,6 +487,33 @@
     <button class="bottom-item" data-page="evolution"><span class="nav-glyph"><img src="/static/assets/validated/evolution.webp" alt=""></span><span>Evolução</span></button>
     <button class="bottom-item" data-page="profile"><span class="nav-glyph"><img src="/static/assets/validated/profile.webp" alt=""></span><span>Perfil</span></button>
   </nav>
+
+  <div id="profileEditDialog" class="app-modal-overlay profile-edit-dialog" hidden><div class="app-modal-surface">
+    <form id="profileEditForm">
+      <button type="button" class="dialog-close" id="closeProfileEditBtn" aria-label="Fechar">×</button>
+      <span class="eyebrow pink-text">MEU PERFIL</span>
+      <h3>Editar informações pessoais</h3>
+      <p>Atualize os dados que aparecem no seu perfil RITMOX.</p>
+      <div class="profile-edit-grid">
+        <label>Nome
+          <input id="profileEditName" maxlength="160" required placeholder="Seu nome">
+        </label>
+        <label>E-mail
+          <input id="profileEditEmail" type="email" maxlength="220" placeholder="voce@exemplo.com">
+        </label>
+        <label>Data de nascimento
+          <input id="profileEditBirth" type="date">
+        </label>
+        <label class="span-2">Objetivos
+          <textarea id="profileEditGoals" maxlength="500" rows="3" placeholder="Ex.: hipertrofia e performance"></textarea>
+        </label>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="ghost-btn" id="cancelProfileEditBtn">Cancelar</button>
+        <button type="submit" class="primary-btn pink-btn" id="saveProfileEditBtn">Salvar alterações</button>
+      </div>
+    </form>
+  </div></div>
 
   <div id="healthAssessmentDialog" class="app-modal-overlay health-assessment-dialog" hidden><div class="app-modal-surface">
     <form id="healthAssessmentForm" novalidate>
@@ -625,6 +722,6 @@
   </dialog>
 
   <div id="toast" class="toast"></div>
-  <script src="/static/app.js?v=20260925-49"></script>
+  <script src="/static/app.js?v=20260926-50"></script>
 </body>
 </html>

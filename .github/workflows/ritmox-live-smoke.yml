@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 20
     env:
       APP_URL: https://ritmox.onrender.com
-      EXPECTED_BUILD: "20260925-49"
+      EXPECTED_BUILD: "20260926-50"
     steps:
       - uses: actions/checkout@v4
 
@@ -215,36 +215,89 @@ jobs:
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
 
-      - name: Validate profile API and UI
+      - name: Validate approved profile and calendar layouts six times
         shell: bash
         run: |
-          set -euo pipefail
-          curl -fsS "$APP_URL/api/profile/anamnesis" >/tmp/profile.json
-          python - <<'PY'
-          import json
-          p=json.load(open('/tmp/profile.json'))
-          assert set(('latest','history','count')).issubset(p)
-          print('PROFILE_COUNT',p['count'])
-          PY
           node <<'NODE'
           const { chromium }=require('playwright-core');
           const APP=process.env.APP_URL;
           (async()=>{
             const browser=await chromium.launch({executablePath:'/usr/bin/google-chrome',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
             try{
-              const p=await browser.newPage({viewport:{width:390,height:844}});
-              await p.goto(APP,{waitUntil:'networkidle',timeout:120000});
-              await p.locator('.bottom-nav [data-page="profile"]').click();
-              await p.waitForFunction(()=>{const el=document.querySelector('#profileAnamnesisSubtitle');return el&&el.textContent&&!el.textContent.includes('Carregando')},{timeout:30000});
-              console.log('PASS profile UI',await p.locator('#profileAnamnesisSubtitle').textContent());
+              for(let i=1;i<=6;i++){
+                const p=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
+                await p.goto(APP+'/?layoutV50='+i,{waitUntil:'networkidle',timeout:120000});
+
+                await p.locator('.bottom-nav [data-page="profile"]').click();
+                await p.locator('.profile-hero-card').waitFor({state:'visible',timeout:30000});
+                await p.waitForFunction(()=>document.querySelector('#profileNameTitle')?.textContent?.trim().length>0);
+                if(await p.locator('.profile-quick-actions button').count()!==2) throw new Error('profile quick actions mismatch');
+                if(await p.locator('.profile-info-card .profile-info-row').count()!==4) throw new Error('personal rows mismatch');
+                if(await p.locator('.profile-admin-card .profile-info-row').count()!==3) throw new Error('admin rows mismatch');
+                await p.locator('#editProfileDataBtn').click();
+                await p.locator('#profileEditDialog').waitFor({state:'visible',timeout:10000});
+                if(await p.locator('#profileEditName').count()!==1) throw new Error('profile edit fields missing');
+                await p.locator('#cancelProfileEditBtn').click();
+
+                await p.locator('.bottom-nav [data-page="workouts"]').click();
+                await p.evaluate(()=>{
+                  const gate=document.querySelector('#healthGate');
+                  const cal=document.querySelector('#trainingCalendar');
+                  if(gate) gate.hidden=true;
+                  if(cal) cal.hidden=false;
+                  state.calendar.weekStart=startOfWeek(new Date());
+                  state.calendar.selectedDate=localISO(new Date());
+                  state.calendar.plans=[];
+                  renderTrainingCalendar();
+                });
+                await p.locator('#weekCalendar').waitFor({state:'visible',timeout:10000});
+                const addBox=await p.locator('#addPlanDayBtn').boundingBox();
+                if(Math.abs(addBox.width-52)>1||Math.abs(addBox.height-52)>1) throw new Error('day add button misaligned '+JSON.stringify(addBox));
+                const cards=await p.locator('.calendar-day').count();
+                if(cards!==7) throw new Error('calendar days '+cards);
+                const firstBox=await p.locator('.calendar-day').first().boundingBox();
+                if(Math.abs(firstBox.width-66)>1) throw new Error('calendar card width '+firstBox.width);
+                if(await p.locator('.day-empty-icon').count()!==1) throw new Error('day empty icon missing');
+
+                console.log('PASS approved profile/calendar '+i+'/6');
+                if(i===6) await p.screenshot({path:'ritmox-v50-profile-calendar.png',fullPage:true});
+                await p.close();
+              }
             }finally{await browser.close();}
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
 
-      - name: Upload v42 screenshots
+      - name: Validate profile persistence locally six times
+        shell: bash
+        env:
+          DATABASE_URL: sqlite:////tmp/ritmox-profile-v50.db
+        run: |
+          python -m pip install --quiet -r requirements.txt
+          python - <<'PY'
+          import app
+          db=app.DB()
+          try:
+              for i in range(1,7):
+                  data=app.UserProfileIn(
+                      name=f"Júnior {i}",
+                      email=f"junior{i}@ritmox.com",
+                      birth_date="1998-03-15",
+                      goals="Hipertrofia e performance",
+                      photo_data="",
+                  )
+                  out=app.update_user_profile(data,db)
+                  assert out["name"]==f"Júnior {i}"
+                  assert out["email"]==f"junior{i}@ritmox.com"
+                  assert out["birth_date"]=="1998-03-15"
+                  print(f"PASS profile persistence {i}/6")
+          finally:
+              db.close()
+          PY
+
+      - name: Upload v50 screenshot
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ritmox-v49-live-validation
-          path: ritmox-v49-home.png
+          name: ritmox-v50-live-validation
+          path: ritmox-v50-profile-calendar.png
           if-no-files-found: ignore

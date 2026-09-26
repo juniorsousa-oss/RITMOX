@@ -23,7 +23,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, rela
 
 ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
-BUILD_VERSION = "20260925-49"
+BUILD_VERSION = "20260926-50"
 
 database_url = os.getenv("DATABASE_URL", f"sqlite:///{ROOT / 'ritmox.db'}")
 if database_url.startswith("postgres://"):
@@ -166,6 +166,17 @@ class AppSetting(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     key: Mapped[str] = mapped_column(String(120), unique=True, index=True)
     value: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class UserProfile(Base):
+    __tablename__ = "user_profiles"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(160), default="Júnior")
+    email: Mapped[str] = mapped_column(String(220), default="")
+    birth_date: Mapped[str] = mapped_column(String(10), default="")
+    goals: Mapped[str] = mapped_column(String(500), default="")
+    photo_data: Mapped[str] = mapped_column(Text, default="")
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
@@ -840,6 +851,14 @@ class AnamnesisQuestionIn(BaseModel):
     position: int = Field(default=0, ge=0, le=10000)
 
 
+class UserProfileIn(BaseModel):
+    name: str = Field(default="Júnior", min_length=2, max_length=160)
+    email: str = Field(default="", max_length=220)
+    birth_date: str = Field(default="", max_length=10)
+    goals: str = Field(default="", max_length=500)
+    photo_data: str = Field(default="", max_length=800000)
+
+
 class DynamicHealthAssessmentIn(BaseModel):
     answers: dict[str, Any] = Field(default_factory=dict)
     consent_truthful: bool = False
@@ -1331,6 +1350,64 @@ def _assessment_pdf_buffer(item: HealthAssessment) -> BytesIO:
     doc.build(story)
     buffer.seek(0)
     return buffer
+
+
+def _profile_payload(item: UserProfile) -> dict[str, Any]:
+    return {
+        "id": item.id,
+        "name": item.name or "Júnior",
+        "email": item.email or "",
+        "birth_date": item.birth_date or "",
+        "goals": item.goals or "",
+        "photo_data": item.photo_data or "",
+        "updated_at": item.updated_at.isoformat() if item.updated_at else None,
+    }
+
+
+def _ensure_user_profile(db: Session) -> UserProfile:
+    item = db.get(UserProfile, 1)
+    if item:
+        return item
+    item = UserProfile(id=1, name="Júnior")
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@app.get("/api/profile")
+def get_user_profile(db: Session = Depends(session)):
+    return _profile_payload(_ensure_user_profile(db))
+
+
+@app.put("/api/profile")
+def update_user_profile(data: UserProfileIn, db: Session = Depends(session)):
+    item = _ensure_user_profile(db)
+    name = data.name.strip()
+    if len(name) < 2:
+        raise HTTPException(422, "Informe um nome válido.")
+    email = data.email.strip().lower()
+    if email and ("@" not in email or "." not in email.split("@")[-1]):
+        raise HTTPException(422, "Informe um e-mail válido.")
+    birth_date = data.birth_date.strip()
+    if birth_date:
+        try:
+            date.fromisoformat(birth_date)
+        except ValueError as exc:
+            raise HTTPException(422, "Informe uma data de nascimento válida.") from exc
+    photo_data = data.photo_data.strip()
+    if photo_data and not photo_data.startswith("data:image/"):
+        raise HTTPException(422, "A foto de perfil é inválida.")
+
+    item.name = name
+    item.email = email
+    item.birth_date = birth_date
+    item.goals = data.goals.strip()
+    item.photo_data = photo_data
+    item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(item)
+    return _profile_payload(item)
 
 
 @app.get("/api/profile/anamnesis")
