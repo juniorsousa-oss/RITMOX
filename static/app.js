@@ -2719,14 +2719,18 @@ window.addEventListener("resize",()=>{
 });
 
 (async function init(){
+  // Restore the requested route before any network request. This prevents
+  // the Home page from flashing when reloading #workouts/#run/etc.
+  const hash=location.hash.replace("#","");
+  const initialPage=pageMeta[hash]?hash:"home";
+  navigate(initialPage);
+
   const workoutNavSource=$(".bottom-nav [data-page='workouts'] img")?.src;
   const desktopWorkoutIcon=$(".side-nav [data-page='workouts'] img");
   if(workoutNavSource && desktopWorkoutIcon) desktopWorkoutIcon.src=workoutNavSource;
 
-  await Promise.all([loadDashboard(),loadRun(),loadUserProfile()]);
-  await loadHomeTodayTraining();
-  const hash=location.hash.replace("#","");
-  navigate(pageMeta[hash]?hash:"home");
+  // Load independent startup data concurrently; the current page remains visible.
+  await Promise.all([loadDashboard(),loadRun(),loadUserProfile(),loadHomeTodayTraining()]);
 })();
 
 function handleAriaCheckboxClick(ev){
