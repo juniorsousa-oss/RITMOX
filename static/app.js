@@ -427,7 +427,7 @@ $$("[data-open]").forEach(card=>card.addEventListener("click",(ev)=>{
   if(ev.target.closest("button")) ev.preventDefault();
   navigate(card.dataset.open);
 }));
-$(".hero-action").forEach(btn=>btn.addEventListener("click",async(ev)=>{
+$$(".hero-action").forEach(btn=>btn.addEventListener("click",async(ev)=>{
   ev.stopPropagation();
   if(btn.id==="homeStartWorkoutBtn" && btn.dataset.planId){
     ev.preventDefault();
@@ -2562,7 +2562,7 @@ if($("#todayWeekBtn")) $("#todayWeekBtn").onclick=()=>{
 if($("#addPlanTopBtn")) $("#addPlanTopBtn").onclick=openPlannerPrimaryAction;
 if($("#changeTrainingCycleBtn")) $("#changeTrainingCycleBtn").onclick=()=>openTrainingProgramDialog(true);
 if($("#deleteTrainingCycleBtn")) $("#deleteTrainingCycleBtn").onclick=deleteTrainingCycle;
-$("[data-method-key]").forEach(btn=>btn.onclick=()=>selectTrainingMethod(btn.dataset.methodKey));
+$$("[data-method-key]").forEach(btn=>btn.onclick=()=>selectTrainingMethod(btn.dataset.methodKey));
 $$("[data-program-method]").forEach(btn=>btn.onclick=()=>selectTrainingMethod(btn.dataset.programMethod));
 $$("[data-planner-modality]").forEach(btn=>btn.onclick=()=>{
   state.calendar.modalityFilter=btn.dataset.plannerModality;

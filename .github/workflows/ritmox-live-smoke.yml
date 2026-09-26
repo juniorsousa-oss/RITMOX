@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 20
     env:
       APP_URL: https://ritmox.onrender.com
-      EXPECTED_BUILD: "20260926-64"
+      EXPECTED_BUILD: "20260926-65"
     steps:
       - uses: actions/checkout@v4
 
