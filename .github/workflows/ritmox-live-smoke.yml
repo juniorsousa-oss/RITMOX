@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 20
     env:
       APP_URL: https://ritmox.onrender.com
-      EXPECTED_BUILD: "20260926-53"
+      EXPECTED_BUILD: "20260926-54"
     steps:
       - uses: actions/checkout@v4
 
@@ -239,6 +239,19 @@ jobs:
                 await p.locator('#profileEditDialog').waitFor({state:'visible',timeout:10000});
                 if(await p.locator('#profileEditName').count()!==1) throw new Error('profile edit fields missing');
                 await p.locator('#cancelProfileEditBtn').click();
+
+                // Photo crop: selection must open editor before any save.
+                const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFElEQVR42mNkYGD4z8DAwMDEAAUADwAB/4j/3QAAAABJRU5ErkJggg==','base64');
+                await p.locator('#profilePhotoInput').setInputFiles({name:'perfil.png',mimeType:'image/png',buffer:png});
+                await p.locator('#profilePhotoCropDialog').waitFor({state:'visible',timeout:10000});
+                if(await p.locator('#profilePhotoCropCanvas').count()!==1) throw new Error('photo crop canvas missing');
+                if(await p.locator('#profilePhotoZoomRange').count()!==1) throw new Error('photo crop zoom missing');
+                await p.locator('#profilePhotoZoomRange').fill('1.50');
+                const zoomText=await p.locator('#profilePhotoZoomValue').textContent();
+                if(zoomText!=='150%') throw new Error('photo crop zoom did not update: '+zoomText);
+                await p.locator('#profilePhotoRecenterBtn').click();
+                await p.locator('#cancelProfilePhotoCropBtn').click();
+                if(await p.locator('#profilePhotoCropDialog').isVisible().catch(()=>false)) throw new Error('photo crop did not close');
 
                 await p.locator('.bottom-nav [data-page="workouts"]').click();
                 await p.evaluate(()=>{

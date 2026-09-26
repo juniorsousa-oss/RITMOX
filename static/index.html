@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="64x64" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
   <link rel="shortcut icon" type="image/png" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
   <link rel="apple-touch-icon" href="/static/assets/validated/ritmox-r-favicon.png?v=20260925-31">
-  <link rel="stylesheet" href="/static/styles.css?v=20260926-53">
+  <link rel="stylesheet" href="/static/styles.css?v=20260926-54">
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true">
@@ -513,6 +513,39 @@
     </form>
   </div></div>
 
+  <div id="profilePhotoCropDialog" class="app-modal-overlay profile-photo-crop-dialog" hidden role="dialog" aria-modal="true" aria-labelledby="profilePhotoCropTitle">
+    <div class="app-modal-surface">
+      <div class="profile-photo-crop-content">
+        <div class="profile-photo-crop-handle" aria-hidden="true"></div>
+        <button type="button" class="dialog-close" id="closeProfilePhotoCropBtn" aria-label="Fechar">×</button>
+        <h3 id="profilePhotoCropTitle">Ajustar foto de perfil</h3>
+        <p>Arraste e ajuste o zoom para escolher a área da foto.</p>
+
+        <div class="profile-photo-crop-stage">
+          <canvas id="profilePhotoCropCanvas" width="720" height="720" aria-label="Pré-visualização do recorte da foto"></canvas>
+          <div class="profile-photo-crop-grid" aria-hidden="true"></div>
+        </div>
+
+        <div class="profile-photo-zoom-head">
+          <span>Zoom</span><strong id="profilePhotoZoomValue">100%</strong>
+        </div>
+        <div class="profile-photo-zoom-controls">
+          <button type="button" id="profilePhotoZoomOutBtn" aria-label="Diminuir zoom">−</button>
+          <input id="profilePhotoZoomRange" type="range" min="1" max="4" value="1" step="0.01" aria-label="Zoom da foto">
+          <button type="button" id="profilePhotoZoomInBtn" aria-label="Aumentar zoom">+</button>
+        </div>
+        <button type="button" class="profile-photo-recenter-btn" id="profilePhotoRecenterBtn">
+          <span aria-hidden="true">↻</span> Centralizar imagem
+        </button>
+
+        <div class="profile-photo-crop-actions">
+          <button type="button" class="ghost-btn" id="cancelProfilePhotoCropBtn">Cancelar</button>
+          <button type="button" class="primary-btn pink-btn" id="applyProfilePhotoCropBtn"><span aria-hidden="true">✓</span> Usar foto</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="healthAssessmentDialog" class="app-modal-overlay health-assessment-dialog" hidden><div class="app-modal-surface">
     <form id="healthAssessmentForm" novalidate>
       <button type="button" class="dialog-close" id="closeHealthAssessmentBtn" aria-label="Fechar">×</button>
@@ -720,6 +753,6 @@
   </dialog>
 
   <div id="toast" class="toast"></div>
-  <script src="/static/app.js?v=20260926-53"></script>
+  <script src="/static/app.js?v=20260926-54"></script>
 </body>
 </html>

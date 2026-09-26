@@ -7,6 +7,14 @@ const state = {
   run: null,
   dashboard: null,
   profile: null,
+  photoCrop: {
+    image: null,
+    zoom: 1,
+    offsetX: 0,
+    offsetY: 0,
+    pointers: new Map(),
+    pinch: null,
+  },
   timerStartedAt: null,
   timerHandle: null,
   calendar: {
@@ -949,7 +957,155 @@ function openProfilePhotoPicker(){
   }catch(_){}
   input.click();
 }
-function resizeProfilePhoto(file){
+function closeProfilePhotoCrop(){
+  closeDialogSafe($("#profilePhotoCropDialog"));
+  state.photoCrop.image=null;
+  state.photoCrop.zoom=1;
+  state.photoCrop.offsetX=0;
+  state.photoCrop.offsetY=0;
+  state.photoCrop.pointers.clear();
+  state.photoCrop.pinch=null;
+  const input=$("#profilePhotoInput");
+  if(input) input.value="";
+}
+function profilePhotoCropMetrics(){
+  const canvas=$("#profilePhotoCropCanvas");
+  const img=state.photoCrop.image;
+  if(!canvas||!img) return null;
+  const base=Math.max(canvas.width/img.naturalWidth,canvas.height/img.naturalHeight);
+  const scale=base*state.photoCrop.zoom;
+  return {scale,width:img.naturalWidth*scale,height:img.naturalHeight*scale};
+}
+function clampProfilePhotoCrop(){
+  const canvas=$("#profilePhotoCropCanvas");
+  const m=profilePhotoCropMetrics();
+  if(!canvas||!m) return;
+  const maxX=Math.max(0,(m.width-canvas.width)/2);
+  const maxY=Math.max(0,(m.height-canvas.height)/2);
+  state.photoCrop.offsetX=Math.max(-maxX,Math.min(maxX,state.photoCrop.offsetX));
+  state.photoCrop.offsetY=Math.max(-maxY,Math.min(maxY,state.photoCrop.offsetY));
+}
+function drawProfilePhotoCrop(){
+  const canvas=$("#profilePhotoCropCanvas");
+  const img=state.photoCrop.image;
+  const m=profilePhotoCropMetrics();
+  if(!canvas||!img||!m) return;
+  clampProfilePhotoCrop();
+  const ctx=canvas.getContext("2d");
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle="#030712";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  const x=(canvas.width-m.width)/2+state.photoCrop.offsetX;
+  const y=(canvas.height-m.height)/2+state.photoCrop.offsetY;
+  ctx.drawImage(img,x,y,m.width,m.height);
+}
+function setProfilePhotoZoom(value,preserveComposition=true){
+  const previous=state.photoCrop.zoom||1;
+  const next=Math.max(1,Math.min(4,Number(value)||1));
+  if(preserveComposition&&previous>0&&next!==previous){
+    const ratio=next/previous;
+    state.photoCrop.offsetX*=ratio;
+    state.photoCrop.offsetY*=ratio;
+  }
+  state.photoCrop.zoom=next;
+  const range=$("#profilePhotoZoomRange");
+  const valueEl=$("#profilePhotoZoomValue");
+  if(range) range.value=String(next);
+  if(valueEl) valueEl.textContent=Math.round(next*100)+"%";
+  drawProfilePhotoCrop();
+}
+function recenterProfilePhotoCrop(){
+  state.photoCrop.offsetX=0;
+  state.photoCrop.offsetY=0;
+  drawProfilePhotoCrop();
+}
+function profileCropPoint(ev){
+  const canvas=$("#profilePhotoCropCanvas");
+  const rect=canvas.getBoundingClientRect();
+  return {
+    x:(ev.clientX-rect.left)*(canvas.width/rect.width),
+    y:(ev.clientY-rect.top)*(canvas.height/rect.height),
+  };
+}
+function profileCropDistance(a,b){return Math.hypot(a.x-b.x,a.y-b.y);}
+function profileCropMidpoint(a,b){return {x:(a.x+b.x)/2,y:(a.y+b.y)/2};}
+function setupProfilePhotoCropInteractions(){
+  const canvas=$("#profilePhotoCropCanvas");
+  if(!canvas||canvas.dataset.cropBound==="1") return;
+  canvas.dataset.cropBound="1";
+  canvas.style.touchAction="none";
+
+  canvas.addEventListener("pointerdown",ev=>{
+    if(!state.photoCrop.image) return;
+    ev.preventDefault();
+    canvas.setPointerCapture?.(ev.pointerId);
+    state.photoCrop.pointers.set(ev.pointerId,profileCropPoint(ev));
+    const points=[...state.photoCrop.pointers.values()];
+    if(points.length===2){
+      state.photoCrop.pinch={
+        distance:Math.max(1,profileCropDistance(points[0],points[1])),
+        midpoint:profileCropMidpoint(points[0],points[1]),
+        zoom:state.photoCrop.zoom,
+        offsetX:state.photoCrop.offsetX,
+        offsetY:state.photoCrop.offsetY,
+      };
+    }
+  });
+
+  canvas.addEventListener("pointermove",ev=>{
+    if(!state.photoCrop.pointers.has(ev.pointerId)||!state.photoCrop.image) return;
+    ev.preventDefault();
+    const previous=state.photoCrop.pointers.get(ev.pointerId);
+    const current=profileCropPoint(ev);
+    state.photoCrop.pointers.set(ev.pointerId,current);
+    const points=[...state.photoCrop.pointers.values()];
+
+    if(points.length>=2){
+      if(!state.photoCrop.pinch){
+        state.photoCrop.pinch={
+          distance:Math.max(1,profileCropDistance(points[0],points[1])),
+          midpoint:profileCropMidpoint(points[0],points[1]),
+          zoom:state.photoCrop.zoom,
+          offsetX:state.photoCrop.offsetX,
+          offsetY:state.photoCrop.offsetY,
+        };
+      }
+      const pinch=state.photoCrop.pinch;
+      const distance=Math.max(1,profileCropDistance(points[0],points[1]));
+      const midpoint=profileCropMidpoint(points[0],points[1]);
+      const nextZoom=Math.max(1,Math.min(4,pinch.zoom*(distance/pinch.distance)));
+      const ratio=nextZoom/pinch.zoom;
+      state.photoCrop.zoom=nextZoom;
+      state.photoCrop.offsetX=pinch.offsetX*ratio+(midpoint.x-pinch.midpoint.x);
+      state.photoCrop.offsetY=pinch.offsetY*ratio+(midpoint.y-pinch.midpoint.y);
+      const range=$("#profilePhotoZoomRange");
+      if(range) range.value=String(nextZoom);
+      if($("#profilePhotoZoomValue")) $("#profilePhotoZoomValue").textContent=Math.round(nextZoom*100)+"%";
+      drawProfilePhotoCrop();
+      return;
+    }
+
+    if(points.length===1&&!state.photoCrop.pinch){
+      state.photoCrop.offsetX+=current.x-previous.x;
+      state.photoCrop.offsetY+=current.y-previous.y;
+      drawProfilePhotoCrop();
+    }
+  });
+
+  const finish=ev=>{
+    if(!state.photoCrop.pointers.has(ev.pointerId)) return;
+    state.photoCrop.pointers.delete(ev.pointerId);
+    if(state.photoCrop.pointers.size<2) state.photoCrop.pinch=null;
+  };
+  canvas.addEventListener("pointerup",finish);
+  canvas.addEventListener("pointercancel",finish);
+  canvas.addEventListener("wheel",ev=>{
+    if(!state.photoCrop.image) return;
+    ev.preventDefault();
+    setProfilePhotoZoom(state.photoCrop.zoom+(ev.deltaY<0?.08:-.08));
+  },{passive:false});
+}
+function openProfilePhotoCrop(file){
   return new Promise((resolve,reject)=>{
     if(!file||!file.type.startsWith("image/")){reject(new Error("Selecione uma imagem válida."));return;}
     if(file.size>12*1024*1024){reject(new Error("A imagem deve ter no máximo 12 MB."));return;}
@@ -957,17 +1113,19 @@ function resizeProfilePhoto(file){
     reader.onerror=()=>reject(new Error("Não foi possível ler a imagem."));
     reader.onload=()=>{
       const img=new Image();
-      img.onerror=()=>reject(new Error("Formato de imagem não suportado."));
+      img.onerror=()=>reject(new Error("Formato de imagem não suportado neste aparelho."));
       img.onload=()=>{
-        const size=512;
-        const canvas=document.createElement("canvas");
-        canvas.width=size; canvas.height=size;
-        const ctx=canvas.getContext("2d");
-        const crop=Math.min(img.naturalWidth,img.naturalHeight);
-        const sx=(img.naturalWidth-crop)/2;
-        const sy=(img.naturalHeight-crop)/2;
-        ctx.drawImage(img,sx,sy,crop,crop,0,0,size,size);
-        resolve(canvas.toDataURL("image/jpeg",0.84));
+        state.photoCrop.image=img;
+        state.photoCrop.zoom=1;
+        state.photoCrop.offsetX=0;
+        state.photoCrop.offsetY=0;
+        state.photoCrop.pointers.clear();
+        state.photoCrop.pinch=null;
+        setupProfilePhotoCropInteractions();
+        openDialogSafe($("#profilePhotoCropDialog"));
+        setProfilePhotoZoom(1,false);
+        requestAnimationFrame(()=>drawProfilePhotoCrop());
+        resolve();
       };
       img.src=reader.result;
     };
@@ -977,7 +1135,22 @@ function resizeProfilePhoto(file){
 async function handleProfilePhoto(file){
   if(!file) return;
   try{
-    const photo=await resizeProfilePhoto(file);
+    await openProfilePhotoCrop(file);
+  }catch(e){
+    const input=$("#profilePhotoInput");
+    if(input) input.value="";
+    toast(e.message);
+  }
+}
+async function applyProfilePhotoCrop(){
+  const canvas=$("#profilePhotoCropCanvas");
+  if(!canvas||!state.photoCrop.image){toast("Selecione uma foto antes de continuar.");return;}
+  const btn=$("#applyProfilePhotoCropBtn");
+  const old=btn?.innerHTML||"Usar foto";
+  if(btn){btn.disabled=true;btn.textContent="Salvando...";}
+  try{
+    drawProfilePhotoCrop();
+    const photo=canvas.toDataURL("image/jpeg",0.88);
     const current=state.profile||await api("/api/profile");
     state.profile=await api("/api/profile",{
       method:"PUT",
@@ -990,12 +1163,12 @@ async function handleProfilePhoto(file){
       })
     });
     renderUserProfile();
+    closeProfilePhotoCrop();
     toast("Foto de perfil atualizada.");
   }catch(e){
     toast(e.message);
   }finally{
-    const input=$("#profilePhotoInput");
-    if(input) input.value="";
+    if(btn){btn.disabled=false;btn.innerHTML=old;}
   }
 }
 
@@ -1922,6 +2095,13 @@ if($("#signatureForm")) $("#signatureForm").addEventListener("submit",submitSign
 
 if($("#changeProfilePhotoBtn")) $("#changeProfilePhotoBtn").onclick=openProfilePhotoPicker;
 if($("#profilePhotoInput")) $("#profilePhotoInput").addEventListener("change",ev=>handleProfilePhoto(ev.target.files?.[0]));
+if($("#closeProfilePhotoCropBtn")) $("#closeProfilePhotoCropBtn").onclick=closeProfilePhotoCrop;
+if($("#cancelProfilePhotoCropBtn")) $("#cancelProfilePhotoCropBtn").onclick=closeProfilePhotoCrop;
+if($("#applyProfilePhotoCropBtn")) $("#applyProfilePhotoCropBtn").onclick=applyProfilePhotoCrop;
+if($("#profilePhotoRecenterBtn")) $("#profilePhotoRecenterBtn").onclick=recenterProfilePhotoCrop;
+if($("#profilePhotoZoomRange")) $("#profilePhotoZoomRange").addEventListener("input",ev=>setProfilePhotoZoom(ev.target.value));
+if($("#profilePhotoZoomOutBtn")) $("#profilePhotoZoomOutBtn").onclick=()=>setProfilePhotoZoom(state.photoCrop.zoom-.1);
+if($("#profilePhotoZoomInBtn")) $("#profilePhotoZoomInBtn").onclick=()=>setProfilePhotoZoom(state.photoCrop.zoom+.1);
 if($("#editProfileBtn")) $("#editProfileBtn").onclick=openProfileEditDialog;
 if($("#updateProfileAnamnesisBtn")) $("#updateProfileAnamnesisBtn").onclick=()=>{
   const mode=$("#updateProfileAnamnesisBtn").dataset.mode;
