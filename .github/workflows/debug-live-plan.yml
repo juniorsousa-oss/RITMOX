@@ -1,4 +1,4 @@
-name: Debug live training plan apply
+name: Debug live training plan UI apply
 
 on:
   push:
@@ -8,19 +8,66 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe valid live plan creation in isolated future date
+      - name: Install browser runtime
+        run: npm install --no-save playwright-core
+
+      - name: Reproduce plan application through live UI
         shell: bash
         run: |
           set -euo pipefail
-          APP="https://ritmox.onrender.com"
-          echo "=== HEALTH ==="
-          curl -sS "$APP/health"
-          echo
-          echo "=== VALID APPLY 2099 ==="
-          code="$(curl -sS -o /tmp/valid.json -w "%{http_code}" -X POST "$APP/api/training-program/apply"             -H "Content-Type: application/json"             --data '{"method_key":"strength","start_date":"2099-12-28","weeks":1}' || true)"
-          echo "VALID_HTTP=$code"
-          cat /tmp/valid.json || true
-          echo
-          echo "=== READ BACK ==="
-          curl -sS "$APP/api/training-plans?start_date=2099-12-28&end_date=2100-01-03"
-          echo
+          node <<'NODE'
+          const {chromium}=require('playwright-core');
+          const APP='https://ritmox.onrender.com';
+          (async()=>{
+            const browser=await chromium.launch({
+              executablePath:'/usr/bin/google-chrome',
+              headless:true,
+              args:['--no-sandbox','--disable-dev-shm-usage']
+            });
+            const page=await browser.newPage({viewport:{width:390,height:844}});
+            const errors=[];
+            page.on('pageerror',e=>errors.push(String(e)));
+            page.on('console',m=>{ if(m.type()==='error') errors.push('console:'+m.text()); });
+
+            await page.goto(APP+'/?debugPlanApply=1',{waitUntil:'networkidle',timeout:120000});
+            await page.locator('.bottom-nav [data-page="workouts"]').click();
+            await page.locator('#trainingCalendar').waitFor({state:'visible',timeout:30000});
+
+            await page.locator('[data-planner-modality="geral"]').click();
+            await page.locator('[data-method-key="strength"]').click();
+            await page.locator('#addPlanTopBtn').click();
+            await page.locator('#trainingProgramDialog').waitFor({state:'visible',timeout:10000});
+            await page.locator('#programStartDate').fill('2099-12-28');
+            await page.locator('#programWeeks').selectOption('1');
+
+            const responsePromise=page.waitForResponse(r=>r.url().includes('/api/training-program/apply')&&r.request().method()==='POST',{timeout:30000});
+            await page.locator('#applyTrainingProgramBtn').click();
+            const response=await responsePromise;
+            console.log('APPLY STATUS',response.status());
+            console.log('APPLY BODY',await response.text());
+
+            await page.locator('#trainingProgramDialog').waitFor({state:'hidden',timeout:30000});
+            await page.waitForFunction(()=>{
+              return document.querySelectorAll('.calendar-day .day-chip').length>0;
+            },null,{timeout:30000}).catch(()=>{});
+
+            console.log('WEEK RANGE',await page.locator('#weekRange').textContent());
+            console.log('VISIBLE CHIPS',await page.locator('.calendar-day .day-chip').count());
+            console.log('DAY CARDS',await page.locator('.day-plan-card').count());
+            console.log('TOAST',await page.locator('#toast').textContent());
+            console.log('ERRORS',JSON.stringify(errors));
+            await page.screenshot({path:'debug-plan-ui.png',fullPage:true});
+            await browser.close();
+
+            if(response.status()!==200) process.exit(2);
+            if(errors.length) process.exit(3);
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+
+      - name: Upload debug screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-plan-ui
+          path: debug-plan-ui.png
+          if-no-files-found: ignore
