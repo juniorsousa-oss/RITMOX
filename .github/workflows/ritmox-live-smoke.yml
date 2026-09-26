@@ -2,11 +2,12 @@ name: RITMOX live regression tests
 
 on:
   push:
-    branches: [main, supabase-persistence-v56]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   live-regression:
@@ -14,52 +15,9 @@ jobs:
     timeout-minutes: 20
     env:
       APP_URL: https://ritmox.onrender.com
-      EXPECTED_BUILD: "20260926-55"
+      EXPECTED_BUILD: "20260926-56"
     steps:
       - uses: actions/checkout@v4
-
-      - name: Snapshot current live RITMOX data before Supabase cutover
-        if: github.ref == 'refs/heads/supabase-persistence-v56'
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p ritmox-live-snapshot
-          curl -fsS "$APP_URL/api/profile" -o ritmox-live-snapshot/profile.json
-          curl -fsS "$APP_URL/api/profile/anamnesis" -o ritmox-live-snapshot/profile-anamnesis.json
-          curl -fsS "$APP_URL/api/health-assessment/latest" -o ritmox-live-snapshot/health-assessment-latest.json
-          curl -fsS "$APP_URL/api/anamnesis/form" -o ritmox-live-snapshot/anamnesis-form.json
-          curl -fsS "$APP_URL/api/settings/anamnesis/questions" -o ritmox-live-snapshot/anamnesis-questions.json
-          curl -fsS "$APP_URL/api/training-plans?start_date=2000-01-01&end_date=2100-12-31" -o ritmox-live-snapshot/training-plans.json
-          curl -fsS "$APP_URL/api/modalities" -o ritmox-live-snapshot/modalities.json
-          curl -fsS "$APP_URL/api/workouts/current" -o ritmox-live-snapshot/workout-current.json
-          curl -fsS "$APP_URL/api/runs/latest" -o ritmox-live-snapshot/run-latest.json
-          python - <<'PY'
-          import json, pathlib
-          root=pathlib.Path("ritmox-live-snapshot")
-          summary={}
-          for p in sorted(root.glob("*.json")):
-              try:
-                  data=json.loads(p.read_text())
-                  if isinstance(data,dict):
-                      summary[p.name]={"type":"object","keys":sorted(data.keys())}
-                  elif isinstance(data,list):
-                      summary[p.name]={"type":"list","items":len(data)}
-                  else:
-                      summary[p.name]={"type":type(data).__name__}
-              except Exception as exc:
-                  summary[p.name]={"error":str(exc)}
-          (root/"snapshot-summary.json").write_text(json.dumps(summary,ensure_ascii=False,indent=2))
-          print(json.dumps(summary,ensure_ascii=False,indent=2))
-          PY
-
-      - name: Upload pre-Supabase snapshot
-        if: github.ref == 'refs/heads/supabase-persistence-v56'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ritmox-pre-supabase-snapshot
-          path: ritmox-live-snapshot/
-          if-no-files-found: error
-          retention-days: 7
 
       - name: Validate signed anamnesis save and PDF locally six times
         shell: bash
@@ -124,6 +82,63 @@ jobs:
             sleep 10
           done
           exit 1
+
+      - name: Restore preserved profile and anamnesis configuration once
+        if: contains(github.event.head_commit.message, 'migrate RITMOX to Supabase persistence v56')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SNAPSHOT_ARTIFACT_ID: "10898253165"
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/ritmox-restore
+          curl -fsSL             -H "Authorization: Bearer $GH_TOKEN"             -H "Accept: application/vnd.github+json"             -H "X-GitHub-Api-Version: 2022-11-28"             "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$SNAPSHOT_ARTIFACT_ID/zip"             -o /tmp/ritmox-restore/snapshot.zip
+          unzip -q /tmp/ritmox-restore/snapshot.zip -d /tmp/ritmox-restore/data
+
+          python - <<'PY'
+          import json, os, urllib.request, urllib.error
+          from pathlib import Path
+
+          app=os.environ["APP_URL"].rstrip("/")
+          root=Path("/tmp/ritmox-restore/data")
+
+          def request(method,path,payload=None):
+              data=None if payload is None else json.dumps(payload,ensure_ascii=False).encode("utf-8")
+              req=urllib.request.Request(
+                  app+path,
+                  data=data,
+                  method=method,
+                  headers={"Content-Type":"application/json"} if data is not None else {},
+              )
+              with urllib.request.urlopen(req,timeout=45) as resp:
+                  raw=resp.read().decode("utf-8")
+                  return json.loads(raw) if raw else None
+
+          # Restore exact profile, including the preserved image data.
+          profile=json.loads((root/"profile.json").read_text())
+          profile_payload={k:profile.get(k,"") for k in ("name","email","birth_date","goals","photo_data")}
+          restored_profile=request("PUT","/api/profile",profile_payload)
+          assert restored_profile.get("photo_data")==profile_payload["photo_data"], "profile photo restore failed"
+
+          # Restore exact anamnesis question configuration captured before cutover.
+          snapshot_questions=json.loads((root/"anamnesis-questions.json").read_text())
+          current=request("GET","/api/settings/anamnesis/questions") or []
+          for q in current:
+              request("DELETE",f"/api/settings/anamnesis/questions/{q['id']}")
+          for q in snapshot_questions:
+              payload={k:q.get(k) for k in (
+                  "section","label","question_type","help_text","placeholder","options",
+                  "required","risk_enabled","risk_values","risk_message","active","position"
+              )}
+              request("POST","/api/settings/anamnesis/questions",payload)
+
+          check_profile=request("GET","/api/profile")
+          check_questions=request("GET","/api/settings/anamnesis/questions")
+          assert check_profile.get("photo_data"), "profile photo missing after restore"
+          assert len(check_questions)==len(snapshot_questions), "anamnesis question count mismatch"
+          print("RESTORE OK profile_photo_bytes=",len(check_profile.get("photo_data","")),
+                "questions=",len(check_questions))
+          PY
 
       - name: Install browser runtime
         run: npm install --no-save playwright-core
