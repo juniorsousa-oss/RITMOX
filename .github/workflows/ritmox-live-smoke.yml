@@ -28,10 +28,11 @@ jobs:
           curl -fsS "$APP_URL/api/profile/anamnesis" -o ritmox-live-snapshot/profile-anamnesis.json
           curl -fsS "$APP_URL/api/health-assessment/latest" -o ritmox-live-snapshot/health-assessment-latest.json
           curl -fsS "$APP_URL/api/anamnesis/form" -o ritmox-live-snapshot/anamnesis-form.json
-          curl -fsS "$APP_URL/api/training-plans" -o ritmox-live-snapshot/training-plans.json
+          curl -fsS "$APP_URL/api/settings/anamnesis/questions" -o ritmox-live-snapshot/anamnesis-questions.json
+          curl -fsS "$APP_URL/api/training-plans?start_date=2000-01-01&end_date=2100-12-31" -o ritmox-live-snapshot/training-plans.json
           curl -fsS "$APP_URL/api/modalities" -o ritmox-live-snapshot/modalities.json
           curl -fsS "$APP_URL/api/workouts/current" -o ritmox-live-snapshot/workout-current.json
-          curl -fsS "$APP_URL/api/run/latest" -o ritmox-live-snapshot/run-latest.json
+          curl -fsS "$APP_URL/api/runs/latest" -o ritmox-live-snapshot/run-latest.json
           python - <<'PY'
           import json, pathlib
           root=pathlib.Path("ritmox-live-snapshot")
