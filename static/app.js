@@ -1743,7 +1743,7 @@ function renderPlannerMethodCards(){
   const compatible=plannerMethodsForFilter(filter);
   const empty=compatible.length===0;
 
-  $("[data-method-key]").forEach(card=>{
+  $$("[data-method-key]").forEach(card=>{
     const key=card.dataset.methodKey;
     const item=plannerMethodByKey(key);
     const visible=plannerMethodSupportsFilter(key,filter);
@@ -1755,7 +1755,7 @@ function renderPlannerMethodCards(){
     if(em) em.textContent=item.tag;
     if(small) small.textContent=item.summary;
   });
-  $("[data-program-method]").forEach(card=>{
+  $$("[data-program-method]").forEach(card=>{
     const key=card.dataset.programMethod;
     const visible=plannerMethodSupportsFilter(key,filter);
     card.hidden=!visible;
@@ -2297,11 +2297,11 @@ if($("#todayWeekBtn")) $("#todayWeekBtn").onclick=()=>{
   loadTrainingCalendar(true);
 };
 if($("#addPlanTopBtn")) $("#addPlanTopBtn").onclick=openPlannerPrimaryAction;
-$("[data-method-key]").forEach(btn=>btn.onclick=()=>selectTrainingMethod(btn.dataset.methodKey));
-$("[data-program-method]").forEach(btn=>btn.onclick=()=>selectTrainingMethod(btn.dataset.programMethod));
-$("[data-planner-modality]").forEach(btn=>btn.onclick=()=>{
+$$("[data-method-key]").forEach(btn=>btn.onclick=()=>selectTrainingMethod(btn.dataset.methodKey));
+$$("[data-program-method]").forEach(btn=>btn.onclick=()=>selectTrainingMethod(btn.dataset.programMethod));
+$$("[data-planner-modality]").forEach(btn=>btn.onclick=()=>{
   state.calendar.modalityFilter=btn.dataset.plannerModality;
-  $("[data-planner-modality]").forEach(x=>x.classList.toggle("active",x===btn));
+  $$("[data-planner-modality]").forEach(x=>x.classList.toggle("active",x===btn));
   ensurePlannerMethodForFilter();
   renderPlannerMethodCards();
   renderTrainingCalendar();

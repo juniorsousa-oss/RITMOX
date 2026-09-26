@@ -15,9 +15,22 @@ jobs:
     timeout-minutes: 20
     env:
       APP_URL: https://ritmox.onrender.com
-      EXPECTED_BUILD: "20260926-59"
+      EXPECTED_BUILD: "20260926-60"
     steps:
       - uses: actions/checkout@v4
+
+      - name: Validate JavaScript collection selectors
+        shell: bash
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+          source=Path("static/app.js").read_text()
+          bad=re.findall(r'(?<!\$)\$\([^\n;]*?\)\.forEach',source)
+          if bad:
+              raise SystemExit("Invalid single-node selector .forEach found: "+repr(bad))
+          print("PASS selector guard")
+          PY
 
       - name: Validate signed anamnesis save and PDF locally six times
         shell: bash
