@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 20
     env:
       APP_URL: https://ritmox.onrender.com
-      EXPECTED_BUILD: "20260926-56"
+      EXPECTED_BUILD: "20260926-57"
     steps:
       - uses: actions/checkout@v4
 
@@ -67,6 +67,31 @@ jobs:
                   assert pdf[:4]==b"%PDF"
                   assert len(pdf)>1000
                   print(f"PASS signed save/PDF {i}/6",result["id"],len(pdf))
+
+              # Structured planner: every validated method must generate only RITMOX-tagged sessions
+              # and preserve manual plans.
+              manual=app.WorkoutPlan(
+                  planned_date="2026-09-28",
+                  title="Treino manual preservado",
+                  modality="musculacao",
+                  duration_min=45,
+                  notes="Criado manualmente",
+              )
+              db.add(manual); db.commit()
+              for key in ("hypertrophy","strength","weight_loss","conditioning"):
+                  result=app.apply_training_program(
+                      app.TrainingProgramApplyIn(method_key=key,start_date="2026-09-28",weeks=2),
+                      db
+                  )
+                  assert result["created_count"]>0, result
+                  assert result["program"]["method_key"]==key
+                  assert db.get(app.WorkoutPlan,manual.id) is not None
+                  generated=db.scalars(
+                      select(app.WorkoutPlan).where(app.WorkoutPlan.notes.like("RITMOX_METHOD:%"))
+                  ).all()
+                  assert generated
+                  assert all(p.notes.startswith(f"RITMOX_METHOD:{key}") for p in generated)
+                  print("PASS structured method",key,len(generated))
           finally:
               db.close()
           PY
@@ -290,7 +315,7 @@ jobs:
                 if(await p.locator('.day-empty-icon').count()!==1) throw new Error('day empty icon missing');
 
                 console.log('PASS approved profile/calendar '+i+'/6');
-                if(i===6) await p.screenshot({path:'ritmox-v53-profile-calendar.png',fullPage:true});
+                if(i===6) await p.screenshot({path:'ritmox-v57-approved.png',fullPage:true});
                 await p.close();
               }
             }finally{await browser.close();}
@@ -349,32 +374,37 @@ jobs:
                 await page.locator('#profileEditDialog').waitFor({state:'visible',timeout:10000});
                 await page.locator('#cancelProfileEditBtn').click();
 
-                // Workout: plus aligned inside selected-day header.
+                // Workout V57: general planner, one CTA, no persistent anamnesis banner.
                 await page.locator('.bottom-nav [data-page="workouts"]').click();
                 const calendar=page.locator('#trainingCalendar');
                 if(await calendar.isVisible().catch(()=>false)){
-                  const panel=await page.locator('.day-panel').boundingBox();
-                  const plus=await page.locator('#addPlanDayBtn').boundingBox();
-                  const head=await page.locator('.day-panel-head').boundingBox();
-                  if(!panel||!plus||!head) throw new Error('missing calendar geometry');
-                  const rightGap=(panel.x+panel.width)-(plus.x+plus.width);
-                  const topGap=plus.y-head.y;
-                  if(rightGap<12||rightGap>20||topGap<-10||topGap>1){
-                    throw new Error('day plus misaligned '+JSON.stringify({rightGap,topGap,panel,plus,head}));
-                  }
+                  if(await page.locator('#healthStatusStrip').count()!==0) throw new Error('persistent anamnesis banner returned');
+                  if(await page.locator('#addPlanDayBtn').count()!==0) throw new Error('duplicate day add button returned');
+                  if(await page.locator('#page-workouts .calendar-add-btn').count()!==1) throw new Error('planner must have one primary add CTA');
+                  if(await page.locator('[data-planner-modality]').count()!==5) throw new Error('planner modality tabs mismatch');
+                  if(await page.locator('[data-method-key]').count()!==4) throw new Error('validated training methods mismatch');
+
+                  await page.locator('[data-method-key="strength"]').click();
+                  const goal=(await page.locator('#structuredPlanGoal').textContent()||'').trim();
+                  if(goal!=='Aumento de força') throw new Error('structured method selection failed: '+goal);
+
+                  await page.locator('#addPlanTopBtn').click();
+                  await page.locator('#trainingProgramDialog').waitFor({state:'visible',timeout:10000});
+                  if(await page.locator('[data-program-method]').count()!==4) throw new Error('program dialog methods mismatch');
+                  await page.locator('#cancelTrainingProgramBtn').click();
                 }
                 console.log('PASS approved workout/profile '+i+'/6');
-                if(i===6) await page.screenshot({path:'ritmox-v53-approved.png',fullPage:true});
+                if(i===6) await page.screenshot({path:'ritmox-v57-approved.png',fullPage:true});
                 await page.close();
               }
             }finally{await browser.close();}
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
 
-      - name: Upload v53 screenshot
+      - name: Upload v57 screenshot
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ritmox-v53-live-validation
-          path: ritmox-v53-profile-calendar.png
+          name: ritmox-v57-live-validation
+          path: ritmox-v57-approved.png
           if-no-files-found: ignore
