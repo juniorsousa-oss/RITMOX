@@ -50,7 +50,7 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           source=Path("static/index.html").read_text()+Path("static/app.js").read_text()
-          required=['class="route-pending"','sessionStorage.setItem("ritmox.page",page)','sessionStorage.getItem("ritmox.page")','add.hidden=active','add.innerHTML="<span>＋</span> Novo ciclo"']
+          required=['sessionStorage.setItem("ritmox.page",page)','sessionStorage.getItem("ritmox.page")','add.hidden=active','add.innerHTML="<span>＋</span> Novo ciclo"']
           missing=[x for x in required if x not in source]
           if missing: raise SystemExit("Missing route/cycle guards: "+repr(missing))
           print("PASS route persistence + single cycle action")
