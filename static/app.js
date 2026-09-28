@@ -2035,7 +2035,7 @@ function renderSelectedDay(){
           </div>
         </div>
         <div class="day-plan-actions">
-          ${p.execution?.completed?`<button type="button" class="day-plan-start completed" data-view-workout="${p.execution.workout_id}">Ver resumo</button>`:(p.modality==="musculacao"&&p.exercise_count>0?`<button type="button" class="day-plan-start" data-start-plan-workout="${p.id}">${p.execution?.started?"Continuar treino":"Iniciar treino"}</button>`:"")}
+          ${p.execution?.completed?`<button type="button" class="day-plan-start completed" data-view-workout="${p.execution.workout_id}">Ver resumo</button>`:(p.modality==="musculacao"&&p.exercise_count>0?`<button type="button" class="day-plan-start" data-start-plan-workout="${p.id}">${p.execution?.started?"Continuar treino":"Executar agora"}</button>`:"")}
           <button type="button" class="day-plan-open" data-edit-plan="${p.id}">Editar</button>
         </div>
       </article>`;
@@ -2179,6 +2179,13 @@ async function openCompletedWorkout(workoutId){
 }
 async function openPlannedWorkout(planId){
   try{
+    const plan=state.calendar.plans.find(p=>Number(p.id)===Number(planId));
+    const today=localISO(new Date());
+    if(plan && !plan.execution?.started && plan.planned_date!==today){
+      const plannedLabel=formatLongDate(plan.planned_date);
+      const ok=confirm("Este treino estava planejado para "+plannedLabel+".\n\nExecutar agora? A data planejada será mantida e o histórico registrará a execução de hoje.");
+      if(!ok)return;
+    }
     const w=await api('/api/training-plans/'+planId+'/start-workout',{method:"POST"});
     state.workout=w;
     clearRestTimer();
