@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#08101f">
+  <title>RITMOX | Minha conta</title>
+  <link rel="icon" href="/static/assets/validated/ritmox-r-favicon.png" type="image/png">
+  <style>
+    :root{font-family:Inter,system-ui,sans-serif;color:#f7f8fb;background:#08101f;color-scheme:dark}
+    *{box-sizing:border-box}body{margin:0;padding:clamp(15px,4vw,45px);background:radial-gradient(circle at 70% 0%,rgba(255,45,122,.07),transparent 40%)}
+    main{max-width:900px;margin:0 auto}.top{display:flex;justify-content:space-between;align-items:center;gap:14px;padding-bottom:25px}
+    .logo{width:163px;max-width:50%;height:auto}.back{color:#ff6da6;text-decoration:none;font-size:13px;font-weight:700}
+    .card{background:#10192a;border:1px solid #273047;border-radius:19px;padding:clamp(20px,3vw,30px);margin:0 0 20px}
+    h1{font-size:27px}h2{font-size:20px;margin-top:0}h3{font-size:15px}
+    p,.muted{color:#9daabe;line-height:1.6;font-size:13px}
+    .group{display:grid;grid-template-columns:1fr 1fr;gap:17px}
+    label{display:block;font-size:12px;font-weight:700;margin:12px 0 7px}
+    input{width:100%;border-radius:10px;border:1px solid #35415c;background:#0d1423;color:white;padding:12px 13px;min-height:46px;font:inherit}
+    button{border:0;background:#ed2c78;border-radius:10px;min-height:42px;padding:10px 17px;color:white;font:inherit;font-size:13px;font-weight:750;cursor:pointer;margin-top:13px}
+    button:disabled{opacity:.6;cursor:wait}.danger{background:#58273c}.tag{font-size:10px;letter-spacing:1px;font-weight:850;color:#ff6ea9}
+    .row{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #29334a;padding:12px 0}.row:first-child{border-top:0}
+    .row strong{display:block;font-size:13px}.row small{font-size:11px;color:#abb8c9}
+    .msg{min-height:18px;color:#ff89b3;font-size:12px;margin-top:11px}.ok{color:#7de9b2}
+    @media(max-width:640px){.group{grid-template-columns:1fr}h1{font-size:23px}.row{align-items:flex-start}}
+  </style>
+</head>
+<body>
+<main>
+  <div class="top"><img class="logo" src="/static/assets/validated/ritmox-logo.webp" alt="RITMOX"><a class="back" href="/">Voltar ao aplicativo →</a></div>
+  <h1>Minha conta</h1>
+  <section class="card">
+    <span class="tag">IDENTIDADE</span>
+    <h2 id="me-name">Carregando...</h2>
+    <p id="me-email"></p>
+  </section>
+  <section class="card">
+    <span class="tag">SEGURANÇA</span>
+    <h2>Alterar minha senha</h2>
+    <form id="password-form">
+      <div class="group">
+        <div><label for="current-password">Senha atual</label><input id="current-password" type="password" autocomplete="current-password" required></div>
+        <div><label for="new-password">Nova senha (mínimo 12 caracteres)</label><input id="new-password" type="password" minlength="12" autocomplete="new-password" required></div>
+      </div>
+      <button type="submit">Salvar nova senha</button>
+      <p class="msg" id="password-message" role="status"></p>
+    </form>
+  </section>
+  <section id="admin" hidden>
+    <section class="card">
+      <span class="tag">ADMINISTRAÇÃO</span>
+      <h2>Gerenciar usuários</h2>
+      <p>Cadastre o acesso de cada aluno. Cada conta terá perfil, histórico de treinos e anamnese totalmente separados.</p>
+      <div id="users"></div>
+    </section>
+    <section class="card">
+      <span class="tag">NOVO USUÁRIO</span>
+      <h2>Cadastrar acesso</h2>
+      <form id="user-form">
+        <div class="group">
+          <div><label for="user-name">Nome</label><input id="user-name" required minlength="2" maxlength="160" placeholder="Nome completo"></div>
+          <div><label for="user-email">E-mail</label><input id="user-email" type="email" required maxlength="220" placeholder="aluno@exemplo.com"></div>
+        </div>
+        <label for="user-password">Senha inicial (mínimo 12 caracteres)</label>
+        <input id="user-password" type="password" minlength="12" required autocomplete="new-password">
+        <p>Informe a senha inicial ao usuário por um canal privado. Ele poderá alterá-la depois do primeiro acesso.</p>
+        <button type="submit">Criar usuário</button>
+        <p class="msg" id="user-message" role="status"></p>
+      </form>
+    </section>
+  </section>
+</main>
+<script>
+  let csrf="", me=null;
+  const $=id=>document.getElementById(id);
+  const escapeText=value=>String(value??"");
+  async function api(path,method="GET",body=null){
+    const headers={"Content-Type":"application/json"};
+    if(method!=="GET")headers["X-CSRF-Token"]=csrf;
+    const res=await fetch(path,{method,credentials:"same-origin",cache:"no-store",headers,body:body===null?undefined:JSON.stringify(body)});
+    if(res.status===401){location.replace("/login");throw Error("Sessão expirada");}
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok)throw Error(data.detail||"Não foi possível concluir a operação.");
+    return data;
+  }
+  async function loadUsers(){
+    const users=await api("/api/auth/users");
+    $("users").replaceChildren();
+    for(const user of users){
+      const row=document.createElement("div");row.className="row";
+      const info=document.createElement("div");
+      const title=document.createElement("strong");title.textContent=user.name;
+      const detail=document.createElement("small");detail.textContent=user.email+" · "+(user.active?"Ativo":"Desativado")+(user.is_admin?" · Administrador":"");
+      info.append(title,detail);row.append(info);
+      if(user.active && !user.is_admin && user.id!==me.id){
+        const button=document.createElement("button");button.className="danger";button.textContent="Desativar";
+        button.onclick=async()=>{
+          if(!confirm("Desativar o acesso de "+user.name+"? Os dados serão preservados."))return;
+          button.disabled=true;
+          try{await api("/api/auth/users/"+user.id+"/disable","POST",{});await loadUsers();}
+          catch(e){alert(e.message);button.disabled=false}
+        };
+        row.append(button);
+      }
+      $("users").append(row);
+    }
+  }
+  $("password-form").addEventListener("submit",async event=>{
+    event.preventDefault();
+    const btn=event.target.querySelector("button"),msg=$("password-message");
+    btn.disabled=true;msg.textContent="";msg.classList.remove("ok");
+    try{
+      await api("/api/auth/change-password","POST",{
+        current_password:$("current-password").value,new_password:$("new-password").value
+      });
+      event.target.reset();msg.textContent="Senha atualizada.";msg.classList.add("ok");
+    }catch(e){msg.textContent=e.message}finally{btn.disabled=false}
+  });
+  $("user-form").addEventListener("submit",async event=>{
+    event.preventDefault();
+    const btn=event.target.querySelector("button"),msg=$("user-message");
+    btn.disabled=true;msg.textContent="";msg.classList.remove("ok");
+    try{
+      const user=await api("/api/auth/users","POST",{
+        name:$("user-name").value,email:$("user-email").value,password:$("user-password").value
+      });
+      event.target.reset();msg.textContent="Usuário "+user.name+" cadastrado.";msg.classList.add("ok");
+      await loadUsers();
+    }catch(e){msg.textContent=e.message}finally{btn.disabled=false}
+  });
+  (async()=>{
+    try{
+      me=await api("/api/auth/me");csrf=me.csrf;
+      $("me-name").textContent=me.name;
+      $("me-email").textContent=me.email;
+      if(me.is_admin){$("admin").hidden=false;await loadUsers();}
+    }catch(e){$("me-name").textContent="Não foi possível acessar sua conta."}
+  })();
+</script>
+</body>
+</html>
