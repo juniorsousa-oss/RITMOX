@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#08101f">
+  <meta name="robots" content="noindex,nofollow">
+  <title>RITMOX | Acesso</title>
+  <link rel="icon" type="image/png" href="/static/assets/validated/ritmox-r-favicon.png">
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100dvh;display:grid;place-items:center;padding:26px;background:#08101f;color:#fff;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background-image:radial-gradient(ellipse at 15% 15%,rgba(255,45,122,.13),transparent 38%),radial-gradient(ellipse at 95% 75%,rgba(0,229,255,.10),transparent 40%)}
+    .shell{width:min(940px,100%);min-height:505px;display:grid;grid-template-columns:1fr 1fr;background:#10192a;border:1px solid rgba(255,255,255,.09);border-radius:26px;overflow:hidden;box-shadow:0 28px 90px rgba(0,0,0,.40)}
+    .hero{padding:41px 46px;display:flex;flex-direction:column;min-width:0;background:linear-gradient(145deg,rgba(36,20,49,.93),rgba(9,19,39,.97)),radial-gradient(circle at 20% 90%,rgba(255,45,122,.18),transparent 50%);position:relative;overflow:hidden}
+    .hero::after{content:"";position:absolute;width:260px;height:260px;border-radius:50%;right:-95px;bottom:3px;border:1px solid rgba(255,45,122,.26);box-shadow:0 0 0 35px rgba(255,45,122,.027),0 0 0 75px rgba(139,92,246,.02);pointer-events:none}
+    .logo{position:relative;z-index:1;width:min(205px,100%);height:auto;max-height:67px;object-fit:contain;object-position:left}
+    .hero-copy{position:relative;z-index:1;margin:auto 0}
+    .eyebrow{font-size:10px;font-weight:800;letter-spacing:2px;color:#ff6ba3}
+    .hero h1{font-size:clamp(29px,3.4vw,37px);letter-spacing:-1.2px;line-height:1.15;margin:17px 0 16px}
+    .hero h1 span{color:#ff4588}
+    .hero p{font-size:13px;line-height:1.7;color:#b9c3d4;max-width:320px}
+    .foot{position:relative;z-index:1;font-size:11px;color:#dae5f2;font-weight:700}
+    .foot::before{display:block;content:"";width:50px;height:2px;margin-bottom:16px;background:linear-gradient(90deg,#ff2d7a,#00e5ff)}
+    .form-side{display:flex;align-items:center;justify-content:center;padding:40px 48px}
+    .form-inner{width:100%;max-width:350px}
+    .form-inner>small{font-size:10px;color:#f25495;letter-spacing:1.7px;font-weight:800}
+    .form-inner h2{font-size:29px;margin:15px 0 9px;letter-spacing:-.8px}
+    .intro{color:#9eaac0;line-height:1.6;font-size:13px;margin:0 0 29px}
+    label{display:block;font-weight:700;font-size:12px;margin:0 0 8px}
+    input{width:100%;background:#0c1525;border:1px solid #2c3851;color:#fff;border-radius:11px;height:48px;padding:0 14px;margin-bottom:19px;outline:none;font:inherit;font-size:14px}
+    input:focus{border-color:#ff4588;box-shadow:0 0 0 3px rgba(255,45,122,.12)}
+    button{width:100%;height:49px;border:0;border-radius:11px;background:linear-gradient(110deg,#f52372,#d82280);color:#fff;font-weight:800;font-size:14px;cursor:pointer}
+    button:disabled{opacity:.65;cursor:wait}
+    #error{min-height:21px;font-size:12px;color:#ff9aba;margin-top:13px}
+    .seal{color:#65758e;font-size:11px;border-top:1px solid #28344b;padding-top:17px;margin-top:22px}
+    @media(max-width:740px){body{padding:13px}.shell{display:block;min-height:0;border-radius:21px}.hero{padding:24px 27px 20px}.logo{width:165px}.hero-copy{margin:23px 0 0}.hero h1{font-size:25px;margin:10px 0 6px}.hero p{display:none}.foot{display:none}.form-side{padding:33px 29px 30px}.form-inner h2{font-size:26px}}
+    @media(prefers-reduced-motion:no-preference){button{transition:filter .2s}button:hover{filter:brightness(1.08)}}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <img class="logo" src="/static/assets/validated/ritmox-logo.webp" alt="RITMOX">
+      <div class="hero-copy">
+        <div class="eyebrow">TREINOS COM PROPÓSITO</div>
+        <h1>Seu ritmo.<br><span>Sua evolução.</span></h1>
+        <p>Planeje, execute e acompanhe sua jornada. Seus dados e seus treinos, em um espaço exclusivo.</p>
+      </div>
+      <div class="foot">Disciplina hoje. Resultados sempre.</div>
+    </section>
+    <section class="form-side">
+      <div class="form-inner">
+        <small>ACESSO À PLATAFORMA</small>
+        <h2>Bem-vindo ao RITMOX</h2>
+        <p class="intro">Entre com seu e-mail e senha para acessar seu ambiente de treinos.</p>
+        <form id="login-form">
+          <label for="email">E-mail</label>
+          <input id="email" type="email" autocomplete="username" inputmode="email" required placeholder="voce@exemplo.com">
+          <label for="password">Senha</label>
+          <input id="password" type="password" autocomplete="current-password" required placeholder="Digite sua senha">
+          <button id="submit" type="submit">Acessar RITMOX</button>
+          <p id="error" role="alert" aria-live="polite"></p>
+        </form>
+        <p class="seal">Ambiente privado · by Nexon Labs</p>
+      </div>
+    </section>
+  </main>
+  <script>
+    document.getElementById("login-form").addEventListener("submit",async e=>{
+      e.preventDefault();
+      const b=document.getElementById("submit"), err=document.getElementById("error");
+      b.disabled=true;err.textContent="";
+      try{
+        const response=await fetch("/api/auth/login",{
+          method:"POST",credentials:"same-origin",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({email:document.getElementById("email").value,password:document.getElementById("password").value})
+        });
+        if(!response.ok){
+          const detail=await response.json().catch(()=>({}));
+          throw Error(detail.detail || "Não foi possível entrar.");
+        }
+        location.replace("/");
+      }catch(error){err.textContent=error.message; b.disabled=false}
+    });
+  </script>
+</body>
+</html>
