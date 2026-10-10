@@ -1,0 +1,68 @@
+name: RITMOX Multiusuário / Hostinger
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    name: Security + Docker (SQLite)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Dependencies
+        run: pip install -r requirements.txt pytest httpx
+      - name: Syntax
+        run: python -m compileall -q app.py ritmox_auth.py tests
+      - name: Multiuser security tests
+        run: python -m pytest tests/test_multiuser.py -q
+      - name: JavaScript syntax
+        run: node --check static/app.js
+      - name: Docker image build
+        run: docker build -t ritmox-ci .
+
+  postgres:
+    name: Isolamento PostgreSQL real
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ritmox_ci
+          POSTGRES_PASSWORD: ci_integration_password_only
+          POSTGRES_DB: ritmox_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ritmox_ci -d ritmox_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ritmox_ci:ci_integration_password_only@localhost:5432/ritmox_ci
+      DB_SCHEMA: ritmox
+      REQUIRE_PERSISTENT_DB: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Dependencies
+        run: pip install -r requirements.txt pytest httpx
+      - name: Preparar apenas esquema de teste
+        run: |
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine
+          url=os.environ["DATABASE_URL"].replace("postgresql://","postgresql+psycopg://",1)
+          with create_engine(url).begin() as c:
+              c.exec_driver_sql("CREATE SCHEMA ritmox")
+          PY
+      - name: Validate separated PostgreSQL schemas
+        run: python -m pytest tests/test_multiuser.py -q
