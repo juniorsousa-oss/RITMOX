@@ -6,6 +6,9 @@
   <title>RITMOX | Minha conta</title>
   <link rel="icon" href="/static/assets/validated/ritmox-r-favicon.png" type="image/png">
   <style>
+    :root{--ritmox-primary:#ff2d7a;--ritmox-secondary:#00e5ff}
+    .card button:not(.danger){background:var(--ritmox-primary)}
+    .tag,.back{color:var(--ritmox-primary)}
     :root{font-family:Inter,system-ui,sans-serif;color:#f7f8fb;background:#08101f;color-scheme:dark}
     *{box-sizing:border-box}body{margin:0;padding:clamp(15px,4vw,45px);background:radial-gradient(circle at 70% 0%,rgba(255,45,122,.07),transparent 40%)}
     main{max-width:900px;margin:0 auto}.top{display:flex;justify-content:space-between;align-items:center;gap:14px;padding-bottom:25px}
@@ -68,6 +71,7 @@
       </form>
     </section>
   </section>
+  <p class="muted" style="text-align:center;margin-bottom:25px">by Nexon Labs · assinatura institucional</p>
 </main>
 <script>
   let csrf="", me=null;
@@ -136,5 +140,6 @@
     }catch(e){$("me-name").textContent="Não foi possível acessar sua conta."}
   })();
 </script>
+  <script src="/static/brand.js?v=multiuser-brand-v1"></script>
 </body>
 </html>
