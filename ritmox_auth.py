@@ -232,14 +232,14 @@ class AuthManager:
                 if origin and urlparse(origin).netloc != request.headers.get("host", ""):
                     return JSONResponse({"detail": "Origem não autorizada."}, status_code=403)
                 return await call_next(request)
-            if path not in ("/", "/login") and not path.startswith("/api/"):
+            if path not in ("/", "/login", "/conta") and not path.startswith("/api/"):
                 return await call_next(request)
 
             actor = manager.get_actor(request)
             request.state.ritmox_actor = actor
             if path == "/login" and actor:
                 return RedirectResponse("/", status_code=303)
-            if path == "/" and not actor:
+            if path in ("/", "/conta") and not actor:
                 return RedirectResponse("/login", status_code=303)
             if path.startswith("/api/"):
                 if actor is None:
