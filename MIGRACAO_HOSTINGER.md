@@ -12,9 +12,19 @@
 - **A primeira conta administradora mantém o esquema legado `ritmox`**,
   inclusive treinos, perfil, planos e histórico já existentes.
 
+## Login atual: usuário e senha
+
+Nesta fase, **o login exige apenas nome de usuário e senha**. Não se exige
+endereço de e-mail, nem na conta principal nem no cadastro de alunos.
+O nome de usuário é único e não diferencia maiúsculas de minúsculas.
+Formato aceito: 3–32 caracteres, inicial em letra sem acento e demais
+caracteres alfanuméricos, ponto, hífen ou sublinhado.
+O banco já prevê e-mail opcional para uma atualização futura, sem alterar
+as identidades ou dados atuais.
+
 ## Administração principal
 
-A primeira conta criada com `RITMOX_ADMIN_EMAIL` e
+A primeira conta criada com `RITMOX_ADMIN_USERNAME` e
 `RITMOX_ADMIN_PASSWORD` será o **administrador principal** e continuará
 vinculada ao esquema legado `ritmox`. Apenas essa conta, nesta primeira
 versão, poderá:
@@ -36,7 +46,7 @@ Para configurar, entrar como admin e abrir `/conta`.
 1. Criar backup recuperável do esquema `ritmox` antes de iniciar
    a nova versão com acesso ao banco real. Confirmar restauração de amostra.
 2. Validar todo o PR #3 (CI SQLite, PostgreSQL e build Docker).
-3. Definir conta administradora (e-mail e nome). A senha inicial deve
+3. Definir nome de usuário e nome de exibição da conta administradora. A senha inicial deve
    ser definida **diretamente no terminal da VPS**, nunca no chat nem no GitHub.
 4. Preparar `/docker/ritmox/.env` com permissões restritas (0600).
    Configurar conexão do Supabase/PostgreSQL, admin e cookies HTTPS.
@@ -62,7 +72,7 @@ Para configurar, entrar como admin e abrir `/conta`.
 - `REQUIRE_PERSISTENT_DB=true`.
 - `RITMOX_REQUIRE_AUTH=true`.
 - `RITMOX_COOKIE_SECURE=true`.
-- `RITMOX_ADMIN_EMAIL`, `RITMOX_ADMIN_NAME`, `RITMOX_ADMIN_PASSWORD`.
+- `RITMOX_ADMIN_USERNAME`, `RITMOX_ADMIN_NAME`, `RITMOX_ADMIN_PASSWORD`.
 - `PROFESSIONAL_APPROVAL_KEY` se houver profissional responsável.
 - `STRAVA_CLIENT_ID` e `STRAVA_CLIENT_SECRET` apenas quando integrados.
 
