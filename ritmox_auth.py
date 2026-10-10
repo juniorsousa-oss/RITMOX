@@ -227,6 +227,8 @@ class AuthManager:
                 return await call_next(request)
             if path.startswith("/static/"):
                 return await call_next(request)
+            if path == "/api/brand/public" and request.method == "GET":
+                return await call_next(request)
             if path == "/api/auth/login":
                 origin = request.headers.get("origin", "")
                 if origin and urlparse(origin).netloc != request.headers.get("host", ""):
@@ -244,6 +246,15 @@ class AuthManager:
             if path.startswith("/api/"):
                 if actor is None:
                     return JSONResponse({"detail": "Sessão inválida. Faça login."}, status_code=401)
+                # Permissões de módulos são reforçadas no backend.
+                if not actor["is_admin"] and getattr(manager, "admin_control", None):
+                    from ritmox_admin import module_for_path
+                    module = module_for_path(path)
+                    if module and not manager.admin_control.allowed(actor, module):
+                        return JSONResponse(
+                            {"detail": "Este módulo não está habilitado para sua conta."},
+                            status_code=403,
+                        )
                 if request.method not in ("GET", "HEAD", "OPTIONS"):
                     origin = request.headers.get("origin", "")
                     if origin and urlparse(origin).netloc != request.headers.get("host", ""):
