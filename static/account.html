@@ -47,7 +47,7 @@
   <section class="card">
     <span class="tag">IDENTIDADE</span>
     <h2 id="me-name">Carregando...</h2>
-    <p id="me-email"></p>
+    <p id="me-username"></p>
   </section>
   <section class="card">
     <span class="tag">SEGURANÇA</span>
@@ -74,7 +74,7 @@
       <form id="user-form">
         <div class="group">
           <div><label for="user-name">Nome</label><input id="user-name" required minlength="2" maxlength="160" placeholder="Nome completo"></div>
-          <div><label for="user-email">E-mail</label><input id="user-email" type="email" required maxlength="220" placeholder="aluno@exemplo.com"></div>
+          <div><label for="user-username">Usuário de acesso</label><input id="user-username" type="text" required minlength="3" maxlength="32" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="ex.: aluno01"></div>
         </div>
         <label for="user-password">Senha inicial (mínimo 12 caracteres)</label>
         <input id="user-password" type="password" minlength="12" required autocomplete="new-password">
@@ -147,14 +147,14 @@
     const selection=selector.value;
     selector.replaceChildren(new Option("Selecione uma conta",""));
     users.filter(user=>!user.is_admin).forEach(user=>{
-      selector.add(new Option(user.name+" · "+user.email,user.id));
+      selector.add(new Option(user.name+" · @"+user.username,user.id));
     });
     if(users.some(user=>String(user.id)===selection))selector.value=selection;
     for(const user of users){
       const row=document.createElement("div");row.className="row";
       const info=document.createElement("div");
       const title=document.createElement("strong");title.textContent=user.name;
-      const detail=document.createElement("small");detail.textContent=user.email+" · "+(user.active?"Ativo":"Desativado")+(user.is_admin?" · Administrador":"");
+      const detail=document.createElement("small");detail.textContent="@"+user.username+" · "+(user.active?"Ativo":"Desativado")+(user.is_admin?" · Administrador":"");
       info.append(title,detail);row.append(info);
       if(user.active && !user.is_admin && user.id!==me.id){
         const button=document.createElement("button");button.className="danger";button.textContent="Desativar";
@@ -297,7 +297,7 @@
     btn.disabled=true;msg.textContent="";msg.classList.remove("ok");
     try{
       const user=await api("/api/auth/users","POST",{
-        name:$("user-name").value,email:$("user-email").value,password:$("user-password").value
+        name:$("user-name").value,username:$("user-username").value.trim(),password:$("user-password").value
       });
       event.target.reset();msg.textContent="Usuário "+user.name+" cadastrado.";msg.classList.add("ok");
       await loadUsers();
@@ -308,7 +308,7 @@
     try{
       me=await api("/api/auth/me");csrf=me.csrf;
       $("me-name").textContent=me.name;
-      $("me-email").textContent=me.email;
+      $("me-username").textContent="Usuário: @"+me.username;
       if(me.is_admin){
         $("admin").hidden=false;
         await Promise.all([loadUsers(),loadGlobalModules(),loadBrand()]);
