@@ -459,6 +459,14 @@ if AUTH_ENABLED:
     auth_manager.install(app)
 
 
+@app.get("/conta", include_in_schema=False)
+def account_page():
+    if not AUTH_ENABLED:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse("/", status_code=303)
+    return FileResponse(STATIC / "account.html", headers={"Cache-Control": "no-store"})
+
+
 @app.get("/login", include_in_schema=False)
 def login_page():
     if not AUTH_ENABLED:
