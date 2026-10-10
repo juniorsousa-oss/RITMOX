@@ -41,7 +41,9 @@ class AuthBase(DeclarativeBase):
 class AuthUser(AuthBase):
     __tablename__ = "auth_users"
     id: Mapped[int] = mapped_column(primary_key=True)
-    email: Mapped[str] = mapped_column(String(220), unique=True, index=True)
+    username: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    # Reservado para eventual migração futura; não é exigido nem exibido no login.
+    email: Mapped[str | None] = mapped_column(String(220), unique=True, nullable=True)
     name: Mapped[str] = mapped_column(String(160))
     password_hash: Mapped[str] = mapped_column(String(256))
     data_schema: Mapped[str] = mapped_column(String(70), unique=True)
@@ -63,12 +65,12 @@ class AuthSession(AuthBase):
 
 
 class LoginRequest(BaseModel):
-    email: str = Field(min_length=5, max_length=220)
+    username: str = Field(min_length=3, max_length=32)
     password: str = Field(min_length=1, max_length=1024)
 
 
 class CreateUserRequest(BaseModel):
-    email: str = Field(min_length=5, max_length=220)
+    username: str = Field(min_length=3, max_length=32)
     name: str = Field(min_length=2, max_length=160)
     password: str = Field(min_length=12, max_length=1024)
 
@@ -78,11 +80,14 @@ class PasswordChangeRequest(BaseModel):
     new_password: str = Field(min_length=12, max_length=1024)
 
 
-def _normalize_email(value: str) -> str:
-    email = value.strip().lower()
-    if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
-        raise HTTPException(422, "Informe um e-mail válido.")
-    return email
+def _normalize_username(value: str) -> str:
+    username = value.strip().lower()
+    if not re.fullmatch(r"[a-z][a-z0-9._-]{2,31}", username):
+        raise HTTPException(
+            422, "O usuário deve ter 3 a 32 caracteres e começar com letra; "
+            "use apenas letras sem acento, números, ponto, hífen ou sublinhado."
+        )
+    return username
 
 
 def _hash_password(password: str) -> str:
@@ -153,15 +158,15 @@ class AuthManager:
         with self.AuthDB() as db:
             if db.scalar(select(AuthUser.id).limit(1)) is not None:
                 return
-            email = os.getenv("RITMOX_ADMIN_EMAIL", "").strip()
+            username = os.getenv("RITMOX_ADMIN_USERNAME", "").strip()
             password = os.getenv("RITMOX_ADMIN_PASSWORD", "")
-            if not email or len(password) < 12:
+            if not username or len(password) < 12:
                 raise RuntimeError(
-                    "RITMOX: configure RITMOX_ADMIN_EMAIL e RITMOX_ADMIN_PASSWORD "
+                    "RITMOX: configure RITMOX_ADMIN_USERNAME e RITMOX_ADMIN_PASSWORD "
                     "(12 caracteres ou mais) para criar a conta inicial."
                 )
             db.add(AuthUser(
-                email=_normalize_email(email),
+                username=_normalize_username(username),
                 name=os.getenv("RITMOX_ADMIN_NAME", "Administrador").strip() or "Administrador",
                 password_hash=_hash_password(password),
                 data_schema=LEGACY_SCHEMA,
@@ -188,7 +193,7 @@ class AuthManager:
             user = login.user
             return {
                 "id": user.id,
-                "email": user.email,
+                "username": user.username,
                 "name": user.name,
                 "is_admin": user.is_admin,
                 "schema": user.data_schema,
@@ -272,18 +277,18 @@ class AuthManager:
         @app.post("/api/auth/login")
         def login(payload: LoginRequest, response: Response, request: Request):
             ip = request.client.host if request.client else "unknown"
-            key = ip + ":" + payload.email.strip().lower()[:220]
+            key = ip + ":" + payload.username.strip().lower()[:32]
             now = time.monotonic()
             with ATTEMPT_LOCK:
                 FAILED_ATTEMPTS[key] = [t for t in FAILED_ATTEMPTS[key] if now - t < 900]
                 if len(FAILED_ATTEMPTS[key]) >= 5:
                     raise HTTPException(429, "Muitas tentativas. Aguarde 15 minutos.")
             with manager.AuthDB() as db:
-                user = db.scalar(select(AuthUser).where(AuthUser.email == payload.email.strip().lower()))
+                user = db.scalar(select(AuthUser).where(AuthUser.username == payload.username.strip().lower()))
                 if not user or not user.active or not _verify_password(payload.password, user.password_hash):
                     with ATTEMPT_LOCK:
                         FAILED_ATTEMPTS[key].append(now)
-                    raise HTTPException(401, "E-mail ou senha incorretos.")
+                    raise HTTPException(401, "Usuário ou senha incorretos.")
                 with ATTEMPT_LOCK:
                     FAILED_ATTEMPTS.pop(key, None)
                 token = secrets.token_urlsafe(48)
@@ -306,7 +311,7 @@ class AuthManager:
         def me(request: Request):
             a = request.state.ritmox_actor
             return {
-                "id": a["id"], "email": a["email"], "name": a["name"],
+                "id": a["id"], "username": a["username"], "name": a["name"],
                 "is_admin": a["is_admin"], "csrf": a["csrf"],
             }
 
@@ -330,7 +335,7 @@ class AuthManager:
             with manager.AuthDB() as db:
                 rows = db.scalars(select(AuthUser).order_by(AuthUser.id)).all()
                 return [
-                    {"id": u.id, "email": u.email, "name": u.name,
+                    {"id": u.id, "username": u.username, "name": u.name,
                      "is_admin": u.is_admin, "active": u.active}
                     for u in rows
                 ]
@@ -339,12 +344,12 @@ class AuthManager:
         def create_user(payload: CreateUserRequest, request: Request):
             if not request.state.ritmox_actor["is_admin"]:
                 raise HTTPException(403, "Acesso administrativo necessário.")
-            email = _normalize_email(payload.email)
+            username = _normalize_username(payload.username)
             with manager.AuthDB() as db:
-                if db.scalar(select(AuthUser.id).where(AuthUser.email == email)) is not None:
-                    raise HTTPException(409, "Este e-mail já está cadastrado.")
+                if db.scalar(select(AuthUser.id).where(AuthUser.username == username)) is not None:
+                    raise HTTPException(409, "Este nome de usuário já está cadastrado.")
                 user = AuthUser(
-                    email=email, name=payload.name.strip(),
+                    username=username, name=payload.name.strip(),
                     password_hash=_hash_password(payload.password),
                     data_schema="pending", is_admin=False,
                 )
@@ -354,7 +359,7 @@ class AuthManager:
                 user.data_schema = schema
                 manager.provision_user_schema(schema)
                 db.commit()
-                return {"id": user.id, "email": user.email, "name": user.name, "active": True}
+                return {"id": user.id, "username": user.username, "name": user.name, "active": True}
 
         @app.post("/api/auth/change-password")
         def change_password(payload: PasswordChangeRequest, request: Request):
