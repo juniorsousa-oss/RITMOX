@@ -456,6 +456,10 @@ if AUTH_ENABLED:
         _insert_default_anamnesis(db)
         db.add(AppSetting(key="default_anamnesis_seeded", value="1"))
     auth_manager = AuthManager(database_url, Base, _seed_user_database)
+    from ritmox_admin import install_admin
+
+    admin_control = install_admin(app, auth_manager)
+    auth_manager.admin_control = admin_control
     auth_manager.install(app)
 
 
