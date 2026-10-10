@@ -2746,7 +2746,7 @@ window.addEventListener("resize",()=>{
     if(response.status===401){location.replace("/login");return;}
     if(response.ok){
       ritmoxAuth=await response.json();
-      const first=(ritmoxAuth.name||"Aluno").trim().split(/\\s+/)[0];
+      const first=(ritmoxAuth.name||"Aluno").trim().split(/\s+/)[0];
       pageMeta.home[0]="Olá, "+first+"!";
       const title=$("#pageTitle");
       if(title)title.textContent=pageMeta.home[0];
