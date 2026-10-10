@@ -141,6 +141,13 @@
   async function loadUsers(){
     const users=await api("/api/auth/users");
     $("users").replaceChildren();
+    const selector=$("module-user-select");
+    const selection=selector.value;
+    selector.replaceChildren(new Option("Selecione uma conta",""));
+    users.filter(user=>!user.is_admin).forEach(user=>{
+      selector.add(new Option(user.name+" · "+user.email,user.id));
+    });
+    if(users.some(user=>String(user.id)===selection))selector.value=selection;
     for(const user of users){
       const row=document.createElement("div");row.className="row";
       const info=document.createElement("div");
@@ -160,6 +167,117 @@
       $("users").append(row);
     }
   }
+  async function loadGlobalModules(){
+    const data=await api("/api/admin/modules");
+    const root=$("global-module-list");root.replaceChildren();
+    for(const item of data){
+      const row=document.createElement("div");row.className="row";
+      row.setAttribute("aria-disabled",String(item.required));
+      const info=document.createElement("div");
+      const title=document.createElement("strong");title.textContent=item.name;
+      const detail=document.createElement("small");
+      detail.textContent=item.required?"Módulo essencial · acesso permanente":"Configuração geral de todos os usuários";
+      info.append(title,detail);
+      const controls=document.createElement("div");controls.className="row-checks";
+      const active=makeToggle("Ativo",item.enabled,item.required);
+      const visible=makeToggle("Exibir",item.visible,item.required);
+      const save=async()=>{
+        active.disabled=true;visible.disabled=true;
+        const msg=$("module-message");
+        try{
+          await api("/api/admin/modules/"+item.key,"PUT",{
+            enabled:active.checked,visible:visible.checked
+          });
+          msg.textContent="Configuração de "+item.name+" atualizada.";msg.classList.add("ok");
+        }catch(error){
+          msg.textContent=error.message;msg.classList.remove("ok");
+        }finally{await loadGlobalModules();}
+      };
+      active.addEventListener("change",save);
+      visible.addEventListener("change",save);
+      controls.append(makeToggleLabel("Ativo",active),makeToggleLabel("Menu",visible));
+      row.append(info,controls);root.append(row);
+    }
+  }
+  function makeToggle(label,checked,disabled=false){
+    const input=document.createElement("input");
+    input.type="checkbox";input.checked=checked;input.disabled=disabled;
+    input.setAttribute("aria-label",label);
+    return input;
+  }
+  function makeToggleLabel(text,control){
+    const label=document.createElement("label");
+    const name=document.createElement("span");name.textContent=text;
+    label.append(control,name);
+    return label;
+  }
+  async function loadUserModules(){
+    const userId=$("module-user-select").value;
+    const root=$("user-module-list");root.replaceChildren();
+    if(!userId)return;
+    const entries=await api("/api/admin/users/"+encodeURIComponent(userId)+"/modules");
+    for(const entry of entries){
+      const row=document.createElement("div");row.className="row";
+      const info=document.createElement("div");
+      const title=document.createElement("strong");title.textContent=entry.name;
+      const note=document.createElement("small");
+      note.textContent=entry.required?"Módulo obrigatório":!entry.enabled?"Bloqueado globalmente":"Permissão individual";
+      info.append(title,note);
+      const control=makeToggle("Permitir "+entry.name,entry.allowed,entry.required);
+      control.addEventListener("change",async()=>{
+        control.disabled=true;
+        const msg=$("user-module-message");
+        try{
+          await api("/api/admin/users/"+encodeURIComponent(userId)+"/modules/"+entry.key,"PUT",{
+            allowed:control.checked
+          });
+          msg.textContent="Permissão de "+entry.name+" salva.";msg.classList.add("ok");
+        }catch(error){msg.textContent=error.message;msg.classList.remove("ok");}
+        finally{await loadUserModules();}
+      });
+      row.append(info,makeToggleLabel("Permitir",control));root.append(row);
+    }
+  }
+  $("module-user-select").addEventListener("change",loadUserModules);
+  let currentBrand={logo_data:"",favicon_data:""};
+  async function loadBrand(){
+    currentBrand=await api("/api/admin/brand");
+    $("brand-primary").value=currentBrand.primary_color;
+    $("brand-secondary").value=currentBrand.secondary_color;
+  }
+  function readImage(file){
+    if(!file)return Promise.resolve("");
+    if(!["image/png","image/webp"].includes(file.type))
+      return Promise.reject(Error("Envie uma imagem PNG ou WebP."));
+    if(file.size>350000)
+      return Promise.reject(Error("Imagem muito grande. Limite de 350 KB."));
+    return new Promise((resolve,reject)=>{
+      const reader=new FileReader();
+      reader.onload=()=>resolve(String(reader.result||""));
+      reader.onerror=()=>reject(Error("Não foi possível ler a imagem."));
+      reader.readAsDataURL(file);
+    });
+  }
+  $("brand-form").addEventListener("submit",async event=>{
+    event.preventDefault();
+    const btn=event.target.querySelector("button"),msg=$("brand-message");
+    btn.disabled=true;msg.textContent="";msg.classList.remove("ok");
+    try{
+      const logoFile=$("brand-logo").files[0];
+      const faviconFile=$("brand-favicon").files[0];
+      const logo=$("remove-logo").checked?"":logoFile?await readImage(logoFile):currentBrand.logo_data;
+      const icon=$("remove-favicon").checked?"":faviconFile?await readImage(faviconFile):currentBrand.favicon_data;
+      await api("/api/admin/brand","PUT",{
+        primary_color:$("brand-primary").value,
+        secondary_color:$("brand-secondary").value,
+        logo_data:logo,
+        favicon_data:icon,
+      });
+      event.target.reset();
+      await loadBrand();
+      msg.textContent="Identidade visual atualizada. Atualize as páginas dos usuários para visualizar.";msg.classList.add("ok");
+    }catch(error){msg.textContent=error.message;}finally{btn.disabled=false}
+  });
   $("password-form").addEventListener("submit",async event=>{
     event.preventDefault();
     const btn=event.target.querySelector("button"),msg=$("password-message");
@@ -181,6 +299,7 @@
       });
       event.target.reset();msg.textContent="Usuário "+user.name+" cadastrado.";msg.classList.add("ok");
       await loadUsers();
+      await loadUserModules();
     }catch(e){msg.textContent=e.message}finally{btn.disabled=false}
   });
   (async()=>{
@@ -188,7 +307,10 @@
       me=await api("/api/auth/me");csrf=me.csrf;
       $("me-name").textContent=me.name;
       $("me-email").textContent=me.email;
-      if(me.is_admin){$("admin").hidden=false;await loadUsers();}
+      if(me.is_admin){
+        $("admin").hidden=false;
+        await Promise.all([loadUsers(),loadGlobalModules(),loadBrand()]);
+      }
     }catch(e){$("me-name").textContent="Não foi possível acessar sua conta."}
   })();
 </script>
