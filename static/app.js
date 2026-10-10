@@ -53,12 +53,20 @@ function toast(message){
   el._t = setTimeout(()=>el.classList.remove("show"), 2600);
 }
 
+let ritmoxAuth = null;
+
 async function api(path, options={}){
-  const r = await fetch(path, {
-    headers: {"Content-Type":"application/json", ...(options.headers||{})},
-    ...options,
-  });
+  const method=(options.method||"GET").toUpperCase();
+  const headers={"Content-Type":"application/json", ...(options.headers||{})};
+  if(ritmoxAuth && !["GET","HEAD","OPTIONS"].includes(method)){
+    headers["X-CSRF-Token"]=ritmoxAuth.csrf;
+  }
+  const r = await fetch(path, {...options, headers, credentials:"same-origin"});
   if(!r.ok){
+    if(r.status===401 && ritmoxAuth){
+      location.replace("/login");
+      throw new Error("Sua sessão expirou. Faça login novamente.");
+    }
     let detail = "Não foi possível concluir a ação.";
     try{ const d = await r.json(); detail = d.detail || detail; }catch{}
     throw new Error(detail);
@@ -2731,6 +2739,31 @@ window.addEventListener("resize",()=>{
 });
 
 (async function init(){
+  // Autenticação é obrigatória no ambiente multiusuário da Hostinger.
+  // A instância legada do Render continua compatível até o corte controlado.
+  try{
+    const response=await fetch("/api/auth/me",{credentials:"same-origin",cache:"no-store"});
+    if(response.status===401){location.replace("/login");return;}
+    if(response.ok){
+      ritmoxAuth=await response.json();
+      const first=(ritmoxAuth.name||"Aluno").trim().split(/\\s+/)[0];
+      pageMeta.home[0]="Olá, "+first+"!";
+      const title=$("#pageTitle");
+      if(title)title.textContent=pageMeta.home[0];
+      const account=$("#accountSettings");
+      if(account)account.hidden=false;
+      const accountButton=$("#accountPageBtn");
+      if(accountButton)accountButton.onclick=()=>location.assign("/conta");
+      const logoutButton=$("#logoutBtn");
+      if(logoutButton)logoutButton.onclick=async()=>{
+        logoutButton.disabled=true;
+        try{await api("/api/auth/logout",{method:"POST",body:"{}"});}
+        finally{sessionStorage.removeItem("ritmox.page");location.replace("/login");}
+      };
+    }
+  }catch(e){
+    if(location.pathname!=="/login") console.warn("Falha ao validar o acesso",e);
+  }
   // Restore the requested route before any network request. This prevents
   // the Home page from flashing when reloading #workouts/#run/etc.
   const hash=location.hash.replace("#","");
