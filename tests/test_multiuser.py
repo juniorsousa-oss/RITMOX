@@ -176,13 +176,13 @@ def test_admin_controls_modules_and_institutional_brand():
     assert disable.status_code == 200
     assert member.get("/api/training-plans").status_code == 403
     assert member.get("/api/profile").status_code == 200
-    assert admin.get("/api/training-plans").status_code == 200
+    assert admin.get("/api/training-plans?start_date=2026-10-01&end_date=2026-10-31").status_code == 200
     assert member.put("/api/admin/modules/run",json={
         "enabled":False,"visible":False
     },headers={"X-CSRF-Token":other["csrf"]}).status_code == 403
     assert admin.put("/api/admin/users/"+str(member_id)+"/modules/workouts",
         json={"allowed":True},headers={"X-CSRF-Token":me["csrf"]}).status_code == 200
-    assert member.get("/api/training-plans").status_code == 200
+    assert member.get("/api/training-plans?start_date=2026-10-01&end_date=2026-10-31").status_code == 200
 
     before=admin.get("/api/admin/brand").json()
     assert before["institutional_signature"] == "by Nexon Labs"
