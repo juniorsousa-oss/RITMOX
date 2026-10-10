@@ -11,7 +11,7 @@ services:
       REQUIRE_PERSISTENT_DB: "true"
       RITMOX_REQUIRE_AUTH: "true"
       RITMOX_COOKIE_SECURE: "true"
-      RITMOX_ADMIN_EMAIL: ${RITMOX_ADMIN_EMAIL:?Configure e-mail administrativo}
+      RITMOX_ADMIN_USERNAME: ${RITMOX_ADMIN_USERNAME:?Configure nome de usuário administrativo}
       RITMOX_ADMIN_PASSWORD: ${RITMOX_ADMIN_PASSWORD:?Configure senha administrativa forte}
       RITMOX_ADMIN_NAME: ${RITMOX_ADMIN_NAME:-Administrador}
       PROFESSIONAL_APPROVAL_KEY: ${PROFESSIONAL_APPROVAL_KEY:-}
