@@ -12,6 +12,25 @@
 - **A primeira conta administradora mantém o esquema legado `ritmox`**,
   inclusive treinos, perfil, planos e histórico já existentes.
 
+## Administração principal
+
+A primeira conta criada com `RITMOX_ADMIN_EMAIL` e
+`RITMOX_ADMIN_PASSWORD` será o **administrador principal** e continuará
+vinculada ao esquema legado `ritmox`. Apenas essa conta, nesta primeira
+versão, poderá:
+
+- criar e desativar usuários;
+- ligar ou desligar módulos globalmente;
+- controlar as permissões individuais de acesso aos módulos;
+- definir as cores, a logo e o favicon que aparecem em todos os usuários.
+
+Os módulos Início e Perfil são essenciais e não podem ser bloqueados.
+A assinatura **by Nexon Labs** é permanente e não pode ser substituída
+nem ocultada pelo painel de personalização. Todos os controles são
+verificados nos endpoints do backend, não apenas no menu.
+
+Para configurar, entrar como admin e abrir `/conta`.
+
 ## Regras de publicação
 
 1. Criar backup recuperável do esquema `ritmox` antes de iniciar
