@@ -24,6 +24,17 @@
     .row{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #29334a;padding:12px 0}.row:first-child{border-top:0}
     .row strong{display:block;font-size:13px}.row small{font-size:11px;color:#abb8c9}
     .msg{min-height:18px;color:#ff89b3;font-size:12px;margin-top:11px}.ok{color:#7de9b2}
+    select{width:100%;min-height:44px;border-radius:10px;border:1px solid #35415c;background:#0d1423;color:white;font:inherit;padding:8px}
+    input[type=color]{padding:4px;width:100%;height:47px}
+    input[type=file]{padding:10px 8px;font-size:12px}
+    input[type=checkbox]{width:17px;height:17px;min-height:0;accent-color:var(--ritmox-primary);flex:0 0 17px}
+    .tick{display:inline-flex;gap:8px;align-items:center;font-size:12px;margin:10px 16px 4px 0;color:#b7c6d8}
+    .row-checks{display:flex;gap:14px;flex-wrap:wrap;justify-content:flex-end;align-items:center}
+    .row-checks label{display:inline-flex;align-items:center;gap:8px;margin:0;font-size:12px;font-weight:500;color:#b5c4d6}
+    .row-checks input{margin:0}
+    .row small{display:block}
+    .row[aria-disabled=true]{opacity:.6}
+
     @media(max-width:640px){.group{grid-template-columns:1fr}h1{font-size:23px}.row{align-items:flex-start}}
   </style>
 </head>
@@ -68,6 +79,47 @@
         <p>Informe a senha inicial ao usuário por um canal privado. Ele poderá alterá-la depois do primeiro acesso.</p>
         <button type="submit">Criar usuário</button>
         <p class="msg" id="user-message" role="status"></p>
+      </form>
+    </section>
+    <section class="card">
+      <span class="tag">ADMINISTRAÇÃO · MÓDULOS</span>
+      <h2>Módulos da plataforma</h2>
+      <p>Habilite ou oculte funcionalidades para toda a plataforma. Início e Perfil são essenciais e permanecem disponíveis.</p>
+      <div id="global-module-list"></div>
+      <p id="module-message" class="msg" role="status"></p>
+    </section>
+    <section class="card">
+      <span class="tag">ACESSOS INDIVIDUAIS</span>
+      <h2>Permissões por usuário</h2>
+      <p>Além das regras globais, defina quais módulos cada aluno poderá utilizar.</p>
+      <label for="module-user-select">Selecionar usuário</label>
+      <select id="module-user-select"><option value="">Selecione uma conta</option></select>
+      <div id="user-module-list"></div>
+      <p id="user-module-message" class="msg" role="status"></p>
+    </section>
+    <section class="card">
+      <span class="tag">ADMINISTRAÇÃO · IDENTIDADE VISUAL</span>
+      <h2>Personalização do RITMOX</h2>
+      <p>Altere as cores, a logo e o favicon para todos os usuários. A assinatura institucional <strong>by Nexon Labs</strong> é fixa e não pode ser removida.</p>
+      <form id="brand-form">
+        <div class="group">
+          <div><label for="brand-primary">Cor principal</label><input id="brand-primary" type="color" value="#ff2d7a"></div>
+          <div><label for="brand-secondary">Cor secundária</label><input id="brand-secondary" type="color" value="#00e5ff"></div>
+        </div>
+        <div class="group">
+          <div>
+            <label for="brand-logo">Logo do aplicativo (PNG ou WebP, até 350 KB)</label>
+            <input id="brand-logo" type="file" accept="image/png,image/webp">
+            <label class="tick"><input type="checkbox" id="remove-logo"> Restaurar logo padrão</label>
+          </div>
+          <div>
+            <label for="brand-favicon">Favicon (PNG ou WebP, até 350 KB)</label>
+            <input id="brand-favicon" type="file" accept="image/png,image/webp">
+            <label class="tick"><input type="checkbox" id="remove-favicon"> Restaurar favicon padrão</label>
+          </div>
+        </div>
+        <button type="submit">Salvar identidade visual</button>
+        <p id="brand-message" class="msg" role="status"></p>
       </form>
     </section>
   </section>
