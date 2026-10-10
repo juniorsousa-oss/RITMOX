@@ -192,7 +192,7 @@ def test_admin_controls_modules_and_institutional_brand():
     },headers={"X-CSRF-Token":other["csrf"]}).status_code == 403
     # PNG raster de teste, com cabeçalho válido (sem scripts/SVG).
     image="data:image/png;base64,"+base64.b64encode(
-        b"\\x89PNG\\r\\n\\x1a\\n"+b"X"*128
+        b"\x89PNG\r\n\x1a\n"+b"X"*128
     ).decode()
     update=admin.put("/api/admin/brand",json={
         "primary_color":"#aabbcc","secondary_color":"#ddee12",
