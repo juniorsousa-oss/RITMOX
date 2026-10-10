@@ -2750,6 +2750,21 @@ window.addEventListener("resize",()=>{
       pageMeta.home[0]="Olá, "+first+"!";
       const title=$("#pageTitle");
       if(title)title.textContent=pageMeta.home[0];
+      // Menus são exibidos apenas quando o servidor autoriza a conta.
+      const permitted=await api("/api/platform/modules");
+      for(const module of permitted){
+        document.querySelectorAll('[data-page="'+module.key+'"]').forEach(button=>{
+          if(!module.effective || !module.visible){
+            button.style.display="none";
+            button.disabled=true;
+            button.setAttribute("aria-hidden","true");
+          }else{
+            button.style.removeProperty("display");
+            button.disabled=false;
+            button.removeAttribute("aria-hidden");
+          }
+        });
+      }
       const account=$("#accountSettings");
       if(account)account.hidden=false;
       const accountButton=$("#accountPageBtn");
