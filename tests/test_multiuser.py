@@ -8,7 +8,7 @@ if not os.environ.get("DATABASE_URL"):
     os.environ["DATABASE_URL"] = "sqlite:///" + str(Path(_sandbox.name) / "ritmox.db")
 
 os.environ["RITMOX_REQUIRE_AUTH"] = "true"
-os.environ["RITMOX_ADMIN_EMAIL"] = "owner@example.com"
+os.environ["RITMOX_ADMIN_USERNAME"] = "adminritmox"
 os.environ["RITMOX_ADMIN_NAME"] = "Admin Inicial"
 os.environ["RITMOX_ADMIN_PASSWORD"] = "SenhaTemporariaMuitoForte_2026!"
 os.environ["RITMOX_COOKIE_SECURE"] = "false"
@@ -19,8 +19,8 @@ from fastapi.testclient import TestClient
 from app import app
 
 
-def login(client, email, password):
-    res = client.post("/api/auth/login", json={"email": email, "password": password})
+def login(client, username, password):
+    res = client.post("/api/auth/login", json={"username": username, "password": password})
     assert res.status_code == 200, res.text
     me = client.get("/api/auth/me")
     assert me.status_code == 200
@@ -44,14 +44,20 @@ def test_multiuser_security_and_data_isolation():
     assert admin.get("/docs").status_code == 404
 
     wrong = admin.post("/api/auth/login", json={
-        "email": "owner@example.com", "password": "SenhaErrada"
+        "username": "adminritmox", "password": "SenhaErrada"
     })
     assert wrong.status_code == 401
-    adm = login(admin, "owner@example.com", "SenhaTemporariaMuitoForte_2026!")
+    adm = login(admin, "adminritmox", "SenhaTemporariaMuitoForte_2026!")
     assert adm["is_admin"] is True
     assert admin.get("/conta").status_code == 200
     assert admin.get("/").status_code == 200
     assert admin.get("/api/auth/users").status_code == 200
+    # Login somente por usuário; e-mail não é aceito e os dados da conta não dependem dele.
+    assert adm["username"] == "adminritmox"
+    assert "email" not in adm
+    assert admin.post("/api/auth/login", json={
+        "email": "admin@example.com", "password": "SenhaTemporariaMuitoForte_2026!"
+    }).status_code == 422
 
     # A conta inicial continua usando os dados legados, nunca os dos novos membros.
     own_profile = admin.get("/api/profile").json()
@@ -61,11 +67,11 @@ def test_multiuser_security_and_data_isolation():
     assert post(admin, "/api/runs", adm["csrf"], payload).status_code == 200
 
     for client, who in (
-        (alpha, ("alpha@example.com", "Conta Alfa", "NovaSenhaSeguraAlpha_2026!")),
-        (beta, ("beta@example.com", "Conta Beta", "NovaSenhaSeguraBeta_2026!")),
+        (alpha, ("alfa01", "Conta Alfa", "NovaSenhaSeguraAlpha_2026!")),
+        (beta, ("beta01", "Conta Beta", "NovaSenhaSeguraBeta_2026!")),
     ):
         new = post(admin, "/api/auth/users", adm["csrf"], {
-            "email":who[0], "name":who[1], "password":who[2]
+            "username":who[0], "name":who[1], "password":who[2]
         })
         assert new.status_code == 201, new.text
         account = login(client, who[0], who[2])
@@ -73,10 +79,19 @@ def test_multiuser_security_and_data_isolation():
         profile = client.get("/api/profile")
         assert profile.status_code == 200
         assert profile.json()["name"] == who[1]
-        assert profile.json()["email"] == who[0]
+        assert profile.json()["email"] == ""
         assert client.get("/api/runs/latest").json() is None
         assert client.get("/api/auth/users").status_code == 403
         assert client.get("/api/anamnesis/form").status_code == 200
+
+    assert post(admin, "/api/auth/users", adm["csrf"], {
+        "username": "ALFA01", "name": "Duplicado", "password": "SenhaLongaDeTeste!2026"
+    }).status_code == 409
+    for bad_username in ("ab", "nome com espaço", "usuario@exemplo.com"):
+        invalid = post(admin, "/api/auth/users", adm["csrf"], {
+            "username":bad_username, "name":"Inválido", "password":"SenhaLongaDeTeste!2026"
+        })
+        assert invalid.status_code == 422
 
     a = alpha.get("/api/auth/me").json()
     b = beta.get("/api/auth/me").json()
@@ -98,7 +113,7 @@ def test_multiuser_security_and_data_isolation():
     }).status_code == 200
     assert post(beta, "/api/auth/logout", b["csrf"], {}).status_code == 200
     assert beta.get("/api/profile").status_code == 401
-    assert login(beta,"beta@example.com","NovaSenhaSeguraBeta_2026_Alterada!")
+    assert login(beta,"beta01","NovaSenhaSeguraBeta_2026_Alterada!")
     assert beta.get("/api/runs/latest").json() is None
 
     # Bloquear um usuário revoga imediatamente todas as sessões.
@@ -112,14 +127,14 @@ def test_multiuser_security_and_data_isolation():
 
 def test_untrusted_cross_origin_and_cannot_create_account():
     client = TestClient(app)
-    data={"email":"owner@example.com","password":"SenhaTemporariaMuitoForte_2026!"}
+    data={"username":"adminritmox","password":"SenhaTemporariaMuitoForte_2026!"}
     login_cross=client.post(
         "/api/auth/login",json=data,
         headers={"Origin":"https://attacker.example"},
     )
     assert login_cross.status_code == 403
     assert client.post("/api/auth/users", json={
-        "email":"x@example.com","name":"Intruso","password":"SenhaSeguraDeIntruso1234"
+        "username":"intruso01","name":"Intruso","password":"SenhaSeguraDeIntruso1234"
     }).status_code == 401
     client.close()
 
@@ -131,17 +146,17 @@ def test_admin_controls_modules_and_institutional_brand():
     member=TestClient(app)
     assert member.get("/api/admin/modules").status_code == 401
     assert member.get("/api/admin/brand").status_code == 401
-    me=login(admin,"owner@example.com","SenhaTemporariaMuitoForte_2026!")
+    me=login(admin,"adminritmox","SenhaTemporariaMuitoForte_2026!")
     assert me["is_admin"]
 
     created=post(admin,"/api/auth/users",me["csrf"],{
-        "email":"module-member@example.com",
+        "username":"alunomodulos",
         "name":"Aluno Módulos",
         "password":"SenhaTemporariaModulo_2026!"
     })
     assert created.status_code == 201, created.text
     member_id=created.json()["id"]
-    other=login(member,"module-member@example.com","SenhaTemporariaModulo_2026!")
+    other=login(member,"alunomodulos","SenhaTemporariaModulo_2026!")
     assert member.get("/api/admin/modules").status_code == 403
     assert member.get("/api/admin/brand").status_code == 403
     assert member.get("/api/admin/users/"+str(member_id)+"/modules").status_code == 403
