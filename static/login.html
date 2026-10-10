@@ -61,10 +61,10 @@
       <div class="form-inner">
         <small>ACESSO À PLATAFORMA</small>
         <h2>Bem-vindo ao RITMOX</h2>
-        <p class="intro">Entre com seu e-mail e senha para acessar seu ambiente de treinos.</p>
+        <p class="intro">Entre com seu usuário e senha para acessar seu ambiente de treinos.</p>
         <form id="login-form">
-          <label for="email">E-mail</label>
-          <input id="email" type="email" autocomplete="username" inputmode="email" required placeholder="voce@exemplo.com">
+          <label for="username">Usuário</label>
+          <input id="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" minlength="3" maxlength="32" required placeholder="Digite seu usuário">
           <label for="password">Senha</label>
           <input id="password" type="password" autocomplete="current-password" required placeholder="Digite sua senha">
           <button id="submit" type="submit">Acessar RITMOX</button>
@@ -83,7 +83,7 @@
         const response=await fetch("/api/auth/login",{
           method:"POST",credentials:"same-origin",
           headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({email:document.getElementById("email").value,password:document.getElementById("password").value})
+          body:JSON.stringify({username:document.getElementById("username").value.trim(),password:document.getElementById("password").value})
         });
         if(!response.ok){
           const detail=await response.json().catch(()=>({}));
