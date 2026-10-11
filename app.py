@@ -58,6 +58,14 @@ DB = sessionmaker(bind=engine, expire_on_commit=False)
 storage_backend = "postgresql" if is_postgres else "sqlite"
 storage_persistent = bool(is_postgres)
 AUTH_ENABLED = os.getenv("RITMOX_REQUIRE_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+if AUTH_ENABLED and is_postgres:
+    if db_schema != "ritmox":
+        raise RuntimeError("RITMOX: esquema principal deve ser 'ritmox' em modo multiusuário.")
+    from ritmox_db import install_schema_guard
+
+    # Necessário para o Session Pooler: PGOPTIONS pode ser ignorado.
+    # Também protege Base.metadata.create_all e os dados legados do admin.
+    install_schema_guard(engine, db_schema)
 auth_manager = None
 
 
