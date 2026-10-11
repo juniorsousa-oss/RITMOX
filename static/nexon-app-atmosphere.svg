@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1672 941" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Atmosfera de conexões Nexon Labs em azul e teal">
+<defs>
+ <linearGradient id="base" x1="0" y1=".92" x2="1" y2=".10"><stop stop-color="#06243A"/><stop offset=".48" stop-color="#035775"/><stop offset="1" stop-color="#032B46"/></linearGradient>
+ <radialGradient id="topGlow"><stop stop-color="#3AF0F0" stop-opacity=".65"/><stop offset=".53" stop-color="#10AEC9" stop-opacity=".30"/><stop offset="1" stop-color="#16D6E9" stop-opacity="0"/></radialGradient>
+ <radialGradient id="bottomGlow"><stop stop-color="#62EAF2" stop-opacity=".7"/><stop offset=".47" stop-color="#19B7D4" stop-opacity=".27"/><stop offset="1" stop-color="#0EA0BB" stop-opacity="0"/></radialGradient>
+ <radialGradient id="node"><stop stop-color="#7BF5EE" stop-opacity=".95"/><stop offset=".34" stop-color="#21CDDB" stop-opacity=".8"/><stop offset="1" stop-color="#038CAA" stop-opacity=".78"/></radialGradient>
+ <filter id="blur"><feGaussianBlur stdDeviation="37"/></filter>
+ <filter id="soft"><feGaussianBlur stdDeviation="9"/></filter>
+</defs>
+<rect width="1672" height="941" fill="url(#base)"/>
+<rect x="-250" y="-320" width="1000" height="810" fill="url(#topGlow)"/>
+<ellipse cx="1490" cy="770" rx="800" ry="540" fill="url(#bottomGlow)" opacity=".53"/>
+<ellipse cx="250" cy="75" rx="500" ry="340" fill="#09B7CF" opacity=".20" filter="url(#blur)"/>
+<ellipse cx="1180" cy="180" rx="650" ry="530" fill="#001D38" opacity=".27" filter="url(#blur)"/>
+<ellipse cx="1600" cy="440" rx="390" ry="280" fill="#30D2E0" opacity=".14" filter="url(#blur)"/>
+<g stroke="#40CDE4" stroke-width="1.7" fill="none" stroke-opacity=".30">
+ <path d="M-60 180 135 247 280 97 500 200 650 63 855 187 1205 27 1370 185 1660 58"/>
+ <path d="M-70 565 148 485 285 600 511 430 728 602 950 470 1205 27 1512 357 1710 282"/>
+ <path d="M148 485 135 247M280 97 285 600M500 200 511 430M855 187 950 470M1370 185 1512 357"/>
+ <path d="M-40 786 148 485 274 843 510 713 728 602 850 863 1032 720 1255 851 1512 357 1725 705"/>
+ <path d="M950 470 1032 720M1255 851 1370 185M1512 357 1508 615 1725 705"/>
+</g>
+<g opacity=".58">
+ <circle cx="150" cy="72" r="43" fill="url(#node)" opacity=".35" filter="url(#soft)"/>
+ <circle cx="82" cy="264" r="24" fill="url(#node)" opacity=".35" filter="url(#soft)"/>
+ <circle cx="148" cy="485" r="31" fill="url(#node)" opacity=".67" filter="url(#soft)"/>
+ <circle cx="275" cy="845" r="40" fill="url(#node)" opacity=".40" filter="url(#soft)"/>
+ <circle cx="1205" cy="27" r="21" fill="url(#node)"/>
+ <circle cx="1512" cy="357" r="39" fill="url(#node)"/>
+ <circle cx="1370" cy="185" r="31" fill="url(#node)" opacity=".50" filter="url(#soft)"/>
+ <circle cx="1510" cy="615" r="33" fill="url(#node)" opacity=".5" filter="url(#soft)"/>
+ <circle cx="1647" cy="70" r="34" fill="url(#node)" opacity=".42" filter="url(#soft)"/>
+</g>
+<g fill="#33DBE7" opacity=".30" filter="url(#soft)">
+ <circle cx="205" cy="383" r="31"/><circle cx="1532" cy="780" r="21"/><circle cx="92" cy="720" r="23"/><circle cx="172" cy="860" r="22"/><circle cx="1210" cy="890" r="19"/>
+</g>
+</svg>
