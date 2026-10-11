@@ -9,7 +9,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Generator
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -57,6 +57,16 @@ DB = sessionmaker(bind=engine, expire_on_commit=False)
 
 storage_backend = "postgresql" if is_postgres else "sqlite"
 storage_persistent = bool(is_postgres)
+AUTH_ENABLED = os.getenv("RITMOX_REQUIRE_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
+if AUTH_ENABLED and is_postgres:
+    if db_schema != "ritmox":
+        raise RuntimeError("RITMOX: esquema principal deve ser 'ritmox' em modo multiusuário.")
+    from ritmox_db import install_schema_guard
+
+    # Necessário para o Session Pooler: PGOPTIONS pode ser ignorado.
+    # Também protege Base.metadata.create_all e os dados legados do admin.
+    install_schema_guard(engine, db_schema)
+auth_manager = None
 
 
 class Base(DeclarativeBase):
@@ -250,8 +260,8 @@ class ClearanceRequest(Base):
 Base.metadata.create_all(engine)
 
 
-def session() -> Generator[Session, None, None]:
-    db = DB()
+def session(request: Request) -> Generator[Session, None, None]:
+    db = auth_manager.data_session(request) if AUTH_ENABLED else DB()
     try:
         yield db
     finally:
@@ -439,8 +449,46 @@ if os.getenv("RITMOX_CLEANUP_DEMO_DATA", "").strip().lower() in {"1", "true", "y
     cleanup_initial_demo_data()
 
 seed_default_anamnesis_once()
-app = FastAPI(title="RITMOX", version="0.1.0")
+app = FastAPI(
+    title="RITMOX", version="0.1.0",
+    docs_url=None if AUTH_ENABLED else "/docs",
+    redoc_url=None if AUTH_ENABLED else "/redoc",
+    openapi_url=None if AUTH_ENABLED else "/openapi.json",
+)
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
+
+if AUTH_ENABLED:
+    from ritmox_auth import AuthManager
+
+    def _seed_user_database(db: Session):
+        _insert_default_anamnesis(db)
+        db.add(AppSetting(key="default_anamnesis_seeded", value="1"))
+    auth_manager = AuthManager(database_url, Base, _seed_user_database)
+    from ritmox_admin import install_admin
+
+    admin_control = install_admin(app, auth_manager)
+    auth_manager.admin_control = admin_control
+    auth_manager.install(app)
+
+
+@app.get("/conta", include_in_schema=False)
+def account_page():
+    if not AUTH_ENABLED:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse("/", status_code=303)
+    return FileResponse(STATIC / "account.html", headers={"Cache-Control": "no-store"})
+
+
+@app.get("/login", include_in_schema=False)
+def login_page():
+    if not AUTH_ENABLED:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse("/", status_code=303)
+    return FileResponse(
+        STATIC / "login.html",
+        headers={"Cache-Control": "no-store"},
+    )
+
 
 
 @app.get("/", include_in_schema=False)
@@ -1955,7 +2003,7 @@ def _assessment_pdf_buffer(item: HealthAssessment) -> BytesIO:
 def _profile_payload(item: UserProfile) -> dict[str, Any]:
     return {
         "id": item.id,
-        "name": item.name or "Júnior",
+        "name": item.name or "Aluno",
         "email": item.email or "",
         "birth_date": item.birth_date or "",
         "goals": item.goals or "",
@@ -1968,7 +2016,8 @@ def _ensure_user_profile(db: Session) -> UserProfile:
     item = db.get(UserProfile, 1)
     if item:
         return item
-    item = UserProfile(id=1, name="Júnior")
+    actor = db.info.get("ritmox_actor") or {}
+    item = UserProfile(id=1, name=actor.get("name") or "Júnior", email=actor.get("email") or "")
     db.add(item)
     db.commit()
     db.refresh(item)

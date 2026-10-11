@@ -1,0 +1,36 @@
+# RITMOX / Hostinger VPS — serviço exclusivo, sem afetar ATRIA/AXORA/OPERA HUB.
+# Configurações sensíveis devem permanecer APENAS no arquivo .env privado na VPS.
+services:
+  ritmox:
+    build:
+      context: .
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Configure a URL do PostgreSQL no servidor}
+      DB_SCHEMA: ritmox
+      REQUIRE_PERSISTENT_DB: "true"
+      RITMOX_REQUIRE_AUTH: "true"
+      RITMOX_COOKIE_SECURE: "true"
+      RITMOX_ADMIN_USERNAME: ${RITMOX_ADMIN_USERNAME:?Configure nome de usuário administrativo}
+      RITMOX_ADMIN_PASSWORD: ${RITMOX_ADMIN_PASSWORD:?Configure senha administrativa forte}
+      RITMOX_ADMIN_NAME: ${RITMOX_ADMIN_NAME:-Administrador}
+      PROFESSIONAL_APPROVAL_KEY: ${PROFESSIONAL_APPROVAL_KEY:-}
+      STRAVA_CLIENT_ID: ${STRAVA_CLIENT_ID:-}
+      STRAVA_CLIENT_SECRET: ${STRAVA_CLIENT_SECRET:-}
+    expose:
+      - "8000"
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.ritmox.rule=Host(`ritmox.nexonlabs.com.br`)"
+      - traefik.http.routers.ritmox.entrypoints=websecure
+      - traefik.http.routers.ritmox.tls=true
+      - traefik.http.routers.ritmox.tls.certresolver=letsencrypt
+      - traefik.http.services.ritmox.loadbalancer.server.port=8000
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=5)"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
