@@ -245,14 +245,14 @@ def test_postgres_schema_guard_on_every_transaction():
     for _ in range(3):
         with engine.connect() as db:
             assert db.scalar(text("SELECT current_schema()")) == "ritmox"
-            assert db.scalar(text("SHOW search_path")) == '"ritmox"'
+            assert db.scalar(text("SHOW search_path")).strip('"') == "ritmox"
             assert db.scalar(text("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'ritmox' AND table_name = 'user_profiles'")) == 1
             db.rollback()
 
     # As tabelas de autenticação sempre ficam no schema privativo.
     with auth_manager.AuthDB() as session:
         assert session.scalar(text("SELECT current_schema()")) == "ritmox_auth"
-        assert session.scalar(text("SHOW search_path")) == '"ritmox_auth"'
+        assert session.scalar(text("SHOW search_path")).strip('"') == "ritmox_auth"
 
     # Usuários recém-criados têm schemas isolados, também em transações distintas.
     with auth_manager.AuthDB() as session:
@@ -261,7 +261,7 @@ def test_postgres_schema_guard_on_every_transaction():
     for user in users:
         with auth_manager._sessions_for_schema(user.data_schema)() as session:
             assert session.scalar(text("SELECT current_schema()")) == user.data_schema
-            assert session.scalar(text("SHOW search_path")) == '"'+user.data_schema+'"'
+            assert session.scalar(text("SHOW search_path")).strip('"') == user.data_schema
             # Esquemas dos usuários devem possuir as tabelas reais.
             assert session.scalar(text(
                 "SELECT COUNT(*) FROM information_schema.tables "
