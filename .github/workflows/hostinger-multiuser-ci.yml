@@ -26,6 +26,8 @@ jobs:
         run: node --check static/app.js
       - name: Docker image build
         run: docker build -t ritmox-ci .
+      - name: Confirmar os módulos no container publicado
+        run: docker run --rm --entrypoint python ritmox-ci -c "import ritmox_auth, ritmox_admin; print('Modulos disponiveis')"
 
   postgres:
     name: Isolamento PostgreSQL real
