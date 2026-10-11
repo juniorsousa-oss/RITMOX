@@ -23,6 +23,7 @@ from fastapi import HTTPException, Request, Response
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, create_engine, select
+from ritmox_db import install_schema_guard
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
 COOKIE = "__Host-ritmox_session"
@@ -114,10 +115,11 @@ def _new_engine(db_url: str, schema: str):
     if not re.fullmatch(r"ritmox(?:_auth|_u_[1-9][0-9]*)?", schema):
         raise ValueError("Nome de esquema inválido.")
     if db_url.startswith("postgresql+psycopg://"):
-        return create_engine(
+        engine = create_engine(
             db_url, pool_pre_ping=True, pool_size=1, max_overflow=2,
-            connect_args={"options": "-csearch_path=" + schema + ",public"},
         )
+        install_schema_guard(engine, schema)
+        return engine
     if not db_url.startswith("sqlite:///"):
         raise RuntimeError("RITMOX: conexão não suportada em modo multiusuário.")
     path = Path(db_url.removeprefix("sqlite:///"))
@@ -139,10 +141,16 @@ class AuthManager:
             "false", "0", "no"
         }
         self.cookie_name = COOKIE if self.cookie_secure else "ritmox_session_local"
-        self.auth_engine = _new_engine(db_url, AUTH_SCHEMA)
         if self.postgres:
-            with self.auth_engine.begin() as connection:
-                connection.exec_driver_sql("CREATE SCHEMA IF NOT EXISTS ritmox_auth")
+            # Primeiro cria o esquema no PostgreSQL. O engine protegido falharia
+            # caso fosse aberto antes da criação, por segurança.
+            bootstrap = create_engine(db_url, pool_pre_ping=True)
+            try:
+                with bootstrap.begin() as connection:
+                    connection.exec_driver_sql("CREATE SCHEMA IF NOT EXISTS ritmox_auth")
+            finally:
+                bootstrap.dispose()
+        self.auth_engine = _new_engine(db_url, AUTH_SCHEMA)
         AuthBase.metadata.create_all(self.auth_engine)
         self.AuthDB = sessionmaker(bind=self.auth_engine, expire_on_commit=False)
 
@@ -210,11 +218,17 @@ class AuthManager:
         return db
 
     def provision_user_schema(self, schema: str):
+        if not re.fullmatch(r"ritmox_u_[1-9][0-9]*", schema):
+            raise ValueError("Esquema de usuário inválido.")
+        if self.postgres:
+            bootstrap = create_engine(self.db_url, pool_pre_ping=True)
+            try:
+                with bootstrap.begin() as conn:
+                    conn.exec_driver_sql("CREATE SCHEMA IF NOT EXISTS " + schema)
+            finally:
+                bootstrap.dispose()
         engine = _new_engine(self.db_url, schema)
         try:
-            if self.postgres:
-                with engine.begin() as conn:
-                    conn.exec_driver_sql("CREATE SCHEMA IF NOT EXISTS " + schema)
             self.data_base.metadata.create_all(engine)
             with Session(engine) as db:
                 self.seed_defaults(db)
