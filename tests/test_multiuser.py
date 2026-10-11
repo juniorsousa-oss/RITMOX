@@ -15,6 +15,7 @@ os.environ["RITMOX_COOKIE_SECURE"] = "false"
 os.environ["RITMOX_CLEANUP_DEMO_DATA"] = "false"
 
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from app import app
 
@@ -228,3 +229,50 @@ def test_admin_controls_modules_and_institutional_brand():
     },headers={"X-CSRF-Token":me["csrf"]}).status_code == 200
     admin.close()
     member.close()
+
+
+def test_postgres_schema_guard_on_every_transaction():
+    """Evita vazamento de dados caso o pooler ignore PGOPTIONS/search_path inicial."""
+    import pytest
+    from sqlalchemy import text
+    from app import engine, auth_manager, database_url, is_postgres
+    from ritmox_auth import _new_engine
+
+    if not is_postgres:
+        pytest.skip("Exercitado na CI com PostgreSQL real.")
+
+    # Schema principal, responsável pelos dados legados da conta admin.
+    for _ in range(3):
+        with engine.connect() as db:
+            assert db.scalar(text("SELECT current_schema()")) == "ritmox"
+            assert db.scalar(text("SHOW search_path")) == '"ritmox"'
+            assert db.scalar(text("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'ritmox' AND table_name = 'user_profiles'")) == 1
+            db.rollback()
+
+    # As tabelas de autenticação sempre ficam no schema privativo.
+    with auth_manager.AuthDB() as session:
+        assert session.scalar(text("SELECT current_schema()")) == "ritmox_auth"
+        assert session.scalar(text("SHOW search_path")) == '"ritmox_auth"'
+
+    # Usuários recém-criados têm schemas isolados, também em transações distintas.
+    with auth_manager.AuthDB() as session:
+        from ritmox_auth import AuthUser
+        users = session.scalars(select(AuthUser).where(AuthUser.is_admin.is_(False))).all()
+    for user in users:
+        with auth_manager._sessions_for_schema(user.data_schema)() as session:
+            assert session.scalar(text("SELECT current_schema()")) == user.data_schema
+            assert session.scalar(text("SHOW search_path")) == '"'+user.data_schema+'"'
+            # Esquemas dos usuários devem possuir as tabelas reais.
+            assert session.scalar(text(
+                "SELECT COUNT(*) FROM information_schema.tables "
+                "WHERE table_schema = :schema AND table_name = 'user_profiles'"
+            ), {"schema":user.data_schema}) == 1
+
+    # Um esquema inexistente deve ser REJEITADO, nunca usar public silenciosamente.
+    bad = _new_engine(database_url, "ritmox_u_999999999")
+    try:
+        with pytest.raises(RuntimeError, match="bloqueada transação"):
+            with bad.connect() as connection:
+                connection.scalar(text("SELECT current_schema()"))
+    finally:
+        bad.dispose()
