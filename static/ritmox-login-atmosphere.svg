@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Atmosfera RITMOX: movimento neon com conexões Nexon Labs">
+<defs>
+ <linearGradient id="base" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#080d24"/><stop offset=".5" stop-color="#180a2e"/><stop offset=".78" stop-color="#150c35"/><stop offset="1" stop-color="#07132c"/></linearGradient>
+ <radialGradient id="m" cx="50%" cy="50%" r="50%"><stop stop-color="#ff1e9b" stop-opacity=".65"/><stop offset=".48" stop-color="#cc139e" stop-opacity=".22"/><stop offset="1" stop-color="#ff1392" stop-opacity="0"/></radialGradient>
+ <radialGradient id="v" cx="50%" cy="50%" r="50%"><stop stop-color="#722fdf" stop-opacity=".5"/><stop offset="1" stop-color="#722fdf" stop-opacity="0"/></radialGradient>
+ <radialGradient id="dot" cx="50%" cy="50%" r="50%"><stop stop-color="#fff" stop-opacity=".97"/><stop offset=".2" stop-color="#ff3cbb" stop-opacity=".9"/><stop offset="1" stop-color="#ff1c90" stop-opacity="0"/></radialGradient>
+ <pattern id="grid" width="14" height="14" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.25" fill="#f52491" opacity=".32"/></pattern>
+ <filter id="glow"><feGaussianBlur stdDeviation="8"/></filter><filter id="soft"><feGaussianBlur stdDeviation="25"/></filter>
+ <linearGradient id="arc" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ff1b9e"/><stop offset=".52" stop-color="#ff2397"/><stop offset="1" stop-color="#7834ff"/></linearGradient>
+</defs>
+<rect width="1600" height="900" fill="url(#base)"/>
+<ellipse cx="1370" cy="280" rx="680" ry="500" fill="url(#m)" opacity=".38"/>
+<ellipse cx="200" cy="820" rx="750" ry="500" fill="url(#v)" opacity=".5"/>
+<ellipse cx="940" cy="790" rx="630" ry="240" fill="#a51997" opacity=".12" filter="url(#soft)"/>
+<g stroke="#f32d9b" stroke-opacity=".17" stroke-width="1.5" fill="none">
+<path d="M-80 205 90 170 330 90 630 165 855 53 1140 130 1370 45 1670 150"/>
+<path d="M-80 585 120 395 310 480 550 240 870 465 1140 370 1390 475 1670 350"/>
+<path d="M90 170 120 395 310 480 330 90 550 240 630 165 855 53 870 465 1140 130 1140 370 1370 45 1390 475"/>
+<path d="M-80 835 155 685 370 830 550 585 800 745 1040 600 1230 825 1460 700 1700 785"/>
+<path d="M120 395 155 685 310 480 370 830 550 585 870 465 1040 600 1140 370 1230 825 1390 475 1460 700"/>
+</g>
+<g stroke="#7938d9" stroke-opacity=".25" stroke-width="1" fill="none">
+<path d="M-45 150 340 625 680 0 1150 520 1690 80"/>
+<path d="M-50 750 510 200 1010 905 1520 120"/>
+</g>
+<path d="M-350 650C-60 470 90 530 280 730s360 245 530 102" fill="none" stroke="#ff1198" stroke-width="4" opacity=".65"/>
+<path d="M-350 650C-60 470 90 530 280 730s360 245 530 102" fill="none" stroke="#ff2eae" stroke-width="20" opacity=".25" filter="url(#glow)"/>
+<path d="M990 -300C1200 -80 1530 55 1680 290s165 560 430 500" fill="none" stroke="#ff1b9e" stroke-width="4" opacity=".79"/>
+<path d="M990 -300C1200 -80 1530 55 1680 290s165 560 430 500" fill="none" stroke="#ff1b9e" stroke-width="23" opacity=".35" filter="url(#glow)"/>
+<path d="M250 120C690 -130 1010 450 1260 380" fill="none" stroke="url(#arc)" stroke-width="1.7" opacity=".6"/>
+<path d="M525 940C940 365 1230 940 1700 510" fill="none" stroke="#952aff" stroke-width="2" opacity=".35"/>
+<g fill="url(#dot)">
+ <circle cx="93" cy="170" r="31"/><circle cx="330" cy="90" r="22"/><circle cx="630" cy="165" r="20"/><circle cx="855" cy="53" r="26"/><circle cx="1140" cy="130" r="20"/><circle cx="1370" cy="45" r="31"/>
+ <circle cx="120" cy="395" r="19"/><circle cx="310" cy="480" r="20"/><circle cx="550" cy="240" r="29"/><circle cx="870" cy="465" r="22"/><circle cx="1140" cy="370" r="20"/><circle cx="1390" cy="475" r="29"/>
+ <circle cx="155" cy="685" r="28"/><circle cx="370" cy="830" r="23"/><circle cx="800" cy="745" r="19"/><circle cx="1230" cy="825" r="32"/><circle cx="1460" cy="700" r="31"/>
+</g>
+<rect x="10" y="510" width="215" height="300" fill="url(#grid)" opacity=".48"/>
+<rect x="1320" y="180" width="230" height="285" fill="url(#grid)" opacity=".62"/>
+<path d="M53 688l75 0 40 40-75 75 65 0" stroke="#ec2289" stroke-width="2" fill="none" opacity=".20" stroke-linecap="round" stroke-linejoin="round"/>
+<!-- Nexon easter egg: discreet seven-node molecular identity in the lower-left network -->
+<g transform="translate(95 840)" stroke="#ff80ce" stroke-opacity=".26" fill="#c75aff" fill-opacity=".35">
+ <path d="M0 0 22-20 50-5 48 21 22 37-4 21Z M0 0 22 15 50-5 M22 15 22 37" fill="none" stroke-width="1.3"/>
+ <circle cx="0" cy="0" r="4"/><circle cx="22" cy="-20" r="4"/><circle cx="50" cy="-5" r="4"/><circle cx="48" cy="21" r="4"/><circle cx="22" cy="37" r="4"/><circle cx="-4" cy="21" r="4"/><circle cx="22" cy="15" r="5"/>
+</g>
+</svg>
