@@ -22,7 +22,7 @@ def test_login_institucional_e_autenticacao_intacta():
     assert "width:min(430px,100%)" in premium
     assert "ritmox-athlete-approved.webp" in login
     assert 'id="togglePassword"' in login
-    assert "ritmox-login-approved.css?v=premium-approved-02" in login
+    assert "ritmox-login-approved.css?v=mobile-premium-03" in login
     assert '"/api/auth/login"' in login
     assert "nexon-monochrome-dark.svg" in login
     assert "ritmox-login-atmosphere.svg" in premium
@@ -103,3 +103,25 @@ def test_navegacao_interna_e_mobile_fixo():
     assert "env(safe-area-inset-bottom,0px)" in css
     assert ".main-content {padding-bottom:105px;}" in css
     assert "ritmox-login-atmosphere.svg" in css
+
+
+def test_login_mobile_premium_especifico_e_sem_estouro():
+    login = _read("login.html")
+    css = _read("ritmox-login-approved.css")
+    assert 'content="width=device-width,initial-scale=1,viewport-fit=cover"' in login
+    assert "RITMOX MOBILE PREMIUM v3" in css
+    assert "@media (max-width:900px)" in css
+    assert "@media (max-width:390px)" in css
+    assert "@media (max-width:900px) and (max-height:690px)" in css
+    assert "flex-direction:column" in css
+    assert "width:min(430px,100%)" in css
+    assert "height:auto" in css
+    assert "justify-content:flex-start" in css
+    assert "overflow-x:clip" in css
+    assert "safe-area-inset-bottom" in css
+    assert "font-size:16px" in css
+    assert "ritmox-login-atmosphere.svg?v=mobile-premium-03" in css
+    assert "ritmox-athlete-approved.webp" in login
+    assert 'id="login-form"' in login
+    assert '"/api/auth/login"' in login
+    assert login.count("by Nexon Labs") == 1
