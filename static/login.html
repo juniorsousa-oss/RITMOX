@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#08101f">
+  <meta name="theme-color" content="#0b0e26">
   <meta name="robots" content="noindex,nofollow">
   <title>RITMOX | Treinamento &amp; Performance</title>
   <link rel="icon" type="image/png" href="/static/assets/validated/ritmox-r-favicon.png?v=premium-01">
@@ -150,10 +150,12 @@
       .form-side{padding:23px 21px 20px}
     }
   </style>
+  <link rel="stylesheet" href="/static/ritmox-login-approved.css?v=premium-approved-02">
 </head>
 <body>
   <main class="shell">
     <section class="hero">
+      <img class="ritmox-athlete" src="/static/assets/login/ritmox-athlete-approved.webp?v=approved-02" alt="" aria-hidden="true">
       <img class="logo" src="/static/assets/validated/ritmox-logo.webp" alt="RITMOX">
       <div class="hero-copy">
         <div class="eyebrow">TREINOS COM PROPÓSITO</div>
@@ -169,13 +171,20 @@
         <p class="intro">Entre com seu usuário e senha para acessar seu ambiente de treinos.</p>
         <form id="login-form">
           <label for="username">Usuário</label>
-          <input id="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" minlength="3" maxlength="32" required placeholder="Digite seu usuário">
+          <div class="field-wrap">
+            <span class="field-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="7.5" r="3.4"/><path d="M4.6 20v-1.1c0-3.4 3.1-5.6 7.4-5.6s7.4 2.2 7.4 5.6V20z"/></svg></span>
+            <input id="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" minlength="3" maxlength="32" required placeholder="Digite seu usuário">
+          </div>
           <label for="password">Senha</label>
-          <input id="password" type="password" autocomplete="current-password" required placeholder="Digite sua senha">
-          <button id="submit" type="submit">Acessar RITMOX</button>
+          <div class="field-wrap">
+            <span class="field-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5.5" y="10.5" width="13" height="10.5" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg></span>
+            <input id="password" type="password" autocomplete="current-password" required placeholder="Digite sua senha">
+            <button type="button" id="togglePassword" class="password-toggle" aria-label="Mostrar senha" aria-pressed="false" title="Mostrar ou ocultar senha"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-6.7 10-6.7S22 12 22 12s-3.6 6.7-10 6.7S2 12 2 12Z"/><circle cx="12" cy="12" r="2.6"/><path d="m3 3 18 18"/></svg></button>
+          </div>
+          <button id="submit" type="submit">Acessar RITMOX <span class="login-arrow" aria-hidden="true">→</span></button>
           <p id="error" role="alert" aria-live="polite"></p>
         </form>
-        <p class="seal">Ambiente privado · by Nexon Labs</p>
+        <div class="seal" aria-label="Assinatura institucional fixa Nexon Labs"><span>Ambiente privado · by Nexon Labs</span><img src="/static/nexon-monochrome-dark.svg" alt="Nexon Labs — Soluções Digitais" width="126" height="25"></div>
       </div>
     </section>
   </main>
@@ -196,6 +205,17 @@
         }
         location.replace("/");
       }catch(error){err.textContent=error.message; b.disabled=false}
+    });
+  </script>
+  <script>
+    /* Interação visual: não envia credenciais, não altera autenticação. */
+    const togglePassword=document.getElementById("togglePassword");
+    togglePassword.addEventListener("click",()=>{
+      const field=document.getElementById("password");
+      const visible=field.type==="password";
+      field.type=visible?"text":"password";
+      togglePassword.setAttribute("aria-pressed",String(visible));
+      togglePassword.setAttribute("aria-label",visible?"Ocultar senha":"Mostrar senha");
     });
   </script>
   <script src="/static/brand.js?v=multiuser-brand-v1"></script>
