@@ -101,7 +101,14 @@ function navigate(page){
   if(page==="workouts") setTimeout(()=>loadHealthGate(),20);
   if(page==="profile") setTimeout(()=>Promise.all([loadUserProfile(),loadProfileAnamnesis()]),20);
   if(page==="settings") setTimeout(()=>loadAnamnesisSettings(),20);
-  window.scrollTo({top:0,behavior:"smooth"});
+  // A moldura Nexon rola .main-content, não a janela global no desktop.
+  // Resetar imediatamente impede que a nova aba abra na posição da anterior.
+  const workspace=$(".main-content");
+  if(workspace && getComputedStyle(workspace).overflowY !== "visible"){
+    workspace.scrollTop=0;
+  }else{
+    window.scrollTo({top:0,behavior:"instant"});
+  }
 }
 
 

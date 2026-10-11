@@ -1,0 +1,249 @@
+/* RITMOX Premium · Etapa 1
+   Moldura Nexon Labs, medida de referência ATRIA/OPERA.
+   Estilo isolado: não interfere na autenticação nem nos dados.
+*/
+:root {
+  --nexon-frame-gap: 12px;
+  --nexon-frame-radius: 27px;
+  --nexon-frame-line: rgba(183,219,237,.38);
+}
+html { background: #071223; }
+body {
+  /* Mesmo universo do login aprovado: pink, roxo, conexões e easter egg Nexon. */
+  background:
+    linear-gradient(120deg,rgba(8,9,28,.35),rgba(26,8,39,.18) 50%,rgba(6,11,32,.32)),
+    url("/static/ritmox-login-atmosphere.svg") center center / cover fixed no-repeat !important;
+}
+.app-shell {
+  border: 1px solid var(--nexon-frame-line);
+  background: #08101f;
+  box-shadow: 0 22px 64px rgba(0,8,21,.40), 0 0 0 1px rgba(255,255,255,.04);
+}
+.institutional-signature {
+  margin-top: 27px;
+  border-top: 1px solid rgba(169,192,221,.12);
+  font-size: 11px;
+  font-weight: 600;
+  color: #899ab5;
+  text-align: center;
+  letter-spacing: .04em;
+}
+:where(button,a,input,select,textarea):focus-visible {
+  outline: 2px solid var(--pink, #ff2d7a);
+  outline-offset: 3px;
+}
+@media (min-width:701px) {
+  html { height: 100%; overflow: hidden; }
+  body {
+    width: 100%;
+    height: 100dvh;
+    min-height: 0;
+    margin: 0;
+    padding: var(--nexon-frame-gap);
+    overflow: hidden !important;
+  }
+  .app-shell {
+    display: grid;
+    width: 100%;
+    max-width: none;
+    height: calc(100dvh - 2 * var(--nexon-frame-gap));
+    min-height: 0;
+    max-height: calc(100dvh - 2 * var(--nexon-frame-gap));
+    margin: 0 auto;
+    overflow: hidden;
+    border-radius: var(--nexon-frame-radius);
+  }
+  .sidebar {
+    position: relative;
+    top: auto;
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    border-radius: calc(var(--nexon-frame-radius) - 1px) 0 0 calc(var(--nexon-frame-radius) - 1px);
+    background: linear-gradient(180deg,#080f1e 0%,#0b1121 100%);
+  }
+  .sidebar .brand {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+  .sidebar .brand-lockup-image {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+  }
+  .side-nav {
+    display: grid;
+    flex: 1 1 auto;
+    align-content: start;
+    min-height: 0;
+    max-height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(162,178,206,.5) transparent;
+  }
+  .side-nav::-webkit-scrollbar { width: 6px; }
+  .side-nav::-webkit-scrollbar-thumb {
+    background: rgba(162,178,206,.45);
+    border-radius: 999px;
+  }
+  .sidebar-poster { flex: 0 0 auto; }
+  .main-content {
+    min-width: 0;
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(162,178,206,.5) transparent;
+    -webkit-overflow-scrolling: touch;
+    background: linear-gradient(165deg,#08101d 0%,#07101f 60%,#091323 100%);
+  }
+  .main-content::-webkit-scrollbar { width: 8px; }
+  .main-content::-webkit-scrollbar-thumb {
+    background: rgba(162,178,206,.38);
+    border-radius: 999px;
+  }
+}
+@media (min-width:701px) and (max-width:1050px) {
+  :root { --nexon-frame-gap: 10px; --nexon-frame-radius: 24px; }
+  .sidebar .brand-lockup-image { width: 100%; }
+}
+@media (min-width:701px) and (max-height:760px) {
+  .sidebar-poster { min-height: 110px; }
+  .sidebar { padding-top: 15px; padding-bottom: 13px; }
+}
+@media (max-width:700px) {
+  :root { --nexon-frame-gap: 10px; --nexon-frame-radius: 23px; }
+  html, body { width: 100%; max-width: 100%; overflow-x: clip; }
+  body {
+    min-height: 100dvh;
+    height: auto;
+    padding: var(--nexon-frame-gap);
+    background-attachment: scroll !important;
+  }
+  .app-shell {
+    display: block;
+    width: 100%;
+    max-width: none;
+    height: auto;
+    min-height: calc(100dvh - 2 * var(--nexon-frame-gap));
+    margin: 0;
+    overflow: hidden;
+    border-radius: var(--nexon-frame-radius);
+  }
+  .main-content {
+    width: 100%;
+    min-height: calc(100dvh - 2 * var(--nexon-frame-gap) - 2px);
+    height: auto;
+    overflow: visible;
+    background: linear-gradient(165deg,#08101d 0%,#091222 100%);
+  }
+  .institutional-signature {
+    margin: 24px 16px 10px;
+    padding-bottom: max(14px,env(safe-area-inset-bottom,0px));
+  }
+}
+@media (prefers-reduced-motion:reduce) {
+  .app-shell, .main-content { scroll-behavior: auto !important; }
+}
+
+/* Entrega 1B · Refinamento do ambiente interno */
+:root {
+  --ritmox-surface: #08101f;
+  --ritmox-surface-raised: #101b2e;
+}
+@media (min-width:701px) {
+  .app-shell {
+    border-color: rgba(255,148,211,.28);
+    box-shadow:0 24px 66px rgba(3,5,22,.5),0 0 0 1px rgba(255,255,255,.04);
+  }
+  .sidebar {
+    isolation:isolate;
+    border-right:1px solid rgba(221,154,224,.1);
+  }
+  .sidebar .brand {
+    padding-left: 4px;
+    padding-right: 4px;
+    max-width:100%;
+  }
+  .side-nav .nav-item {
+    min-width:0;
+    flex-shrink:0;
+    border:1px solid transparent;
+    transition:background-color .17s,border-color .17s;
+  }
+  .side-nav .nav-item.active {
+    border-color:rgba(243,70,173,.18);
+    box-shadow:inset 3px 0 var(--ritmox-primary,#ff2d7a);
+  }
+  .side-nav .nav-item:hover {
+    background:rgba(218,46,155,.09);
+    border-color:rgba(243,70,173,.11);
+  }
+  .main-content {
+    position:relative;
+    isolation:isolate;
+    scrollbar-gutter:stable;
+  }
+  .main-content .topbar {
+    position:sticky;
+    top:0;
+    z-index:19;
+    padding:10px 0 14px;
+    background:linear-gradient(180deg,#08101feF 0%,#08101feF 72%,rgba(8,16,31,.88) 100%);
+    backdrop-filter:blur(14px);
+  }
+  .institutional-signature {
+    margin-top:32px;
+    margin-bottom:0;
+  }
+}
+@media (min-width:701px) and (max-height:620px) {
+  /* Menu não comprime os botões; banner é decorativo e pode desaparecer. */
+  .sidebar-poster { display:none; }
+}
+@media (max-width:700px) {
+  /* A moldura mantém os mesmos 23 px do padrão Nexon, sem cortes horizontais. */
+  .app-shell {border-color:rgba(251,139,214,.25);background:var(--ritmox-surface);}
+  .main-content {min-width:0;overflow-x:clip;}
+  .page {max-width:100%;min-width:0;}
+  .bottom-nav {
+    left:var(--nexon-frame-gap);
+    right:var(--nexon-frame-gap);
+    bottom:max(var(--nexon-frame-gap),env(safe-area-inset-bottom,0px));
+    width:auto;
+    max-width:calc(100vw - 2 * var(--nexon-frame-gap));
+    padding:6px 6px 7px;
+    border:1px solid rgba(255,78,178,.18);
+    border-radius:17px;
+    background:rgba(8,13,29,.96);
+    box-shadow:0 -6px 30px rgba(4,4,19,.25),0 13px 33px rgba(2,4,18,.58);
+    z-index:80;
+  }
+  .bottom-item {
+    min-width:0;
+    min-height:55px;
+    touch-action:manipulation;
+  }
+  .bottom-item .nav-glyph {
+    margin-bottom:0!important;
+  }
+  /* Reserva espaço para a navegação fixa e para o indicador do sistema. */
+  .main-content {padding-bottom:105px;}
+  body[data-page="workouts"] .main-content,
+  body[data-page="profile"] .main-content {padding-bottom:105px!important;}
+  .toast {bottom:calc(90px + env(safe-area-inset-bottom,0px));}
+}
+@media(max-width:390px){
+  .bottom-nav{padding:4px 2px 6px}
+  .bottom-item{font-size:9px;min-height:52px}
+}
+@media(prefers-reduced-motion:reduce){
+  .side-nav .nav-item{transition:none}
+}
