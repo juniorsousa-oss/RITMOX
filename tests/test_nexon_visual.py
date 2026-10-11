@@ -41,7 +41,7 @@ def test_mesmo_favicon_e_nome_nas_telas():
 def test_moldura_e_rolagem_protegidas():
     app = _read("index.html")
     css = _read("nexon-premium-frame.css")
-    assert 'href="/static/nexon-premium-frame.css?v=premium-01"' in app
+    assert 'href="/static/nexon-premium-frame.css?v=premium-frame-1b"' in app
     assert "nexon-frame-radius: 27px" in css
     assert "nexon-frame-radius: 23px" in css
     assert "100dvh" in css
@@ -49,7 +49,7 @@ def test_moldura_e_rolagem_protegidas():
     assert "overflow-y: auto" in css
     assert ".side-nav" in css
     assert "overflow-x: hidden" in css
-    assert "nexon-app-atmosphere.svg" in css
+    assert "ritmox-login-atmosphere.svg" in css
     assert (STATIC / "nexon-app-atmosphere.svg").exists()
 
 
@@ -85,3 +85,21 @@ def test_nenhuma_credencial_fixa_no_formulario():
     assert 'id="password" type="password"' in login
     assert 'value="adminritmox"' not in login
     assert "current-password" in login
+
+
+def test_navegacao_interna_e_mobile_fixo():
+    app = _read("index.html")
+    css = _read("nexon-premium-frame.css")
+    js = _read("app.js")
+    assert 'href="/static/nexon-premium-frame.css?v=premium-frame-1b"' in app
+    assert 'src="/static/app.js?v=premium-frame-1b"' in app
+    assert "workspace.scrollTop=0" in js
+    assert 'getComputedStyle(workspace).overflowY' in js
+    assert "position:sticky" in css
+    assert "top:0" in css
+    assert "overflow-y: auto" in css
+    assert ".side-nav" in css
+    assert ".bottom-nav" in css
+    assert "env(safe-area-inset-bottom,0px)" in css
+    assert ".main-content {padding-bottom:105px;}" in css
+    assert "ritmox-login-atmosphere.svg" in css
