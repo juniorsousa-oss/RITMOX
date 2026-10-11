@@ -6,7 +6,7 @@ WORKDIR /app
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt \
  && useradd -m -u 10001 -s /usr/sbin/nologin ritmox
-COPY app.py ritmox_auth.py /app/
+COPY app.py ritmox_auth.py ritmox_admin.py /app/
 COPY static /app/static
 USER ritmox
 EXPOSE 8000
