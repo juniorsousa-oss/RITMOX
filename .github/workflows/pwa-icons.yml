@@ -15,6 +15,10 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install pillow cairosvg
+      - run: python -m py_compile app.py
+      - run: python -m json.tool static/pwa/manifest.json > /dev/null
+      - run: node --check static/pwa/register.js
+      - run: node --check static/pwa/service-worker.js
       - run: python scripts/build_pwa_icons.py
       - name: Commit generated icons
         run: |
