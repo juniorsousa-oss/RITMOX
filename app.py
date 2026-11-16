@@ -2206,3 +2206,10 @@ def strava_status():
         "connected": False,
         "message": "Estrutura preparada. OAuth será ativado na etapa de integração.",
     }
+
+
+@app.get("/service-worker.js", include_in_schema=False)
+def pwa_service_worker():
+    """Instalabilidade do RITMOX sem cache de treinos ou dados de saúde."""
+    return FileResponse(STATIC / "pwa" / "service-worker.js", media_type="application/javascript",
+        headers={"Cache-Control": "no-store", "Service-Worker-Allowed": "/"})
